@@ -612,8 +612,14 @@
     <div class="hr"></div>
 
     <label>특이사항</label>
+    <div class="row" style="gap:8px; margin:8px 0 10px;">
+  <button class="btn small" type="button" data-cat="누락">누락</button>
+  <button class="btn small" type="button" data-cat="환불">환불</button>
+  <button class="btn small" type="button" data-cat="물품">물품</button>
+  <button class="btn small" type="button" data-cat="기타">기타</button>
+</div>
     <textarea id="outNoteText"
-      placeholder="예) 누락: 페퍼로니 1개 누락 / 환불: 18:20 콜라 환불 / 물품: 치즈 소진 / 기타: ..."></textarea>
+      placeholder="예) 18:20 주문 건 음료 누락 / 환불: 18:20 콜라 환불 / 물품: 고무장갑 없음 / 기타: ..."></textarea>
 
     <div class="modalActions">
       <button class="btn" id="outNoteSkip">건너뛰기</button>
@@ -1168,6 +1174,31 @@ function openOutNoteModal(){
 function closeOutNoteModal(){
   outNoteOverlay.classList.remove("show");
 }
+// ✅ 퇴근 특이사항 카테고리 버튼 -> 텍스트 자동 삽입 (1회 바인딩)
+(function bindOutNoteCatsOnce(){
+  const ta = outNoteText; // 너 코드에 이미 있는 textarea 변수 사용
+
+  function insertPrefix(prefix){
+    const v = (ta.value || "");
+    // 맨 끝에 붙이되, 이미 마지막 줄이 같은 prefix면 중복 방지
+    const lines = v.split("\n");
+    const last = (lines[lines.length-1] || "").trim();
+    if(last === prefix.trim()) return;
+
+    ta.value = v.trim()
+      ? `${v.trim()}\n${prefix}`
+      : prefix;
+
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+  }
+
+  document.getElementById("catMiss")?.addEventListener("click", ()=>insertPrefix("누락: "));
+  document.getElementById("catRefund")?.addEventListener("click", ()=>insertPrefix("환불: "));
+  document.getElementById("catItem")?.addEventListener("click", ()=>insertPrefix("물품: "));
+  document.getElementById("catEtc")?.addEventListener("click", ()=>insertPrefix("기타: "));
+})();
+
 function askOutNote(){ // returns Promise<string|null> (null=skip)
   openOutNoteModal();
   return new Promise(resolve=>{
@@ -1277,13 +1308,12 @@ document.getElementById("btnOut").addEventListener("click", async ()=>{
   if(!emp) return toast("등록되지 않은 코드입니다.");
   if(!canClockOut(code)) return toast("출근 기록이 없습니다. 출근부터 찍어주세요.");
 
-  const noteText = await askOutNote(); // null이면 건너뛰기
+const noteText = await askOutNote(); // null이면 스킵
+addLog({ code, name: emp.name, type:"OUT", note: noteText || "" });
 
-  addLog({code, name: emp.name, type:"OUT", note: noteText || ""});
-
-  if(noteText && noteText.trim()){
-    addOutNote({code, name: emp.name, text: noteText});
-  }
+if(noteText && noteText.trim()){
+  addOutNote({ code, name: emp.name, text: noteText });
+}
 
   toast(`${emp.name}님 퇴근 완료`);
   renderAttendancePanel();
@@ -1637,3 +1667,4 @@ document.getElementById("btnExportCsv").addEventListener("click", async ()=>{
 </script>
 </body>
 </html>
+
