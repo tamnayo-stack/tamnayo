@@ -1,0 +1,1268 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <title>알바 근태</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --panel:#101a33;
+      --panel2:#0f1730;
+      --text:#e8edf8;
+      --muted:#a9b4d0;
+      --line:rgba(255,255,255,.10);
+      --accent:#6aa6ff;
+      --good:#44d19d;
+      --bad:#ff6b6b;
+      --warn:#ffd166;
+      --shadow: 0 10px 24px rgba(0,0,0,.25);
+      --radius: 18px;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", Arial, sans-serif;
+      background: linear-gradient(180deg, #0b1220, #070b16);
+      color:var(--text);
+      min-height:100dvh;
+    }
+    header{
+      padding: 14px 18px 10px;
+      position: sticky;
+      top:0;
+      background: rgba(11,18,32,.85);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line);
+      z-index:10;
+    }
+    .topbar{
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      max-width:1100px; margin:0 auto;
+    }
+
+    /* ✅ 로고 영역 */
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width: 0;
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .logoWrap{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      min-width: 0;
+    }
+    .logo{
+      height: 34px;
+      width: auto;
+      display:block;
+      max-width: min(520px, 62vw);
+      object-fit: contain;
+      cursor: pointer; /* 로고 5탭 관리자 */
+    }
+    .sub{
+      color:var(--muted);
+      font-size:12px;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .right{
+      display:flex; align-items:flex-end; gap:12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .clockBlock{ text-align:right; }
+    .clockBlock .time{ font-size:16px; font-weight:800; }
+    .clockBlock .date{ font-size:12px; color:var(--muted); margin-top:2px; }
+
+    main{
+      max-width:1100px; margin:0 auto;
+      padding: 14px 18px 30px;
+      display:grid;
+      gap:14px;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap:14px;
+    }
+    @media (max-width: 980px){
+      .grid{ grid-template-columns: 1fr; }
+      .logo{ height: 30px; }
+    }
+
+    .card{
+      background: linear-gradient(180deg, rgba(16,26,51,.92), rgba(15,23,48,.92));
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+    .card h2{
+      margin:0 0 10px;
+      font-size: 16px;
+      letter-spacing:.2px;
+    }
+    .muted{ color:var(--muted); }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .spacer{ flex:1 1 auto !important; }
+
+    label{ font-size: 13px; color:var(--muted); display:block; margin: 4px 0 6px; }
+    input, select{
+      width:100%;
+      background: rgba(255,255,255,.06);
+      border: 1px solid var(--line);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 12px 12px;
+      font-size: 16px;
+      outline:none;
+    }
+    input::placeholder{ color: rgba(169,180,208,.65); }
+    input:focus, select:focus{
+      border-color: rgba(106,166,255,.6);
+      box-shadow: 0 0 0 3px rgba(106,166,255,.15);
+    }
+
+    .btn{
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.07);
+      color: var(--text);
+      padding: 12px 14px;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: 800;
+      cursor:pointer;
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform .05s ease;
+    }
+    .btn:active{ transform: scale(.98); }
+    .btn.primary{ border-color: rgba(106,166,255,.55); background: rgba(106,166,255,.18); }
+    .btn.good{ border-color: rgba(68,209,157,.55); background: rgba(68,209,157,.18); }
+    .btn.bad{ border-color: rgba(255,107,107,.55); background: rgba(255,107,107,.18); }
+    .btn.warn{ border-color: rgba(255,209,102,.55); background: rgba(255,209,102,.18); color:#fff; }
+    .btn.small{ padding: 8px 10px; border-radius: 12px; font-size: 13px; font-weight: 900; }
+
+    .split{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    @media (max-width: 520px){ .split{ grid-template-columns: 1fr; } }
+
+    .big-actions{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+      margin-top:10px;
+    }
+    .big-actions .btn{
+      padding: 18px 14px;
+      font-size: 18px;
+      border-radius: 16px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255,255,255,.05);
+      font-size: 13px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .pill strong{ color:var(--text); }
+
+    table{
+      width:100%;
+      border-collapse: collapse;
+      overflow:hidden;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.03);
+    }
+    th, td{
+      padding: 10px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align:left;
+      font-size: 14px;
+      vertical-align: middle;
+    }
+    th{ color: var(--muted); font-weight: 900; background: rgba(255,255,255,.03); }
+    tr:last-child td{ border-bottom: none; }
+
+    .tag{
+      display:inline-flex; align-items:center; justify-content:center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 900;
+      border: 1px solid var(--line);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .tag.in{ border-color: rgba(68,209,157,.55); color: #44d19d; background: rgba(68,209,157,.12); }
+    .tag.out{ border-color: rgba(255,107,107,.55); color: #ff6b6b; background: rgba(255,107,107,.12); }
+    .tag.open{ border-color: rgba(255,209,102,.55); color: #ffd166; background: rgba(255,209,102,.10); }
+
+    .section{ display:none; }
+    .section.active{ display:block; }
+
+    .kbd{
+      display:grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap:10px;
+      margin-top: 10px;
+    }
+    .kbd button{
+      padding: 16px 12px;
+      border-radius: 16px;
+      font-size: 18px;
+      font-weight: 900;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.05);
+      color: var(--text);
+      cursor:pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .kbd button:active{ transform: scale(.98); }
+    .kbd button.fn{ background: rgba(255,255,255,.08); color: var(--muted); }
+
+    .note{
+      margin-top:10px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .hr{ height:1px; background: var(--line); margin: 12px 0; }
+
+    .toast{
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      background: rgba(16,26,51,.92);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 10px 14px;
+      box-shadow: var(--shadow);
+      font-size: 14px;
+      color: var(--text);
+      display:none;
+      z-index: 999;
+      max-width: 92vw;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .toast.show{ display:block; }
+
+    /* Modal */
+    .modalOverlay{
+      position: fixed;
+      inset:0;
+      background: rgba(0,0,0,.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index: 1000;
+      padding: 18px;
+    }
+    .modalOverlay.show{ display:flex; }
+    .modal{
+      width: min(560px, 100%);
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(16,26,51,.96);
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+    .modal h3{ margin:0 0 6px; font-size: 16px; letter-spacing:.2px; }
+    .modal .muted{ font-size: 13px; }
+    .modalActions{
+      display:flex;
+      gap:10px;
+      margin-top: 12px;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+    }
+    .menuGrid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+      margin-top: 12px;
+    }
+    @media (max-width: 520px){
+      .menuGrid{ grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="topbar">
+    <div class="brand">
+      <div class="logoWrap">
+<!-- ✅ 로고: 파일로 쓰기 (tamnayo.png를 HTML과 같은 폴더에 두기) -->
+<img id="logoImg" class="logo" alt="가게 로고" src="tamnayo.png" />
+        <div class="sub">알바생 화면: 출근/퇴근만 · 로고 5번 탭 → 관리자 PIN</div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="clockBlock">
+        <div class="time" id="nowTime">--:--:--</div>
+        <div class="date" id="nowDate">----</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- 출근/퇴근 (알바생 화면) -->
+  <section class="section active" id="sec-att">
+    <div class="grid">
+      <div class="card">
+        <h2>출근 / 퇴근 찍기</h2>
+        <div class="split">
+          <div>
+            <label>알바 코드 (4자리)</label>
+            <input id="attCode" inputmode="numeric" autocomplete="off" placeholder="예) 0001" maxlength="4" />
+          </div>
+          <div>
+            <label>이름 (자동 표시)</label>
+            <input id="attName" disabled placeholder="코드를 입력하면 표시" />
+          </div>
+        </div>
+
+        <div class="big-actions">
+          <button class="btn good" id="btnIn">출근</button>
+          <button class="btn bad" id="btnOut">퇴근</button>
+        </div>
+
+        <div class="row" style="margin-top:10px;">
+          <span class="pill">상태: <strong id="attStatus">-</strong></span>
+          <span class="pill">마지막 기록: <strong id="attLast">-</strong></span>
+          <span class="spacer"></span>
+          <button class="btn small" id="btnClearCode">지우기</button>
+        </div>
+
+        <div class="hr"></div>
+        <div class="row" style="gap:12px;">
+          <div style="flex:1 1 280px;">
+            <div class="muted" style="font-size:13px; font-weight:900;">숫자 키패드</div>
+            <div class="kbd" aria-label="키패드">
+              <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+              <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+              <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+              <button class="fn" data-k="bk">←</button><button data-k="0">0</button><button class="fn" data-k="clr">C</button>
+            </div>
+          </div>
+          <div style="flex:1 1 320px;">
+            <div class="muted" style="font-size:13px; font-weight:900;">빠른 선택 (알바생 버튼)</div>
+            <div id="quickButtons" class="row" style="margin-top:8px; gap:10px;"></div>
+            <div class="note">
+              • 알바생 버튼을 누르면 코드가 자동 입력됩니다.<br/>
+              • 알바생 화면에서는 출근/퇴근만 가능합니다.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>최근 기록 (최신 15개)</h2>
+        <div style="overflow:auto; max-height: 520px;">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:90px;">유형</th>
+                <th style="width:90px;">코드</th>
+                <th>이름</th>
+                <th style="width:200px;">시간</th>
+              </tr>
+            </thead>
+            <tbody id="recentTable"></tbody>
+          </table>
+        </div>
+        <div class="note">최근 기록은 이 아이패드에서 찍힌 내역입니다.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="sec-emp">
+    <div class="card">
+      <div class="row">
+        <h2 style="margin:0;">알바생 관리 (관리자)</h2>
+        <div class="spacer"></div>
+        <button class="btn small" id="btnBackFromEmp">← 출근/퇴근</button>
+      </div>
+      <div class="hr"></div>
+
+      <div class="grid">
+        <div class="card" style="box-shadow:none;">
+          <h2>알바생 등록</h2>
+          <div class="split">
+            <div>
+              <label>이름</label>
+              <input id="empName" placeholder="예) 홍길동" maxlength="30" />
+            </div>
+            <div>
+              <label>메모 (선택)</label>
+              <input id="empMemo" placeholder="예) 주말만" maxlength="60" />
+            </div>
+          </div>
+          <div class="row" style="margin-top:10px;">
+            <button class="btn primary" id="btnAddEmp">등록</button>
+            <span class="muted" id="nextCodeHint"></span>
+            <div class="spacer"></div>
+            <button class="btn" id="btnSeedDemo">데모 3명 추가</button>
+          </div>
+        </div>
+
+        <div class="card" style="box-shadow:none;">
+          <h2>알바생 조회 / 삭제</h2>
+          <div class="row" style="margin-bottom:10px;">
+            <div style="flex:1 1 260px;">
+              <label>검색 (이름 또는 코드)</label>
+              <input id="empSearch" placeholder="예) 0002 또는 길동" />
+            </div>
+            <div class="spacer"></div>
+            <button class="btn small" id="btnRefreshEmp">새로고침</button>
+          </div>
+          <div style="overflow:auto; max-height: 520px;">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:90px;">코드</th>
+                  <th style="width:160px;">이름</th>
+                  <th>메모</th>
+                  <th style="width:180px;">등록일</th>
+                  <th style="width:110px;">삭제</th>
+                </tr>
+              </thead>
+              <tbody id="empTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="sec-log">
+    <div class="card">
+      <div class="row">
+        <h2 style="margin:0;">근태 조회 (관리자)</h2>
+        <div class="spacer"></div>
+        <button class="btn small" id="btnBackFromLog">← 출근/퇴근</button>
+      </div>
+      <div class="hr"></div>
+
+      <div class="row" style="margin-bottom:10px;">
+        <span class="pill">총 기록: <strong id="logCount">0</strong></span>
+        <div class="spacer"></div>
+        <button class="btn small warn" id="btnExportCsv">CSV 내보내기</button>
+      </div>
+
+      <div style="overflow:auto; max-height: 540px;">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:110px;">유형</th>
+              <th style="width:90px;">코드</th>
+              <th style="width:160px;">이름</th>
+              <th style="width:220px;">시간</th>
+              <th>비고</th>
+            </tr>
+          </thead>
+          <tbody id="logTable"></tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        • 이 버전은 “기록 전체 보기/CSV”까지만 포함.<br/>
+        • 기간필터/근무시간 합계까지 원하면 이 화면을 확장해줄게.
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<!-- 관리자 PIN 모달 -->
+<div class="modalOverlay" id="pinOverlay" role="dialog" aria-modal="true">
+  <div class="modal">
+    <h3 id="pinTitle">관리자 PIN</h3>
+    <div class="muted" id="pinDesc">관리자 기능을 사용하려면 PIN을 입력하세요.</div>
+    <div class="hr"></div>
+
+    <div id="pinSetupBlock" style="display:none;">
+      <label>새 PIN (숫자 4~8자리)</label>
+      <input id="pinNew" inputmode="numeric" autocomplete="off" placeholder="예) 1234" maxlength="8" />
+      <label style="margin-top:10px;">새 PIN 확인</label>
+      <input id="pinNew2" inputmode="numeric" autocomplete="off" placeholder="한 번 더 입력" maxlength="8" />
+    </div>
+
+    <div id="pinUnlockBlock" style="display:none;">
+      <label>PIN 입력</label>
+      <input id="pinInput" inputmode="numeric" autocomplete="off" placeholder="PIN" maxlength="8" />
+      <div class="note">해제 후 <b>10분</b> 동안 관리자 기능이 열립니다(이후 자동 잠금).</div>
+    </div>
+
+    <div id="pinChangeBlock" style="display:none;">
+      <label>현재 PIN</label>
+      <input id="pinOld" inputmode="numeric" autocomplete="off" placeholder="현재 PIN" maxlength="8" />
+      <label style="margin-top:10px;">새 PIN (숫자 4~8자리)</label>
+      <input id="pinNewC" inputmode="numeric" autocomplete="off" placeholder="새 PIN" maxlength="8" />
+      <label style="margin-top:10px;">새 PIN 확인</label>
+      <input id="pinNewC2" inputmode="numeric" autocomplete="off" placeholder="새 PIN 확인" maxlength="8" />
+    </div>
+
+    <div class="modalActions">
+      <button class="btn" id="pinCancel">취소</button>
+      <button class="btn primary" id="pinOk">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- 관리자 메뉴 모달 -->
+<div class="modalOverlay" id="adminMenuOverlay" role="dialog" aria-modal="true">
+  <div class="modal">
+    <h3>관리자 메뉴</h3>
+    <div class="muted" id="adminStateText">-</div>
+
+    <div class="menuGrid">
+      <button class="btn primary" id="goEmp">알바생 관리</button>
+      <button class="btn primary" id="goLog">근태 조회</button>
+      <button class="btn" id="btnBackupJson">백업(JSON)</button>
+      <button class="btn" id="btnRestoreJson">복원(JSON)</button>
+      <button class="btn warn" id="btnExportCsv2">CSV 내보내기</button>
+      <button class="btn bad" id="btnResetAll">전체 초기화</button>
+      <button class="btn" id="btnChangePin">관리자 PIN 변경</button>
+      <button class="btn" id="btnLockAdmin">관리자 잠금</button>
+    </div>
+
+    <div class="modalActions">
+      <button class="btn" id="adminMenuClose">닫기</button>
+    </div>
+
+    <div class="note">
+      • 알바생 화면에서는 출근/퇴근만 가능합니다.<br/>
+      • 관리자 메뉴는 <b>상단 로고를 5번 탭</b>하면 열립니다.
+    </div>
+  </div>
+</div>
+
+<input id="restoreInput" type="file" accept="application/json" style="display:none;" />
+
+<script>
+/* =========================
+   Storage Keys
+   ========================= */
+const LS_KEYS = {
+  EMPLOYEES: "ALBA_EMPLOYEES_V2",
+  NEXT_ID:   "ALBA_NEXT_EMP_ID_V2",
+  ATT_LOGS:  "ALBA_ATT_LOGS_V2",
+  PIN_HASH:  "ALBA_ADMIN_PIN_HASH_V1",
+  PIN_SALT:  "ALBA_ADMIN_PIN_SALT_V1",
+};
+const SS_KEYS = { UNLOCK_UNTIL: "ALBA_ADMIN_UNLOCK_UNTIL_V1" };
+
+/* =========================
+   Utils
+   ========================= */
+function pad4(n){ const s=String(n); return s.length>=4?s:("0000"+s).slice(-4); }
+function nowTS(){ return Date.now(); }
+function fmtTS(ts){
+  const d = new Date(ts);
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,"0");
+  const day=String(d.getDate()).padStart(2,"0");
+  const hh=String(d.getHours()).padStart(2,"0");
+  const mm=String(d.getMinutes()).padStart(2,"0");
+  const ss=String(d.getSeconds()).padStart(2,"0");
+  return `${y}-${m}-${day} ${hh}:${mm}:${ss}`;
+}
+function fmtTSShort(ts){
+  const d = new Date(ts);
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,"0");
+  const day=String(d.getDate()).padStart(2,"0");
+  const hh=String(d.getHours()).padStart(2,"0");
+  const mm=String(d.getMinutes()).padStart(2,"0");
+  return `${y}-${m}-${day} ${hh}:${mm}`;
+}
+function toast(msg){
+  const el=document.getElementById("toast");
+  el.textContent=msg;
+  el.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t=setTimeout(()=>el.classList.remove("show"),2200);
+}
+function escapeHtml(s){
+  return String(s??"")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+}
+function normalizeCodeInput(v){ return (v||"").replace(/\D/g,"").slice(0,4); }
+
+/* =========================
+   LocalStorage helpers
+   ========================= */
+function loadJSON(key, fallback){
+  try{ const raw=localStorage.getItem(key); return raw?JSON.parse(raw):fallback; }catch{ return fallback; }
+}
+function saveJSON(key, value){ localStorage.setItem(key, JSON.stringify(value)); }
+
+function getEmployees(){ return loadJSON(LS_KEYS.EMPLOYEES, []); }
+function setEmployees(list){ saveJSON(LS_KEYS.EMPLOYEES, list); }
+
+function getNextEmpId(){
+  const v=localStorage.getItem(LS_KEYS.NEXT_ID);
+  const n=v?Number(v):1;
+  return Number.isFinite(n)&&n>=1?Math.floor(n):1;
+}
+function setNextEmpId(n){ localStorage.setItem(LS_KEYS.NEXT_ID, String(n)); }
+
+function getLogs(){ return loadJSON(LS_KEYS.ATT_LOGS, []); }
+function setLogs(list){ saveJSON(LS_KEYS.ATT_LOGS, list); }
+
+function findEmpByCode(code){ return getEmployees().find(e=>e.code===code)||null; }
+
+/* =========================
+   Admin PIN (hash+salt)
+   ========================= */
+function hasPin(){
+  return !!localStorage.getItem(LS_KEYS.PIN_HASH) && !!localStorage.getItem(LS_KEYS.PIN_SALT);
+}
+function isAdminUnlocked(){
+  const untilRaw=sessionStorage.getItem(SS_KEYS.UNLOCK_UNTIL);
+  const until=untilRaw?Number(untilRaw):0;
+  return Number.isFinite(until) && Date.now()<until;
+}
+function setAdminUnlocked(minutes=10){
+  sessionStorage.setItem(SS_KEYS.UNLOCK_UNTIL, String(Date.now()+minutes*60*1000));
+  updateAdminStateText();
+}
+function lockAdmin(){
+  sessionStorage.removeItem(SS_KEYS.UNLOCK_UNTIL);
+  updateAdminStateText();
+}
+function randomSalt(){
+  const arr=new Uint8Array(16); crypto.getRandomValues(arr);
+  return Array.from(arr).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+async function sha256Hex(str){
+  const data=new TextEncoder().encode(str);
+  const buf=await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+async function pinHash(pin, salt){ return await sha256Hex(`${salt}:${pin}`); }
+async function verifyPin(pin){
+  const salt=localStorage.getItem(LS_KEYS.PIN_SALT);
+  const hash=localStorage.getItem(LS_KEYS.PIN_HASH);
+  if(!salt||!hash) return false;
+  return (await pinHash(pin,salt))===hash;
+}
+async function setPin(pin){
+  const salt=randomSalt();
+  const hash=await pinHash(pin,salt);
+  localStorage.setItem(LS_KEYS.PIN_SALT, salt);
+  localStorage.setItem(LS_KEYS.PIN_HASH, hash);
+}
+
+/* =========================
+   PIN Modal
+   ========================= */
+const pinOverlay=document.getElementById("pinOverlay");
+const pinTitle=document.getElementById("pinTitle");
+const pinDesc=document.getElementById("pinDesc");
+const pinSetupBlock=document.getElementById("pinSetupBlock");
+const pinUnlockBlock=document.getElementById("pinUnlockBlock");
+const pinChangeBlock=document.getElementById("pinChangeBlock");
+const pinCancel=document.getElementById("pinCancel");
+const pinOk=document.getElementById("pinOk");
+
+let pinMode="unlock";
+let pinResolve=null;
+
+function showPinModal(mode, opts={}){
+  pinMode=mode;
+  pinTitle.textContent = opts.title || (mode==="setup"?"관리자 PIN 설정":mode==="change"?"관리자 PIN 변경":"관리자 PIN");
+  pinDesc.textContent  = opts.desc  || (mode==="setup"
+    ? "처음 사용입니다. 관리자 PIN(숫자 4~8자리)을 설정하세요."
+    : mode==="change"
+      ? "관리자 PIN을 변경합니다."
+      : "관리자 기능을 사용하려면 PIN을 입력하세요."
+  );
+
+  pinSetupBlock.style.display = (mode==="setup")?"block":"none";
+  pinUnlockBlock.style.display= (mode==="unlock")?"block":"none";
+  pinChangeBlock.style.display= (mode==="change")?"block":"none";
+
+  ["pinNew","pinNew2","pinInput","pinOld","pinNewC","pinNewC2"].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value="";
+  });
+
+  pinOverlay.classList.add("show");
+  const focusId = mode==="setup"?"pinNew":mode==="change"?"pinOld":"pinInput";
+  setTimeout(()=>document.getElementById(focusId)?.focus(), 50);
+
+  return new Promise(resolve=>{ pinResolve=resolve; });
+}
+function hidePinModal(result){
+  pinOverlay.classList.remove("show");
+  if(pinResolve){ pinResolve(result); pinResolve=null; }
+}
+pinCancel.addEventListener("click", ()=>hidePinModal({ok:false}));
+pinOverlay.addEventListener("click",(e)=>{ if(e.target===pinOverlay) hidePinModal({ok:false}); });
+
+pinOk.addEventListener("click", async ()=>{
+  if(pinMode==="setup"){
+    const p1=(document.getElementById("pinNew").value||"").replace(/\D/g,"");
+    const p2=(document.getElementById("pinNew2").value||"").replace(/\D/g,"");
+    if(p1.length<4||p1.length>8) return toast("PIN은 숫자 4~8자리");
+    if(p1!==p2) return toast("PIN 확인이 일치하지 않음");
+    await setPin(p1);
+    setAdminUnlocked(10);
+    toast("관리자 PIN 설정 완료");
+    hidePinModal({ok:true});
+    return;
+  }
+  if(pinMode==="unlock"){
+    const p=(document.getElementById("pinInput").value||"").replace(/\D/g,"");
+    if(p.length<4||p.length>8) return toast("PIN은 숫자 4~8자리");
+    if(!(await verifyPin(p))) return toast("PIN이 올바르지 않음");
+    setAdminUnlocked(10);
+    toast("관리자 해제됨 (10분)");
+    hidePinModal({ok:true});
+    return;
+  }
+  if(pinMode==="change"){
+    const oldP=(document.getElementById("pinOld").value||"").replace(/\D/g,"");
+    const newP1=(document.getElementById("pinNewC").value||"").replace(/\D/g,"");
+    const newP2=(document.getElementById("pinNewC2").value||"").replace(/\D/g,"");
+    if(newP1.length<4||newP1.length>8) return toast("새 PIN은 숫자 4~8자리");
+    if(newP1!==newP2) return toast("새 PIN 확인이 일치하지 않음");
+    if(!(await verifyPin(oldP))) return toast("현재 PIN이 올바르지 않음");
+    await setPin(newP1);
+    setAdminUnlocked(10);
+    toast("PIN 변경 완료");
+    hidePinModal({ok:true});
+    return;
+  }
+});
+
+async function ensureAdmin(reason="관리자 기능"){
+  if(!hasPin()){
+    await showPinModal("setup");
+    return isAdminUnlocked();
+  }
+  if(isAdminUnlocked()) return true;
+  const r=await showPinModal("unlock",{title:"관리자 PIN", desc:`${reason}을(를) 위해 PIN을 입력하세요.`});
+  return !!r.ok && isAdminUnlocked();
+}
+
+/* =========================
+   Sections
+   ========================= */
+function showSection(id){
+  document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id)?.classList.add("active");
+  if(id==="sec-att") renderAttendancePanel();
+  if(id==="sec-emp") renderEmployees();
+  if(id==="sec-log") renderLogAll();
+}
+
+/* =========================
+   Clock
+   ========================= */
+function tickClock(){
+  const d=new Date();
+  document.getElementById("nowTime").textContent =
+    `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
+  const w=["일","월","화","수","목","금","토"][d.getDay()];
+  document.getElementById("nowDate").textContent =
+    `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${w})`;
+}
+setInterval(tickClock, 250); tickClock();
+
+/* =========================
+   Admin Menu Overlay
+   ========================= */
+const adminMenuOverlay=document.getElementById("adminMenuOverlay");
+const adminMenuClose=document.getElementById("adminMenuClose");
+const adminStateText=document.getElementById("adminStateText");
+
+function updateAdminStateText(){
+  if(!isAdminUnlocked()){
+    adminStateText.textContent="상태: 잠금 (PIN 필요)";
+    return;
+  }
+  const until=Number(sessionStorage.getItem(SS_KEYS.UNLOCK_UNTIL)||"0");
+  const leftMs=Math.max(0, until-Date.now());
+  const leftMin=Math.floor(leftMs/60000);
+  const leftSec=Math.floor((leftMs%60000)/1000);
+  adminStateText.textContent=`상태: 해제됨 (자동잠금까지 ${leftMin}m ${String(leftSec).padStart(2,"0")}s)`;
+}
+setInterval(updateAdminStateText, 500);
+updateAdminStateText();
+
+function openAdminMenu(){
+  adminMenuOverlay.classList.add("show");
+  updateAdminStateText();
+}
+function closeAdminMenu(){
+  adminMenuOverlay.classList.remove("show");
+}
+adminMenuClose.addEventListener("click", closeAdminMenu);
+adminMenuOverlay.addEventListener("click",(e)=>{ if(e.target===adminMenuOverlay) closeAdminMenu(); });
+
+document.getElementById("btnLockAdmin").addEventListener("click", ()=>{
+  lockAdmin();
+  toast("관리자 잠금");
+  closeAdminMenu();
+  showSection("sec-att");
+});
+document.getElementById("goEmp").addEventListener("click", ()=>{
+  if(!isAdminUnlocked()) return toast("관리자 PIN 필요");
+  closeAdminMenu();
+  showSection("sec-emp");
+});
+document.getElementById("goLog").addEventListener("click", ()=>{
+  if(!isAdminUnlocked()) return toast("관리자 PIN 필요");
+  closeAdminMenu();
+  showSection("sec-log");
+});
+document.getElementById("btnBackFromEmp").addEventListener("click", ()=> showSection("sec-att"));
+document.getElementById("btnBackFromLog").addEventListener("click", ()=> showSection("sec-att"));
+
+document.getElementById("btnChangePin").addEventListener("click", async ()=>{
+  const ok = await ensureAdmin("PIN 변경");
+  if(!ok) return toast("관리자 PIN 필요");
+  closeAdminMenu();
+  await showPinModal("change");
+});
+
+/* ✅ 로고 5탭 -> 관리자 메뉴 */
+(function bindLogoTapToAdmin(){
+  const logo = document.getElementById("logoImg");
+  let count = 0;
+  let t = null;
+  logo.addEventListener("click", async ()=>{
+    count++;
+    clearTimeout(t);
+    t = setTimeout(()=>{ count=0; }, 1300);
+    if(count>=5){
+      count=0;
+      const ok = await ensureAdmin("관리자 메뉴");
+      if(!ok) return toast("관리자 PIN 필요");
+      openAdminMenu();
+    }
+  });
+})();
+
+/* =========================
+   Attendance
+   ========================= */
+const attCode=document.getElementById("attCode");
+const attName=document.getElementById("attName");
+const attStatus=document.getElementById("attStatus");
+const attLast=document.getElementById("attLast");
+
+function getLastEventForCode(code){
+  const logs=getLogs();
+  for(let i=logs.length-1;i>=0;i--) if(logs[i].code===code) return logs[i];
+  return null;
+}
+function canClockIn(code){ const last=getLastEventForCode(code); return !last || last.type!=="IN"; }
+function canClockOut(code){ const last=getLastEventForCode(code); return !!last && last.type==="IN"; }
+
+function addLog({code,name,type,note=""}){
+  const logs=getLogs();
+  const id=logs.length ? (logs[logs.length-1].id+1) : 1;
+  logs.push({id, code, name, type, ts: nowTS(), note});
+  setLogs(logs);
+}
+
+function setStatusByCode(code){
+  if(code.length!==4){
+    attName.value=""; attStatus.textContent="-"; attLast.textContent="-"; return;
+  }
+  const emp=findEmpByCode(code);
+  attName.value=emp?emp.name:"";
+  if(!emp){ attStatus.textContent="등록되지 않은 코드"; attLast.textContent="-"; return; }
+  const last=getLastEventForCode(code);
+  if(!last){ attStatus.textContent="기록 없음 (출근 가능)"; attLast.textContent="-"; return; }
+  attStatus.textContent = (last.type==="IN") ? "출근 상태 (퇴근 필요)" : "퇴근 상태 (출근 가능)";
+  attLast.textContent = `${last.type==="IN"?"출근":"퇴근"} · ${fmtTS(last.ts)}`;
+}
+function onCodeChanged(){
+  const code=normalizeCodeInput(attCode.value);
+  attCode.value=code;
+  setStatusByCode(code);
+}
+attCode.addEventListener("input", onCodeChanged);
+document.getElementById("btnClearCode").addEventListener("click", ()=>{
+  attCode.value=""; onCodeChanged(); attCode.focus();
+});
+
+document.querySelectorAll(".kbd button").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    const k=b.dataset.k;
+    let v=normalizeCodeInput(attCode.value);
+    if(k==="bk") v=v.slice(0,-1);
+    else if(k==="clr") v="";
+    else if(v.length<4) v+=k;
+    attCode.value=v;
+    onCodeChanged();
+  });
+});
+
+document.getElementById("btnIn").addEventListener("click", ()=>{
+  const code=normalizeCodeInput(attCode.value);
+  if(code.length!==4) return toast("알바 코드 4자리를 입력하세요.");
+  const emp=findEmpByCode(code);
+  if(!emp) return toast("등록되지 않은 코드입니다. (관리자에게 등록 요청)");
+  if(!canClockIn(code)) return toast("이미 출근 상태입니다. 퇴근을 먼저 찍어주세요.");
+  addLog({code, name: emp.name, type:"IN"});
+  toast(`${emp.name}님 출근 완료`);
+  renderAttendancePanel();
+});
+
+document.getElementById("btnOut").addEventListener("click", ()=>{
+  const code=normalizeCodeInput(attCode.value);
+  if(code.length!==4) return toast("알바 코드 4자리를 입력하세요.");
+  const emp=findEmpByCode(code);
+  if(!emp) return toast("등록되지 않은 코드입니다.");
+  if(!canClockOut(code)) return toast("출근 기록이 없습니다. 출근부터 찍어주세요.");
+  addLog({code, name: emp.name, type:"OUT"});
+  toast(`${emp.name}님 퇴근 완료`);
+  renderAttendancePanel();
+});
+
+function renderRecent(){
+  const tbody=document.getElementById("recentTable");
+  const logs=getLogs().slice(-15).reverse();
+  tbody.innerHTML = logs.map(l=>{
+    const tag = l.type==="IN" ? `<span class="tag in">출근</span>` : `<span class="tag out">퇴근</span>`;
+    return `<tr><td>${tag}</td><td>${l.code}</td><td>${escapeHtml(l.name)}</td><td>${fmtTS(l.ts)}</td></tr>`;
+  }).join("") || `<tr><td colspan="4" class="muted">기록이 없습니다.</td></tr>`;
+}
+
+function renderQuickButtons(){
+  const wrap=document.getElementById("quickButtons");
+  const emps=getEmployees();
+  if(!emps.length){
+    wrap.innerHTML=`<span class="muted">알바생을 먼저 등록하세요(로고 5탭 → 관리자 메뉴).</span>`;
+    return;
+  }
+  wrap.innerHTML = emps.map(e=>(
+    `<button class="btn small" data-code="${e.code}" title="${escapeHtml(e.name)} (${e.code})">
+      ${escapeHtml(e.name)} <span class="muted" style="font-weight:900;">${e.code}</span>
+    </button>`
+  )).join("");
+  wrap.querySelectorAll("button[data-code]").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      attCode.value=b.dataset.code;
+      onCodeChanged();
+      attCode.blur();
+    });
+  });
+}
+function renderAttendancePanel(){
+  renderRecent();
+  renderQuickButtons();
+  onCodeChanged();
+}
+
+/* =========================
+   Employees (관리자) - ✅ 등록/삭제/검색 됨
+   ========================= */
+const empNameEl = document.getElementById("empName");
+const empMemoEl = document.getElementById("empMemo");
+const empSearchEl = document.getElementById("empSearch");
+const empTableEl = document.getElementById("empTable");
+const nextCodeHintEl = document.getElementById("nextCodeHint");
+
+function nextAvailableCode(){
+  const emps = getEmployees();
+  const used = new Set(emps.map(e=>Number(e.code)));
+  for(let i=1;i<=9999;i++){
+    if(!used.has(i)) return pad4(i);
+  }
+  return pad4(getNextEmpId());
+}
+function updateNextCodeHint(){
+  nextCodeHintEl.textContent = `다음 코드: ${nextAvailableCode()}`;
+}
+function addEmployee(name, memo=""){
+  const n = String(name||"").trim();
+  const m = String(memo||"").trim();
+  if(!n) throw new Error("이름을 입력하세요.");
+
+  const emps = getEmployees();
+  const code = nextAvailableCode();
+  const now = nowTS();
+
+  emps.push({ code, name: n, memo: m, createdAt: now });
+  setEmployees(emps);
+
+  const numeric = Number(code);
+  const nextId = Math.max(getNextEmpId(), numeric + 1);
+  setNextEmpId(nextId);
+}
+function deleteEmployee(code){
+  const emps = getEmployees();
+  setEmployees(emps.filter(e=>e.code !== code));
+}
+function renderEmployees(){
+  updateNextCodeHint();
+  const q = String(empSearchEl.value||"").trim().toLowerCase();
+  let emps = getEmployees().slice().sort((a,b)=> a.code.localeCompare(b.code));
+
+  if(q){
+    emps = emps.filter(e=> e.code.includes(q) || (e.name||"").toLowerCase().includes(q));
+  }
+
+  if(!emps.length){
+    empTableEl.innerHTML = `<tr><td colspan="5" class="muted">알바생이 없습니다.</td></tr>`;
+    return;
+  }
+
+  empTableEl.innerHTML = emps.map(e=>{
+    return `
+      <tr>
+        <td><span class="tag open">${e.code}</span></td>
+        <td>${escapeHtml(e.name)}</td>
+        <td class="muted">${escapeHtml(e.memo||"")}</td>
+        <td class="muted">${fmtTSShort(e.createdAt||Date.now())}</td>
+        <td><button class="btn small bad" data-del="${e.code}">삭제</button></td>
+      </tr>`;
+  }).join("");
+
+  empTableEl.querySelectorAll("button[data-del]").forEach(btn=>{
+    btn.addEventListener("click", async ()=>{
+      const ok = await ensureAdmin("알바생 삭제");
+      if(!ok) return toast("관리자 PIN 필요");
+      const code = btn.dataset.del;
+      if(!confirm(`${code} 알바생을 삭제할까요?`)) return;
+      deleteEmployee(code);
+      toast("삭제 완료");
+      renderEmployees();
+      renderQuickButtons();
+    });
+  });
+}
+
+document.getElementById("btnAddEmp").addEventListener("click", async ()=>{
+  const ok = await ensureAdmin("알바생 등록");
+  if(!ok) return toast("관리자 PIN 필요");
+  try{
+    addEmployee(empNameEl.value, empMemoEl.value);
+    empNameEl.value=""; empMemoEl.value="";
+    toast("등록 완료");
+    renderEmployees();
+    renderQuickButtons();
+  }catch(err){
+    toast(err?.message || "등록 실패");
+  }
+});
+document.getElementById("btnSeedDemo").addEventListener("click", async ()=>{
+  const ok = await ensureAdmin("데모 추가");
+  if(!ok) return toast("관리자 PIN 필요");
+  try{
+    addEmployee("알바1","데모");
+    addEmployee("알바2","데모");
+    addEmployee("알바3","데모");
+    toast("데모 3명 추가");
+    renderEmployees();
+    renderQuickButtons();
+  }catch(err){
+    toast(err?.message || "추가 실패");
+  }
+});
+document.getElementById("btnRefreshEmp").addEventListener("click", ()=> renderEmployees());
+empSearchEl.addEventListener("input", ()=> renderEmployees());
+
+/* =========================
+   Logs screen + CSV
+   ========================= */
+function renderLogAll(){
+  const logs = getLogs();
+  document.getElementById("logCount").textContent = String(logs.length);
+  const tbody = document.getElementById("logTable");
+  tbody.innerHTML = logs.slice().reverse().map(l=>{
+    const tag = l.type==="IN" ? `<span class="tag in">출근</span>` : `<span class="tag out">퇴근</span>`;
+    return `<tr>
+      <td>${tag}</td>
+      <td>${l.code}</td>
+      <td>${escapeHtml(l.name)}</td>
+      <td>${fmtTS(l.ts)}</td>
+      <td class="muted">${escapeHtml(l.note||"")}</td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="5" class="muted">기록이 없습니다.</td></tr>`;
+}
+function downloadFile(filename, text, mime="text/plain"){
+  const blob = new Blob([text], {type: mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1500);
+}
+function exportCsv(){
+  const logs = getLogs();
+  const header = ["id","type","code","name","ts","time","note"];
+  const rows = logs.map(l=>{
+    const time = fmtTS(l.ts);
+    const safe = (v)=> `"${String(v??"").replace(/"/g,'""')}"`;
+    return [
+      l.id, l.type, l.code, safe(l.name), l.ts, safe(time), safe(l.note||"")
+    ].join(",");
+  });
+  const csv = [header.join(","), ...rows].join("\n");
+  const d = new Date();
+  const fn = `근태_${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}.csv`;
+  downloadFile(fn, csv, "text/csv;charset=utf-8");
+}
+
+/* =========================
+   Backup / Restore / Reset
+   ========================= */
+function makeBackupObject(){
+  return {
+    version: 1,
+    exportedAt: nowTS(),
+    employees: getEmployees(),
+    nextEmpId: getNextEmpId(),
+    logs: getLogs(),
+    // PIN은 보안상 백업에 포함 안 함(원하면 포함 가능)
+  };
+}
+function backupJson(){
+  const obj = makeBackupObject();
+  const d = new Date(obj.exportedAt);
+  const fn = `근태백업_${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}_${String(d.getHours()).padStart(2,"0")}${String(d.getMinutes()).padStart(2,"0")}.json`;
+  downloadFile(fn, JSON.stringify(obj, null, 2), "application/json;charset=utf-8");
+}
+function mergeRestore(data){
+  // employees: code 기준으로 중복 방지(기존이 있으면 유지, 없으면 추가)
+  const currentEmps = getEmployees();
+  const map = new Map(currentEmps.map(e=>[e.code, e]));
+  (data.employees||[]).forEach(e=>{
+    if(!e || !e.code) return;
+    if(!map.has(e.code)) map.set(e.code, e);
+  });
+  setEmployees(Array.from(map.values()).sort((a,b)=>a.code.localeCompare(b.code)));
+
+  // nextEmpId: 큰 값 유지
+  const curNext = getNextEmpId();
+  const restoredNext = Number(data.nextEmpId||1);
+  setNextEmpId(Math.max(curNext, Number.isFinite(restoredNext)?restoredNext:1));
+
+  // logs: id 기준 중복 방지
+  const curLogs = getLogs();
+  const ids = new Set(curLogs.map(l=>l.id));
+  const added = [];
+  (data.logs||[]).forEach(l=>{
+    if(!l || typeof l.id!=="number") return;
+    if(ids.has(l.id)) return;
+    added.push(l);
+  });
+  const merged = curLogs.concat(added).sort((a,b)=>a.id-b.id);
+  setLogs(merged);
+}
+function overwriteRestore(data){
+  setEmployees(Array.isArray(data.employees)?data.employees:[]);
+  const restoredNext = Number(data.nextEmpId||1);
+  setNextEmpId(Number.isFinite(restoredNext)?restoredNext:1);
+  setLogs(Array.isArray(data.logs)?data.logs:[]);
+}
+
+const restoreInput = document.getElementById("restoreInput");
+function triggerRestorePick(){ restoreInput.value=""; restoreInput.click(); }
+
+restoreInput.addEventListener("change", async ()=>{
+  const file = restoreInput.files?.[0];
+  if(!file) return;
+  try{
+    const text = await file.text();
+    const data = JSON.parse(text);
+
+    const ok = await ensureAdmin("복원");
+    if(!ok) return toast("관리자 PIN 필요");
+
+    const mode = prompt("복원 방식 선택:\n1 입력 = 덮어쓰기\n2 입력 = 중복방지(병합)\n(취소=중단)", "2");
+    if(mode===null) return;
+
+    if(String(mode).trim()==="1") overwriteRestore(data);
+    else mergeRestore(data);
+
+    toast("복원 완료");
+    renderAttendancePanel();
+    if(document.getElementById("sec-emp").classList.contains("active")) renderEmployees();
+    if(document.getElementById("sec-log").classList.contains("active")) renderLogAll();
+  }catch(e){
+    toast("복원 실패: JSON 파일 확인");
+  }
+});
+
+document.getElementById("btnBackupJson").addEventListener("click", async ()=>{
+  const ok = await ensureAdmin("백업");
+  if(!ok) return toast("관리자 PIN 필요");
+  backupJson();
+});
+document.getElementById("btnRestoreJson").addEventListener("click", async ()=>{
+  const ok = await ensureAdmin("복원");
+  if(!ok) return toast("관리자 PIN 필요");
+  triggerRestorePick();
+});
+document.getElementById("btnResetAll").addEventListener("click", async ()=>{
+  const ok = await ensureAdmin("전체 초기화");
+  if(!ok) return toast("관리자 PIN 필요");
+  if(!confirm("정말 전체 초기화할까요?\n(알바생/기록 모두 삭제)")) return;
+  setEmployees([]);
+  setNextEmpId(1);
+  setLogs([]);
+  toast("전체 초기화 완료");
+  closeAdminMenu();
+  showSection("sec-att");
+});
+document.getElementById("btnExportCsv2").addEventListener("click", async ()=>{
+  const ok = await ensureAdmin("CSV 내보내기");
+  if(!ok) return toast("관리자 PIN 필요");
+  exportCsv();
+});
+document.getElementById("btnExportCsv").addEventListener("click", async ()=>{
+  const ok = await ensureAdmin("CSV 내보내기");
+  if(!ok) return toast("관리자 PIN 필요");
+  exportCsv();
+});
+
+/* =========================
+   Init
+   ========================= */
+(async function init(){
+  if(!hasPin()){
+    await showPinModal("setup");
+  }
+  renderAttendancePanel();
+  updateAdminStateText();
+})();
+</script>
+</body>
+</html>
