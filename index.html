@@ -65,6 +65,9 @@
       max-width: min(520px, 62vw);
       object-fit: contain;
       cursor: pointer; /* 로고 5탭 관리자 */
+      touch-action: manipulation; /* 더블탭 줌 억제(보조) */
+      -webkit-user-drag: none;
+      user-select: none;
     }
     .sub{
       color:var(--muted);
@@ -129,6 +132,23 @@
     }
     input::placeholder{ color: rgba(169,180,208,.65); }
     input:focus, select:focus{
+      border-color: rgba(106,166,255,.6);
+      box-shadow: 0 0 0 3px rgba(106,166,255,.15);
+    }
+
+    textarea{
+      width:100%;
+      min-height: 120px;
+      resize: vertical;
+      background: rgba(255,255,255,.06);
+      border: 1px solid var(--line);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 12px 12px;
+      font-size: 15px;
+      outline:none;
+    }
+    textarea:focus{
       border-color: rgba(106,166,255,.6);
       box-shadow: 0 0 0 3px rgba(106,166,255,.15);
     }
@@ -304,15 +324,53 @@
     @media (max-width: 520px){
       .menuGrid{ grid-template-columns: 1fr; }
     }
+
+    /* ===== 출근 공지 카운트다운 ===== */
+    .countWrap{
+      display:flex;
+      align-items:center;
+      gap:14px;
+      margin-top:12px;
+    }
+    .ring{
+      width:62px;
+      height:62px;
+      position:relative;
+      flex:0 0 auto;
+    }
+    .ring svg{ width:62px; height:62px; display:block; }
+    .ring .num{
+      position:absolute;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:900;
+      font-size:18px;
+    }
+    .ring .bg{
+      stroke: rgba(255,255,255,.12);
+      stroke-width: 8;
+      fill: none;
+    }
+    .ring .fg{
+      stroke: rgba(106,166,255,.9);
+      stroke-width: 8;
+      fill: none;
+      stroke-linecap: round;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+      transition: stroke-dashoffset 0.15s linear;
+    }
   </style>
 </head>
+
 <body>
 <header>
   <div class="topbar">
     <div class="brand">
       <div class="logoWrap">
-<!-- ✅ 로고: 파일로 쓰기 (tamnayo.png를 HTML과 같은 폴더에 두기) -->
-<img id="logoImg" class="logo" alt="가게 로고" src="tamnayo.png" />
+        <img id="logoImg" class="logo" alt="가게 로고" src="tamnayo.png" />
         <div class="sub">알바생 화면: 출근/퇴근만 · 로고 5번 탭 → 관리자 PIN</div>
       </div>
     </div>
@@ -397,6 +455,7 @@
     </div>
   </section>
 
+  <!-- 알바생 관리 -->
   <section class="section" id="sec-emp">
     <div class="card">
       <div class="row">
@@ -456,6 +515,7 @@
     </div>
   </section>
 
+  <!-- 근태 조회 -->
   <section class="section" id="sec-log">
     <div class="card">
       <div class="row">
@@ -486,15 +546,81 @@
         </table>
       </div>
 
+      <!-- ✅ 퇴근 특이사항 테이블(관리자 조회) -->
+      <div class="hr"></div>
+      <div class="muted" style="font-size:13px; font-weight:900; margin-bottom:8px;">퇴근 특이사항</div>
+      <div style="overflow:auto; max-height: 360px;">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:70px;">순번</th>
+              <th style="width:110px;">날짜</th>
+              <th style="width:90px;">코드</th>
+              <th style="width:140px;">작성자</th>
+              <th style="width:180px;">시간</th>
+              <th>내용</th>
+            </tr>
+          </thead>
+          <tbody id="outNoteTable"></tbody>
+        </table>
+      </div>
+
       <div class="note">
-        • 이 버전은 “기록 전체 보기/CSV”까지만 포함.<br/>
-        • 기간필터/근무시간 합계까지 원하면 이 화면을 확장해줄게.
+        • 출근 시: 오늘 공지(있으면) 5초 카운트다운 후 출근 저장<br/>
+        • 퇴근 시: 특이사항(선택) 입력 가능 → 관리자에서 조회 가능
       </div>
     </div>
   </section>
 </main>
 
+<!-- Toast -->
 <div class="toast" id="toast"></div>
+
+<!-- ✅ 출근 공지(카운트다운) 모달 -->
+<div class="modalOverlay" id="noticeOverlay" role="dialog" aria-modal="true">
+  <div class="modal">
+    <h3>오늘의 공지</h3>
+    <div class="muted" id="noticeDateText">-</div>
+    <div class="hr"></div>
+
+    <div id="noticeText" style="white-space:pre-wrap; line-height:1.45;"></div>
+
+    <div class="countWrap">
+      <div class="ring" aria-label="5초 카운트다운">
+        <svg viewBox="0 0 80 80">
+          <circle class="bg" cx="40" cy="40" r="30"></circle>
+          <circle class="fg" id="noticeRing" cx="40" cy="40" r="30"></circle>
+        </svg>
+        <div class="num" id="noticeNum">5</div>
+      </div>
+      <div class="muted" style="font-size:13px;">
+        5초 후 확인 버튼이 활성화됩니다.
+      </div>
+    </div>
+
+    <div class="modalActions">
+      <button class="btn primary" id="noticeOk" disabled>확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- ✅ 퇴근 특이사항 모달 -->
+<div class="modalOverlay" id="outNoteOverlay" role="dialog" aria-modal="true">
+  <div class="modal">
+    <h3>오늘의 특이사항 (선택)</h3>
+    <div class="muted" id="outNoteDesc">퇴근 저장 전에 특이사항을 남길 수 있어요.</div>
+    <div class="hr"></div>
+
+    <label>특이사항</label>
+    <textarea id="outNoteText"
+      placeholder="예) 누락: 페퍼로니 1개 누락 / 환불: 18:20 콜라 환불 / 물품: 치즈 소진 / 기타: ..."></textarea>
+
+    <div class="modalActions">
+      <button class="btn" id="outNoteSkip">건너뛰기</button>
+      <button class="btn primary" id="outNoteSave">저장 후 퇴근</button>
+    </div>
+  </div>
+</div>
 
 <!-- 관리자 PIN 모달 -->
 <div class="modalOverlay" id="pinOverlay" role="dialog" aria-modal="true">
@@ -549,6 +675,16 @@
       <button class="btn" id="btnLockAdmin">관리자 잠금</button>
     </div>
 
+    <!-- ✅ 오늘 공지 작성 영역 -->
+    <div class="hr"></div>
+    <div class="muted" style="font-size:13px; font-weight:900;">오늘의 공지(출근 시 표시)</div>
+    <label style="margin-top:8px;">공지 내용</label>
+    <textarea id="adminNoticeInput" placeholder="예) 오늘 6시 단체 예약, 오븐 앞 정리 필수"></textarea>
+    <div class="row" style="margin-top:10px;">
+      <button class="btn primary" id="btnSaveTodayNotice">오늘 공지 저장</button>
+      <button class="btn" id="btnClearTodayNotice">오늘 공지 비우기</button>
+    </div>
+
     <div class="modalActions">
       <button class="btn" id="adminMenuClose">닫기</button>
     </div>
@@ -567,6 +703,8 @@
    Storage Keys
    ========================= */
 const LS_KEYS = {
+  DAILY_NOTICE: "ALBA_DAILY_NOTICE_V1",
+  OUT_NOTES:    "ALBA_OUT_NOTES_V1",
   EMPLOYEES: "ALBA_EMPLOYEES_V2",
   NEXT_ID:   "ALBA_NEXT_EMP_ID_V2",
   ATT_LOGS:  "ALBA_ATT_LOGS_V2",
@@ -580,6 +718,13 @@ const SS_KEYS = { UNLOCK_UNTIL: "ALBA_ADMIN_UNLOCK_UNTIL_V1" };
    ========================= */
 function pad4(n){ const s=String(n); return s.length>=4?s:("0000"+s).slice(-4); }
 function nowTS(){ return Date.now(); }
+
+function dateKey(ts){
+  const d=new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+function todayKey(){ return dateKey(Date.now()); }
+
 function fmtTS(ts){
   const d = new Date(ts);
   const y=d.getFullYear();
@@ -616,6 +761,16 @@ function escapeHtml(s){
 }
 function normalizeCodeInput(v){ return (v||"").replace(/\D/g,"").slice(0,4); }
 
+/* ===== iOS 더블탭 확대 방지(강제) ===== */
+(function disableDoubleTapZoom(){
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', function (e) {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 300) e.preventDefault();
+    lastTouchEnd = now;
+  }, { passive: false });
+})();
+
 /* =========================
    LocalStorage helpers
    ========================= */
@@ -638,6 +793,46 @@ function getLogs(){ return loadJSON(LS_KEYS.ATT_LOGS, []); }
 function setLogs(list){ saveJSON(LS_KEYS.ATT_LOGS, list); }
 
 function findEmpByCode(code){ return getEmployees().find(e=>e.code===code)||null; }
+
+/* =========================
+   Notice (출근 공지)
+   ========================= */
+function getNoticeMap(){ return loadJSON(LS_KEYS.DAILY_NOTICE, {}); }
+function setNoticeMap(map){ saveJSON(LS_KEYS.DAILY_NOTICE, map); }
+function getTodayNotice(){
+  const map = getNoticeMap();
+  return map[todayKey()]?.text || "";
+}
+function setTodayNotice(text){
+  const map = getNoticeMap();
+  map[todayKey()] = { text: String(text||""), updatedAt: nowTS() };
+  setNoticeMap(map);
+}
+function clearTodayNotice(){
+  const map = getNoticeMap();
+  delete map[todayKey()];
+  setNoticeMap(map);
+}
+
+/* =========================
+   Out Notes (퇴근 특이사항)
+   ========================= */
+function getOutNotes(){ return loadJSON(LS_KEYS.OUT_NOTES, []); }
+function setOutNotes(list){ saveJSON(LS_KEYS.OUT_NOTES, list); }
+function addOutNote({code,name,text}){
+  const list = getOutNotes();
+  const id = list.length ? (list[list.length-1].id + 1) : 1;
+  const ts = nowTS();
+  list.push({
+    id,
+    date: dateKey(ts),
+    ts,
+    code,
+    name,
+    text: String(text||"").trim()
+  });
+  setOutNotes(list);
+}
 
 /* =========================
    Admin PIN (hash+salt)
@@ -818,7 +1013,11 @@ function updateAdminStateText(){
 setInterval(updateAdminStateText, 500);
 updateAdminStateText();
 
+const adminNoticeInput = document.getElementById("adminNoticeInput");
+
 function openAdminMenu(){
+  // ✅ 메뉴 열 때 오늘 공지를 입력칸에 채움
+  adminNoticeInput.value = getTodayNotice();
   adminMenuOverlay.classList.add("show");
   updateAdminStateText();
 }
@@ -854,6 +1053,21 @@ document.getElementById("btnChangePin").addEventListener("click", async ()=>{
   await showPinModal("change");
 });
 
+// ✅ 오늘 공지 저장/비우기
+document.getElementById("btnSaveTodayNotice").addEventListener("click", async ()=>{
+  const ok = await ensureAdmin("오늘 공지 저장");
+  if(!ok) return toast("관리자 PIN 필요");
+  setTodayNotice(adminNoticeInput.value);
+  toast("오늘 공지 저장됨");
+});
+document.getElementById("btnClearTodayNotice").addEventListener("click", async ()=>{
+  const ok = await ensureAdmin("오늘 공지 비우기");
+  if(!ok) return toast("관리자 PIN 필요");
+  clearTodayNotice();
+  adminNoticeInput.value = "";
+  toast("오늘 공지 비움");
+});
+
 /* ✅ 로고 5탭 -> 관리자 메뉴 */
 (function bindLogoTapToAdmin(){
   const logo = document.getElementById("logoImg");
@@ -871,6 +1085,117 @@ document.getElementById("btnChangePin").addEventListener("click", async ()=>{
     }
   });
 })();
+
+/* =========================
+   출근 공지 모달 + 카운트다운
+   ========================= */
+const noticeOverlay = document.getElementById("noticeOverlay");
+const noticeDateText = document.getElementById("noticeDateText");
+const noticeTextEl = document.getElementById("noticeText");
+const noticeOk = document.getElementById("noticeOk");
+const noticeNum = document.getElementById("noticeNum");
+const noticeRing = document.getElementById("noticeRing");
+
+function openNoticeModal(text){
+  noticeTextEl.textContent = text || "";
+  noticeDateText.textContent = `${todayKey()} 공지`;
+  noticeOk.disabled = true;
+  noticeOverlay.classList.add("show");
+}
+function closeNoticeModal(){
+  noticeOverlay.classList.remove("show");
+}
+
+function setRingProgress(p){ // p: 0~1
+  const r = 30;
+  const c = 2 * Math.PI * r;
+  noticeRing.style.strokeDasharray = `${c}`;
+  noticeRing.style.strokeDashoffset = `${c * (1 - p)}`;
+}
+
+async function showNoticeCountdownIfAny(){
+  const text = getTodayNotice();
+  if(!String(text||"").trim()) return true;
+
+  openNoticeModal(text);
+
+  const total = 5;
+  let left = total;
+  noticeNum.textContent = String(left);
+  setRingProgress(0);
+
+  return await new Promise(resolve=>{
+    let start = Date.now();
+    let timer = setInterval(()=>{
+      const elapsed = (Date.now() - start) / 1000;
+      const p = Math.min(1, elapsed / total);
+      setRingProgress(p);
+
+      const newLeft = Math.max(0, total - Math.floor(elapsed));
+      if(newLeft !== left){
+        left = newLeft;
+        noticeNum.textContent = String(left || 0);
+      }
+      if(p >= 1){
+        clearInterval(timer);
+        noticeOk.disabled = false;
+      }
+    }, 60);
+
+    const done = ()=>{
+      clearInterval(timer);
+      closeNoticeModal();
+      noticeOk.removeEventListener("click", done);
+      resolve(true);
+    };
+    noticeOk.addEventListener("click", done);
+  });
+}
+
+/* =========================
+   퇴근 특이사항 모달
+   ========================= */
+const outNoteOverlay = document.getElementById("outNoteOverlay");
+const outNoteText = document.getElementById("outNoteText");
+const outNoteSkip = document.getElementById("outNoteSkip");
+const outNoteSave = document.getElementById("outNoteSave");
+
+function openOutNoteModal(){
+  outNoteText.value = "";
+  outNoteOverlay.classList.add("show");
+  setTimeout(()=>outNoteText.focus(), 60);
+}
+function closeOutNoteModal(){
+  outNoteOverlay.classList.remove("show");
+}
+function askOutNote(){ // returns Promise<string|null> (null=skip)
+  openOutNoteModal();
+  return new Promise(resolve=>{
+    const cleanup = ()=>{
+      outNoteSkip.removeEventListener("click", onSkip);
+      outNoteSave.removeEventListener("click", onSave);
+      outNoteOverlay.removeEventListener("click", onBg);
+    };
+    const onSkip = ()=>{
+      cleanup();
+      closeOutNoteModal();
+      resolve(null);
+    };
+    const onSave = ()=>{
+      const text = String(outNoteText.value||"").trim();
+      cleanup();
+      closeOutNoteModal();
+      resolve(text);
+    };
+    const onBg = (e)=>{
+      if(e.target === outNoteOverlay) onSkip();
+    };
+
+    outNoteSkip.addEventListener("click", onSkip);
+    outNoteSave.addEventListener("click", onSave);
+    outNoteOverlay.addEventListener("click", onBg);
+  });
+}
 
 /* =========================
    Attendance
@@ -929,24 +1254,37 @@ document.querySelectorAll(".kbd button").forEach(b=>{
   });
 });
 
-document.getElementById("btnIn").addEventListener("click", ()=>{
+/* ✅ 출근: 공지(있으면) 5초 보고 나서 출근 저장 */
+document.getElementById("btnIn").addEventListener("click", async ()=>{
   const code=normalizeCodeInput(attCode.value);
   if(code.length!==4) return toast("알바 코드 4자리를 입력하세요.");
   const emp=findEmpByCode(code);
   if(!emp) return toast("등록되지 않은 코드입니다. (관리자에게 등록 요청)");
   if(!canClockIn(code)) return toast("이미 출근 상태입니다. 퇴근을 먼저 찍어주세요.");
+
+  await showNoticeCountdownIfAny();
+
   addLog({code, name: emp.name, type:"IN"});
   toast(`${emp.name}님 출근 완료`);
   renderAttendancePanel();
 });
 
-document.getElementById("btnOut").addEventListener("click", ()=>{
+/* ✅ 퇴근: 특이사항(선택) 입력 후 퇴근 저장 + 관리자용 별도 저장 */
+document.getElementById("btnOut").addEventListener("click", async ()=>{
   const code=normalizeCodeInput(attCode.value);
   if(code.length!==4) return toast("알바 코드 4자리를 입력하세요.");
   const emp=findEmpByCode(code);
   if(!emp) return toast("등록되지 않은 코드입니다.");
   if(!canClockOut(code)) return toast("출근 기록이 없습니다. 출근부터 찍어주세요.");
-  addLog({code, name: emp.name, type:"OUT"});
+
+  const noteText = await askOutNote(); // null이면 건너뛰기
+
+  addLog({code, name: emp.name, type:"OUT", note: noteText || ""});
+
+  if(noteText && noteText.trim()){
+    addOutNote({code, name: emp.name, text: noteText});
+  }
+
   toast(`${emp.name}님 퇴근 완료`);
   renderAttendancePanel();
 });
@@ -987,7 +1325,7 @@ function renderAttendancePanel(){
 }
 
 /* =========================
-   Employees (관리자) - ✅ 등록/삭제/검색 됨
+   Employees (관리자) - 등록/삭제/검색
    ========================= */
 const empNameEl = document.getElementById("empName");
 const empMemoEl = document.getElementById("empMemo");
@@ -1096,8 +1434,24 @@ document.getElementById("btnRefreshEmp").addEventListener("click", ()=> renderEm
 empSearchEl.addEventListener("input", ()=> renderEmployees());
 
 /* =========================
-   Logs screen + CSV
+   Logs screen + CSV + 특이사항 테이블
    ========================= */
+function renderOutNoteTable(){
+  const tbody = document.getElementById("outNoteTable");
+  if(!tbody) return;
+  const list = getOutNotes().slice().reverse(); // 최신순
+  tbody.innerHTML = list.map((x, idx)=>{
+    return `<tr>
+      <td>${list.length - idx}</td>
+      <td>${escapeHtml(x.date)}</td>
+      <td>${escapeHtml(x.code)}</td>
+      <td>${escapeHtml(x.name)}</td>
+      <td>${escapeHtml(fmtTS(x.ts))}</td>
+      <td>${escapeHtml(x.text)}</td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="6" class="muted">특이사항이 없습니다.</td></tr>`;
+}
+
 function renderLogAll(){
   const logs = getLogs();
   document.getElementById("logCount").textContent = String(logs.length);
@@ -1112,7 +1466,10 @@ function renderLogAll(){
       <td class="muted">${escapeHtml(l.note||"")}</td>
     </tr>`;
   }).join("") || `<tr><td colspan="5" class="muted">기록이 없습니다.</td></tr>`;
+
+  renderOutNoteTable();
 }
+
 function downloadFile(filename, text, mime="text/plain"){
   const blob = new Blob([text], {type: mime});
   const url = URL.createObjectURL(blob);
@@ -1150,7 +1507,8 @@ function makeBackupObject(){
     employees: getEmployees(),
     nextEmpId: getNextEmpId(),
     logs: getLogs(),
-    // PIN은 보안상 백업에 포함 안 함(원하면 포함 가능)
+    dailyNotice: getNoticeMap(),
+    outNotes: getOutNotes(),
   };
 }
 function backupJson(){
@@ -1160,7 +1518,6 @@ function backupJson(){
   downloadFile(fn, JSON.stringify(obj, null, 2), "application/json;charset=utf-8");
 }
 function mergeRestore(data){
-  // employees: code 기준으로 중복 방지(기존이 있으면 유지, 없으면 추가)
   const currentEmps = getEmployees();
   const map = new Map(currentEmps.map(e=>[e.code, e]));
   (data.employees||[]).forEach(e=>{
@@ -1169,12 +1526,10 @@ function mergeRestore(data){
   });
   setEmployees(Array.from(map.values()).sort((a,b)=>a.code.localeCompare(b.code)));
 
-  // nextEmpId: 큰 값 유지
   const curNext = getNextEmpId();
   const restoredNext = Number(data.nextEmpId||1);
   setNextEmpId(Math.max(curNext, Number.isFinite(restoredNext)?restoredNext:1));
 
-  // logs: id 기준 중복 방지
   const curLogs = getLogs();
   const ids = new Set(curLogs.map(l=>l.id));
   const added = [];
@@ -1185,12 +1540,26 @@ function mergeRestore(data){
   });
   const merged = curLogs.concat(added).sort((a,b)=>a.id-b.id);
   setLogs(merged);
+
+  // 공지/특이사항 병합
+  if(data.dailyNotice && typeof data.dailyNotice==="object"){
+    const cur = getNoticeMap();
+    setNoticeMap({...data.dailyNotice, ...cur}); // 기존 우선
+  }
+  if(Array.isArray(data.outNotes)){
+    const cur = getOutNotes();
+    const curIds = new Set(cur.map(x=>x.id));
+    const add = data.outNotes.filter(x=>x && typeof x.id==="number" && !curIds.has(x.id));
+    setOutNotes(cur.concat(add).sort((a,b)=>a.id-b.id));
+  }
 }
 function overwriteRestore(data){
   setEmployees(Array.isArray(data.employees)?data.employees:[]);
   const restoredNext = Number(data.nextEmpId||1);
   setNextEmpId(Number.isFinite(restoredNext)?restoredNext:1);
   setLogs(Array.isArray(data.logs)?data.logs:[]);
+  setNoticeMap((data.dailyNotice && typeof data.dailyNotice==="object") ? data.dailyNotice : {});
+  setOutNotes(Array.isArray(data.outNotes)?data.outNotes:[]);
 }
 
 const restoreInput = document.getElementById("restoreInput");
@@ -1234,10 +1603,12 @@ document.getElementById("btnRestoreJson").addEventListener("click", async ()=>{
 document.getElementById("btnResetAll").addEventListener("click", async ()=>{
   const ok = await ensureAdmin("전체 초기화");
   if(!ok) return toast("관리자 PIN 필요");
-  if(!confirm("정말 전체 초기화할까요?\n(알바생/기록 모두 삭제)")) return;
+  if(!confirm("정말 전체 초기화할까요?\n(알바생/기록/공지/특이사항 모두 삭제)")) return;
   setEmployees([]);
   setNextEmpId(1);
   setLogs([]);
+  setNoticeMap({});
+  setOutNotes([]);
   toast("전체 초기화 완료");
   closeAdminMenu();
   showSection("sec-att");
