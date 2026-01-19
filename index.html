@@ -660,7 +660,7 @@
   let logoTap=0, logoT;
   document.getElementById("logoImg").addEventListener("click",async()=>{
     logoTap++; clearTimeout(logoT); logoT=setTimeout(()=>{logoTap=0},1300);
-    if(logoTap>=5){ logoTap=0; if(await ensureAdmin("관리자 메뉴")) openAdminMenu(); }
+    if(logoTap>=2){ logoTap=0; if(await ensureAdmin("관리자 메뉴")) openAdminMenu(); }
   });
 
   const noticeOverlay=document.getElementById("noticeOverlay");
@@ -1017,5 +1017,6 @@
 </script>
 </body>
 </html>
+
 
 
