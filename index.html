@@ -71,10 +71,7 @@
     .section{ display:none; }
     .section.active{ display:block; }
 
-    .kbd{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; margin-top: 10px; }
-    .kbd button{ padding: 16px 12px; border-radius: 16px; font-size: 18px; font-weight: 900; border: 1px solid var(--line); background: #fff; color: var(--text); cursor:pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-    .kbd button:active{ transform: scale(.98); box-shadow:none; }
-    .kbd button.fn{ background: #f1f2f6; color: var(--muted); }
+    /* 키패드 관련 CSS 삭제됨 */
 
     .note{ margin-top:10px; color: var(--muted); font-size: 13px; line-height: 1.35; }
     .hr{ height:1px; background: var(--line); margin: 12px 0; }
@@ -136,6 +133,11 @@
     .totalWageDetail { color: var(--good); font-size: 13px; font-weight: 700; }
     
     #syncStatus { position:fixed; top:5px; left:50%; transform:translateX(-50%); font-size:10px; color:white; background:rgba(0,0,0,0.5); padding:2px 8px; border-radius:10px; z-index:9999; }
+    
+    /* 빠른 버튼 스타일 개선 (키패드 제거로 인한 확장) */
+    #quickButtons { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
+    #quickButtons .btn { height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 16px; }
+    #quickButtons .btn .muted { font-size: 12px; font-weight: normal; }
   </style>
 </head>
 
@@ -158,8 +160,8 @@
       <div class="card">
         <h2>출근 / 퇴근 찍기</h2>
         <div class="split">
-          <div><label>알바 코드 (4자리)</label><input id="attCode" inputmode="numeric" autocomplete="off" placeholder="예) 0001" maxlength="4" /></div>
-          <div><label>이름 (자동 표시)</label><input id="attName" disabled placeholder="코드를 입력하면 표시" /></div>
+          <div><label>알바 코드 (자동 입력)</label><input id="attCode" inputmode="numeric" autocomplete="off" placeholder="버튼을 누르세요" maxlength="4" readonly /></div>
+          <div><label>이름 (자동 표시)</label><input id="attName" disabled placeholder="-" /></div>
         </div>
         <div class="big-actions"><button class="btn good" id="btnIn">출근</button><button class="btn bad" id="btnOut">퇴근</button></div>
         <div class="row" style="margin-top:10px;">
@@ -170,18 +172,9 @@
         </div>
         <div class="hr"></div>
         <div class="row" style="gap:12px;">
-          <div style="flex:1 1 280px;">
-            <div class="muted" style="font-size:13px; font-weight:900;">숫자 키패드</div>
-            <div class="kbd" aria-label="키패드">
-              <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
-              <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
-              <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
-              <button class="fn" data-k="bk">←</button><button data-k="0">0</button><button class="fn" data-k="clr">C</button>
-            </div>
-          </div>
-          <div style="flex:1 1 320px;">
+          <div style="flex:1 1 100%;">
             <div class="muted" style="font-size:13px; font-weight:900;">빠른 선택 (알바생 버튼)</div>
-            <div id="quickButtons" class="row" style="margin-top:8px; gap:10px;"></div>
+            <div id="quickButtons" style="margin-top:8px;"></div>
             <div class="note">• 알바생 버튼을 누르면 코드가 자동 입력됩니다.<br/>• 알바생 화면에서는 출근/퇴근만 가능합니다.</div>
           </div>
         </div>
@@ -276,7 +269,7 @@
         </table>
       </div>
       <div class="hr"></div>
-      <div class="muted" style="font-size:13px; font-weight:900; margin-bottom:8px;">퇴근 특이사항</div>
+      <div class="muted" style="font-size:13px; font-weight:900; margin-bottom:8px;">퇴근 특이사항 (체크리스트 제외)</div>
       <div style="overflow:auto; max-height: 360px;">
         <table>
           <thead><tr><th style="width:70px;">순번</th><th style="width:110px;">날짜</th><th style="width:90px;">코드</th><th style="width:140px;">작성자</th><th style="width:180px;">시간</th><th>내용</th></tr></thead>
@@ -509,6 +502,7 @@
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
   let SERVER_CACHE = {}; 
+  let isInitialLoad = true;
 
   onValue(ref(db, 'tamnaData'), (snapshot) => {
     const data = snapshot.val();
@@ -527,7 +521,19 @@
           document.body.appendChild(status);
         }
         status.textContent = "● 서버 동기화됨";
+
+        // 서버 데이터 로드 후 PIN 체크 (최초 1회만 실행 또는 필요 시)
+        if(isInitialLoad){
+          isInitialLoad = false;
+          if(!hasPin()) showPinModal("setup");
+        }
       } catch(e) {}
+    } else {
+        // 데이터가 없을 경우 (첫 실행 등)
+        if(isInitialLoad){
+            isInitialLoad = false;
+            if(!hasPin()) showPinModal("setup");
+        }
     }
   });
 
@@ -556,8 +562,8 @@
 
   function getEmployees(){ return loadJSON(LS_KEYS.EMPLOYEES, []); }
   function setEmployees(list){ saveJSON(LS_KEYS.EMPLOYEES, list); }
-  function getNextEmpId(){ const v=localStorage.getItem(LS_KEYS.NEXT_ID); const n=v?Number(v):1; return Number.isFinite(n)&&n>=1?Math.floor(n):1; }
-  function setNextEmpId(n){ localStorage.setItem(LS_KEYS.NEXT_ID, String(n)); }
+  function getNextEmpId(){ const v=loadJSON(LS_KEYS.NEXT_ID, 1); const n=v?Number(v):1; return Number.isFinite(n)&&n>=1?Math.floor(n):1; }
+  function setNextEmpId(n){ saveJSON(LS_KEYS.NEXT_ID, String(n)); }
   function getLogs(){ return loadJSON(LS_KEYS.ATT_LOGS, []); }
   function setLogs(list){ saveJSON(LS_KEYS.ATT_LOGS, list); }
   function findEmpByCode(code){ return getEmployees().find(e=>e.code===code)||null; }
@@ -575,14 +581,15 @@
   function addCloseCheckLog({code,name,items,extra}){ const list=getCloseCheckLogs(); const id=list.length?(list[list.length-1].id+1):1; list.push({id,date:dateKey(nowTS()),ts:nowTS(),code,name,items:items||[],extra:String(extra||"").trim()}); setCloseCheckLogs(list); }
   function addOutNote({code,name,text}){ const list=getOutNotes(); const id=list.length?(list[list.length-1].id+1):1; list.push({id,date:dateKey(nowTS()),ts:nowTS(),code,name,text:String(text||"").trim()}); setOutNotes(list); }
 
-  function hasPin(){ return !!localStorage.getItem(LS_KEYS.PIN_HASH) && !!localStorage.getItem(LS_KEYS.PIN_SALT); }
+  // PIN Logic Modified for Firebase Sync
+  function hasPin(){ return !!SERVER_CACHE[LS_KEYS.PIN_HASH] && !!SERVER_CACHE[LS_KEYS.PIN_SALT]; }
   function isAdminUnlocked(){ const u=sessionStorage.getItem(SS_KEYS.UNLOCK_UNTIL); return u && Date.now()<Number(u); }
   function setAdminUnlocked(m=10){ sessionStorage.setItem(SS_KEYS.UNLOCK_UNTIL, String(Date.now()+m*60*1000)); updateAdminStateText(); }
   function lockAdmin(){ sessionStorage.removeItem(SS_KEYS.UNLOCK_UNTIL); updateAdminStateText(); }
   function randomSalt(){ const a=new Uint8Array(16); crypto.getRandomValues(a); return Array.from(a).map(b=>b.toString(16).padStart(2,"0")).join(""); }
   async function sha256Hex(s){ const d=new TextEncoder().encode(s); const b=await crypto.subtle.digest("SHA-256",d); return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join(""); }
-  async function verifyPin(p){ const s=localStorage.getItem(LS_KEYS.PIN_SALT), h=localStorage.getItem(LS_KEYS.PIN_HASH); if(!s||!h)return false; return (await sha256Hex(`${s}:${p}`))===h; }
-  async function setPin(p){ const s=randomSalt(), h=await sha256Hex(`${s}:${p}`); localStorage.setItem(LS_KEYS.PIN_SALT,s); localStorage.setItem(LS_KEYS.PIN_HASH,h); }
+  async function verifyPin(p){ const s=SERVER_CACHE[LS_KEYS.PIN_SALT], h=SERVER_CACHE[LS_KEYS.PIN_HASH]; if(!s||!h)return false; return (await sha256Hex(`${s}:${p}`))===h; }
+  async function setPin(p){ const s=randomSalt(), h=await sha256Hex(`${s}:${p}`); saveJSON(LS_KEYS.PIN_SALT,s); saveJSON(LS_KEYS.PIN_HASH,h); }
 
   const pinOverlay=document.getElementById("pinOverlay");
   let pinMode="unlock", pinResolve=null;
@@ -726,7 +733,7 @@
   function nextLogId(){ const logs=getLogs(); let m=0; for(const l of logs)if(Number(l.id)>m)m=Number(l.id); return m+1; }
   function addLog({code,name,type,note=""}){ const l=getLogs(); l.push({id:nextLogId(),code,name,type,ts:nowTS(),note}); setLogs(l); }
   function onCodeChanged(){
-    const c=normalizeCodeInput(attCode.value); attCode.value=c;
+    const c=normalizeCodeInput(attCode.value);
     if(c.length!==4){ attName.value=""; attStatus.textContent="-"; attLast.textContent="-"; return; }
     const e=findEmpByCode(c); attName.value=e?e.name:"";
     if(!e){ attStatus.textContent="미등록 코드"; attLast.textContent="-"; return; }
@@ -735,37 +742,48 @@
     attLast.textContent=l?`${l.type==="IN"?"출근":"퇴근"} · ${fmtTS(l.ts)}`:"기록 없음";
   }
   attCode.addEventListener("input",onCodeChanged);
-  document.getElementById("btnClearCode").addEventListener("click",()=>{attCode.value="";onCodeChanged();attCode.focus();});
-  document.querySelectorAll(".kbd button").forEach(b=>{
-    b.addEventListener("click",()=>{
-      const k=b.dataset.k; let v=normalizeCodeInput(attCode.value);
-      if(k==="bk")v=v.slice(0,-1); else if(k==="clr")v=""; else if(v.length<4)v+=k;
-      attCode.value=v; onCodeChanged();
-    });
-  });
+  document.getElementById("btnClearCode").addEventListener("click",()=>{attCode.value="";onCodeChanged();});
+  // 키패드 리스너 제거됨
+
   document.getElementById("btnIn").addEventListener("click",async()=>{
-    const c=attCode.value; if(c.length!==4)return toast("4자리 코드 입력");
+    const c=attCode.value; if(c.length!==4)return toast("알바생을 선택해주세요");
     const e=findEmpByCode(c); if(!e)return toast("미등록 코드");
     if(!canClockIn(c))return toast("이미 출근 상태");
     await showNoticeCountdownIfAny();
     addLog({code:c,name:e.name,type:"IN"}); toast(`${e.name} 출근`); renderAttendancePanel();
   });
+  
+  // 퇴근 로직 수정: 체크리스트 내용은 로그(logTable)에만 저장하고 특이사항(outNoteTable)에는 저장하지 않음
   document.getElementById("btnOut").addEventListener("click",async()=>{
-    const c=attCode.value; if(c.length!==4)return toast("4자리 코드 입력");
+    const c=attCode.value; if(c.length!==4)return toast("알바생을 선택해주세요");
     const e=findEmpByCode(c); if(!e)return toast("미등록 코드");
     if(!canClockOut(c))return toast("출근 기록 없음");
-    let note=await askOutNote();
+    
+    let manualNote = await askOutNote(); // 사용자가 직접 입력한 특이사항 (누락/환불 등)
+    let checklistLogStr = "";
+
     if(e.shiftType==="CLOSE"){
       const res=await openCloseCheckModal(getCloseChecklist());
       if(!res.skip){
         addCloseCheckLog({code:c,name:e.name,items:res.items,extra:res.extra});
-        const ln=`[마감체크] ${res.items.join("/")} ${res.extra?"| "+res.extra:""}`;
-        note=(note?note+"\n":"")+ln;
+        // 마감체크 텍스트 생성
+        checklistLogStr = `[마감체크] ${res.items.join("/")} ${res.extra?"| "+res.extra:""}`;
       }
     }
-    if(note) addOutNote({code:c,name:e.name,text:note});
-    addLog({code:c,name:e.name,type:"OUT",note:note||""}); toast(`${e.name} 퇴근`); renderAttendancePanel();
+
+    // 특이사항 테이블에는 '수기 입력 내용'만 저장
+    if(manualNote) addOutNote({code:c, name:e.name, text:manualNote});
+
+    // 메인 로그에는 '수기 입력 내용' + '마감 체크리스트 내용' 모두 저장
+    let combinedNote = "";
+    if(manualNote && checklistLogStr) combinedNote = manualNote + "\n" + checklistLogStr;
+    else if(manualNote) combinedNote = manualNote;
+    else if(checklistLogStr) combinedNote = checklistLogStr;
+
+    addLog({code:c, name:e.name, type:"OUT", note:combinedNote}); 
+    toast(`${e.name} 퇴근`); renderAttendancePanel();
   });
+
   function renderRecent(){
     document.getElementById("recentTable").innerHTML=getLogs().slice(-15).reverse().map(l=>`<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name)}</td><td>${fmtTS(l.ts)}</td></tr>`).join("")||`<tr><td colspan="4" class="muted">기록 없음</td></tr>`;
   }
@@ -773,7 +791,7 @@
     const div=document.getElementById("quickButtons"), emps=getEmployees();
     if(!emps.length) div.innerHTML=`<span class="muted">관리자 메뉴에서 알바생을 등록하세요.</span>`;
     else{
-      div.innerHTML=emps.map(e=>`<button class="btn small" data-c="${e.code}">${escapeHtml(e.name)} <span class="muted">${e.code}</span></button>`).join("");
+      div.innerHTML=emps.map(e=>`<button class="btn" data-c="${e.code}">${escapeHtml(e.name)} <span class="muted">${e.code}</span></button>`).join("");
       div.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{ attCode.value=b.dataset.c; onCodeChanged(); }));
     }
   }
@@ -1005,7 +1023,7 @@
   document.getElementById("btnBackupJson").addEventListener("click",async()=>{ if(await ensureAdmin()){ const d={ver:1,at:nowTS(),emps:getEmployees(),nxt:getNextEmpId(),logs:getLogs(),notices:getNoticeMap(),out:getOutNotes()}; downloadFile(`백업_${todayKey()}.json`,JSON.stringify(d,null,2),"application/json"); } });
   document.getElementById("btnRestoreJson").addEventListener("click",async()=>{ if(await ensureAdmin()){ const i=document.getElementById("restoreInput"); i.value=""; i.click(); } });
   document.getElementById("restoreInput").addEventListener("change",async(e)=>{ const f=e.target.files[0]; if(!f)return; try{ const d=JSON.parse(await f.text()); if(!confirm("복원 시 기존 데이터와 병합됩니다. 진행할까요?"))return; const emps=getEmployees(), eMap=new Map(emps.map(x=>[x.code,x])); (d.emps||[]).forEach(x=>eMap.set(x.code,x)); setEmployees(Array.from(eMap.values())); const logs=getLogs(), lIds=new Set(logs.map(x=>x.id)); (d.logs||[]).forEach(x=>{if(!lIds.has(x.id))logs.push(x)}); setLogs(logs.sort((a,b)=>a.ts-b.ts)); toast("복원 완료"); location.reload(); }catch{ toast("파일 오류"); } });
-  document.getElementById("btnResetAll").addEventListener("click",async()=>{ if(await ensureAdmin() && confirm("전체 초기화?? (복구불가)")){ localStorage.clear(); location.reload(); } });
+  document.getElementById("btnResetAll").addEventListener("click",async()=>{ if(await ensureAdmin() && confirm("전체 초기화?? (복구불가)")){ localStorage.clear(); await set(ref(db, 'tamnaData'), null); location.reload(); } });
 
   function renderAdminCloseChecklist(){ const lst=document.getElementById("adminCloseChecklistList"), items=getCloseChecklist(); lst.innerHTML=items.map((t,i)=>`<div class="admCLRow"><div class="idx">${i+1}</div><input class="admCLInput" value="${escapeHtml(t)}" /><button class="btn small" onclick="delCLItem(${i})">삭제</button></div>`).join(""); }
   window.delCLItem=async(i)=>{ const l=getCloseChecklist(); l.splice(i,1); setCloseChecklist(l); renderAdminCloseChecklist(); };
@@ -1017,6 +1035,3 @@
 </script>
 </body>
 </html>
-
-
-
