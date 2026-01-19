@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <title>탐나피자 관리자 (주휴표시)</title>
+  <title>탐나는피자 화성남양점</title>
   <style>
     :root{
       --bg: #f4f6f9; --panel: #ffffff; --panel2: #f8f9fa;
@@ -488,12 +488,11 @@
 
 <script type="module">
 /* =========================================
-     [시작] 파이어베이스 연결 설정 (여기부터 복사)
+     [1] 파이어베이스 연결 설정 (서버 연동)
      ========================================= */
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-  // 사장님의 파이어베이스 키 (그대로 두시면 됩니다)
   const firebaseConfig = {
     apiKey: "AIzaSyAbdEqVxEOcA3qFEcYEH9yuvNRx_CTMxhE",
     authDomain: "tamna-hr.firebaseapp.com",
@@ -506,24 +505,21 @@
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
 
-  // [중요] 서버 데이터를 임시 보관할 변수 (기존 코드와 연결 고리)
+  // 서버 데이터를 임시로 담아둘 변수
   let SERVER_CACHE = {}; 
-  let isDataLoaded = false;
 
-  // 1. 서버에서 데이터가 바뀌면 자동으로 화면을 갱신합니다.
+  // 1. 서버에서 데이터가 바뀌면 화면을 자동으로 고침
   onValue(ref(db, 'tamnaData'), (snapshot) => {
     const data = snapshot.val();
     if (data) {
       SERVER_CACHE = data;
-      isDataLoaded = true;
-      
-      // 데이터가 들어오면 화면을 새로고침합니다. (기존 함수들 호출)
+      // 화면 갱신 함수들이 있으면 실행
       try {
         if(typeof renderAttendancePanel === 'function') renderAttendancePanel();
         if(typeof renderLogAll === 'function') renderLogAll();
         if(typeof renderEmployees === 'function') renderEmployees();
         
-        // 동기화 상태 표시 (화면 오른쪽 위에 작게 뜹니다)
+        // 동기화 상태 표시 (화면 오른쪽 위)
         let status = document.getElementById('syncStatus');
         if(!status) {
           status = document.createElement('div');
@@ -532,30 +528,37 @@
           document.body.appendChild(status);
         }
         status.textContent = "● 서버 동기화됨";
-      } catch(e) { console.log("화면 갱신 중...", e); }
+      } catch(e) {}
     }
   });
 
-  // 2. 기존 로직이 '저장'을 요청하면 -> 서버로 보냅니다.
-  // (기존 saveJSON 함수를 서버용으로 바꿔치기함)
+  // 2. 저장 함수 바꿔치기 (내 폰 -> 서버)
   window.saveJSON = async function(key, val) {
-    SERVER_CACHE[key] = val; // 일단 캐시에 저장
-    await set(ref(db, 'tamnaData'), SERVER_CACHE); // 서버로 전송
+    SERVER_CACHE[key] = val;
+    await set(ref(db, 'tamnaData'), SERVER_CACHE);
   };
 
-  // 3. 기존 로직이 '불러오기'를 요청하면 -> 서버 데이터를 줍니다.
-  // (기존 loadJSON 함수를 서버용으로 바꿔치기함)
+  // 3. 불러오기 함수 바꿔치기 (내 폰 -> 서버)
   window.loadJSON = function(key, fallback) {
-    // 서버 데이터가 있으면 그걸 주고, 없으면 fallback(빈 배열 등)을 줌
     return SERVER_CACHE[key] ? SERVER_CACHE[key] : fallback;
   };
 
-  const LS_KEYS = {
-    DAILY_NOTICE: "ALBA_DAILY_NOTICE_V1", OUT_NOTES: "ALBA_OUT_NOTES_V1",
-    CLOSE_CHECKLIST: "ALBA_CLOSE_CHECKLIST_V1", CLOSE_CHECK_LOGS: "ALBA_CLOSE_CHECK_LOGS_V1",
-    EMPLOYEES: "ALBA_EMPLOYEES_V2", NEXT_ID: "ALBA_NEXT_EMP_ID_V2", ATT_LOGS: "ALBA_ATT_LOGS_V2",
-    PIN_HASH: "ALBA_ADMIN_PIN_HASH_V1", PIN_SALT: "ALBA_ADMIN_PIN_SALT_V1",
-  };
+  /* =========================================
+     [2] 필수 도구들 (절대 지우면 안 됨! 다시 복구해둠)
+     ========================================= */
+  const LS_KEYS = { DAILY_NOTICE: "ALBA_DAILY_NOTICE_V1", OUT_NOTES: "ALBA_OUT_NOTES_V1", CLOSE_CHECKLIST: "ALBA_CLOSE_CHECKLIST_V1", CLOSE_CHECK_LOGS: "ALBA_CLOSE_CHECK_LOGS_V1", EMPLOYEES: "ALBA_EMPLOYEES_V2", NEXT_ID: "ALBA_NEXT_EMP_ID_V2", ATT_LOGS: "ALBA_ATT_LOGS_V2", PIN_HASH: "ALBA_ADMIN_PIN_HASH_V1", PIN_SALT: "ALBA_ADMIN_PIN_SALT_V1" };
+  const SS_KEYS = { UNLOCK_UNTIL: "ALBA_ADMIN_UNLOCK_UNTIL_V1" };
+
+  function pad4(n){ return String(n).length>=4?String(n):("0000"+n).slice(-4); }
+  function nowTS(){ return Date.now(); }
+  function dateKey(ts){ const d=new Date(ts); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+  function todayKey(){ return dateKey(Date.now()); }
+  function fmtTS(ts){ const d=new Date(ts); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`; }
+  function toast(msg,type){ const el=document.getElementById("toast"); el.textContent=msg; el.className="toast show "+(type==="danger"?"danger":""); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove("show"),2200); }
+  function escapeHtml(s){ return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }
+  function normalizeCodeInput(v){ return (v||"").replace(/\D/g,"").slice(0,4); }
+
+  (function disableDoubleTapZoom(){ let lastTouchEnd=0; document.addEventListener('touchend',function(e){ const now=Date.now(); if(now-lastTouchEnd<=300)e.preventDefault(); lastTouchEnd=now; },{passive:false}); })();
 
 function getEmployees(){ return loadJSON(LS_KEYS.EMPLOYEES, []); }
 function setEmployees(list){ saveJSON(LS_KEYS.EMPLOYEES, list); }
