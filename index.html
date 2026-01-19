@@ -71,8 +71,6 @@
     .section{ display:none; }
     .section.active{ display:block; }
 
-    /* 키패드 관련 CSS 삭제됨 */
-
     .note{ margin-top:10px; color: var(--muted); font-size: 13px; line-height: 1.35; }
     .hr{ height:1px; background: var(--line); margin: 12px 0; }
 
@@ -134,7 +132,6 @@
     
     #syncStatus { position:fixed; top:5px; left:50%; transform:translateX(-50%); font-size:10px; color:white; background:rgba(0,0,0,0.5); padding:2px 8px; border-radius:10px; z-index:9999; }
     
-    /* 빠른 버튼 스타일 개선 (키패드 제거로 인한 확장) */
     #quickButtons { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
     #quickButtons .btn { height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 16px; }
     #quickButtons .btn .muted { font-size: 12px; font-weight: normal; }
@@ -428,18 +425,9 @@
     <h3 id="pinTitle">관리자 PIN</h3>
     <div class="muted" id="pinDesc">관리자 기능을 사용하려면 PIN을 입력하세요.</div>
     <div class="hr"></div>
-    <div id="pinSetupBlock" style="display:none;">
-      <label>새 PIN (숫자 4~8자리)</label><input id="pinNew" inputmode="numeric" autocomplete="off" placeholder="예) 1234" maxlength="8" />
-      <label style="margin-top:10px;">새 PIN 확인</label><input id="pinNew2" inputmode="numeric" autocomplete="off" placeholder="한 번 더 입력" maxlength="8" />
-    </div>
-    <div id="pinUnlockBlock" style="display:none;">
+    <div id="pinUnlockBlock">
       <label>PIN 입력</label><input id="pinInput" inputmode="numeric" autocomplete="off" placeholder="PIN" maxlength="8" />
       <div class="note">해제 후 <b>10분</b> 동안 관리자 기능이 열립니다.</div>
-    </div>
-    <div id="pinChangeBlock" style="display:none;">
-      <label>현재 PIN</label><input id="pinOld" inputmode="numeric" autocomplete="off" placeholder="현재 PIN" maxlength="8" />
-      <label style="margin-top:10px;">새 PIN (숫자 4~8자리)</label><input id="pinNewC" inputmode="numeric" autocomplete="off" placeholder="새 PIN" maxlength="8" />
-      <label style="margin-top:10px;">새 PIN 확인</label><input id="pinNewC2" inputmode="numeric" autocomplete="off" placeholder="새 PIN 확인" maxlength="8" />
     </div>
     <div class="modalActions">
       <button class="btn" id="pinCancel">취소</button>
@@ -459,9 +447,8 @@
       <button class="btn" id="btnRestoreJson">복원(JSON)</button>
       <button class="btn warn" id="btnExportCsv2">CSV 내보내기</button>
       <button class="btn bad" id="btnResetAll">전체 초기화</button>
-      <button class="btn" id="btnChangePin">관리자 PIN 변경</button>
       <button class="btn" id="btnLockAdmin">관리자 잠금</button>
-    </div>
+      </div>
     <div class="hr"></div><div class="hr"></div>
     <div class="muted" style="font-size:13px; font-weight:900;">마감 체크리스트 편집</div>
     <div class="row" style="margin-top:10px; gap:10px; flex-wrap:wrap;">
@@ -502,8 +489,7 @@
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
   let SERVER_CACHE = {}; 
-  let isInitialLoad = true;
-
+  
   onValue(ref(db, 'tamnaData'), (snapshot) => {
     const data = snapshot.val();
     if (data) {
@@ -521,19 +507,7 @@
           document.body.appendChild(status);
         }
         status.textContent = "● 서버 동기화됨";
-
-        // 서버 데이터 로드 후 PIN 체크 (최초 1회만 실행 또는 필요 시)
-        if(isInitialLoad){
-          isInitialLoad = false;
-          if(!hasPin()) showPinModal("setup");
-        }
       } catch(e) {}
-    } else {
-        // 데이터가 없을 경우 (첫 실행 등)
-        if(isInitialLoad){
-            isInitialLoad = false;
-            if(!hasPin()) showPinModal("setup");
-        }
     }
   });
 
@@ -581,52 +555,32 @@
   function addCloseCheckLog({code,name,items,extra}){ const list=getCloseCheckLogs(); const id=list.length?(list[list.length-1].id+1):1; list.push({id,date:dateKey(nowTS()),ts:nowTS(),code,name,items:items||[],extra:String(extra||"").trim()}); setCloseCheckLogs(list); }
   function addOutNote({code,name,text}){ const list=getOutNotes(); const id=list.length?(list[list.length-1].id+1):1; list.push({id,date:dateKey(nowTS()),ts:nowTS(),code,name,text:String(text||"").trim()}); setOutNotes(list); }
 
-  // PIN Logic Modified for Firebase Sync
-  function hasPin(){ return !!SERVER_CACHE[LS_KEYS.PIN_HASH] && !!SERVER_CACHE[LS_KEYS.PIN_SALT]; }
+  /* PIN Logic - Hardcoded 0721 */
+  function hasPin(){ return true; } // PIN is always "set"
   function isAdminUnlocked(){ const u=sessionStorage.getItem(SS_KEYS.UNLOCK_UNTIL); return u && Date.now()<Number(u); }
   function setAdminUnlocked(m=10){ sessionStorage.setItem(SS_KEYS.UNLOCK_UNTIL, String(Date.now()+m*60*1000)); updateAdminStateText(); }
   function lockAdmin(){ sessionStorage.removeItem(SS_KEYS.UNLOCK_UNTIL); updateAdminStateText(); }
-  function randomSalt(){ const a=new Uint8Array(16); crypto.getRandomValues(a); return Array.from(a).map(b=>b.toString(16).padStart(2,"0")).join(""); }
-  async function sha256Hex(s){ const d=new TextEncoder().encode(s); const b=await crypto.subtle.digest("SHA-256",d); return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join(""); }
-  async function verifyPin(p){ const s=SERVER_CACHE[LS_KEYS.PIN_SALT], h=SERVER_CACHE[LS_KEYS.PIN_HASH]; if(!s||!h)return false; return (await sha256Hex(`${s}:${p}`))===h; }
-  async function setPin(p){ const s=randomSalt(), h=await sha256Hex(`${s}:${p}`); saveJSON(LS_KEYS.PIN_SALT,s); saveJSON(LS_KEYS.PIN_HASH,h); }
+  function verifyPin(p){ return p === "0721"; } // Hardcoded check
 
   const pinOverlay=document.getElementById("pinOverlay");
-  let pinMode="unlock", pinResolve=null;
+  let pinResolve=null;
   function showPinModal(mode,opts={}){
-    pinMode=mode; document.getElementById("pinTitle").textContent=opts.title||(mode==="setup"?"관리자 PIN 설정":"관리자 PIN");
+    // Mode is ignored because only "unlock" is used now
+    document.getElementById("pinTitle").textContent=opts.title||"관리자 PIN";
     document.getElementById("pinDesc").textContent=opts.desc||"";
-    ["pinSetupBlock","pinUnlockBlock","pinChangeBlock"].forEach(id=>document.getElementById(id).style.display="none");
-    if(mode==="setup") document.getElementById("pinSetupBlock").style.display="block";
-    else if(mode==="change") document.getElementById("pinChangeBlock").style.display="block";
-    else document.getElementById("pinUnlockBlock").style.display="block";
-    ["pinNew","pinNew2","pinInput","pinOld","pinNewC","pinNewC2"].forEach(id=>{ const el=document.getElementById(id); if(el)el.value=""; });
-    pinOverlay.classList.add("show"); setTimeout(()=>document.getElementById(mode==="setup"?"pinNew":mode==="change"?"pinOld":"pinInput")?.focus(),50);
+    document.getElementById("pinInput").value="";
+    pinOverlay.classList.add("show"); setTimeout(()=>document.getElementById("pinInput")?.focus(),50);
     return new Promise(r=>{ pinResolve=r; });
   }
   function hidePinModal(res){ pinOverlay.classList.remove("show"); if(pinResolve){ pinResolve(res); pinResolve=null; } }
   document.getElementById("pinCancel").addEventListener("click",()=>hidePinModal({ok:false}));
   pinOverlay.addEventListener("click",e=>{if(e.target===pinOverlay)hidePinModal({ok:false});});
-  document.getElementById("pinOk").addEventListener("click",async()=>{
-    if(pinMode==="setup"){
-      const p1=(document.getElementById("pinNew").value||"").replace(/\D/g,"");
-      if(p1.length<4||p1.length>8)return toast("4~8자리 숫자");
-      if(p1!==(document.getElementById("pinNew2").value||"").replace(/\D/g,""))return toast("불일치");
-      await setPin(p1); setAdminUnlocked(); toast("설정 완료"); hidePinModal({ok:true});
-    }else if(pinMode==="unlock"){
-      const p=(document.getElementById("pinInput").value||"").replace(/\D/g,"");
-      if(await verifyPin(p)){ setAdminUnlocked(); toast("해제됨"); hidePinModal({ok:true}); } else toast("PIN 오류");
-    }else if(pinMode==="change"){
-      const o=(document.getElementById("pinOld").value||"").replace(/\D/g,"");
-      const n=(document.getElementById("pinNewC").value||"").replace(/\D/g,"");
-      if(!await verifyPin(o))return toast("현재 PIN 오류");
-      if(n.length<4||n.length>8)return toast("새 PIN 4~8자리");
-      if(n!==(document.getElementById("pinNewC2").value||"").replace(/\D/g,""))return toast("불일치");
-      await setPin(n); setAdminUnlocked(); toast("변경 완료"); hidePinModal({ok:true});
-    }
+  document.getElementById("pinOk").addEventListener("click",()=>{
+    const p=(document.getElementById("pinInput").value||"").replace(/\D/g,"");
+    if(verifyPin(p)){ setAdminUnlocked(); toast("해제됨"); hidePinModal({ok:true}); } else toast("PIN 오류 (0721)");
   });
+
   async function ensureAdmin(r="관리자 기능"){
-    if(!hasPin()){ await showPinModal("setup"); return isAdminUnlocked(); }
     if(isAdminUnlocked()) return true;
     const res=await showPinModal("unlock",{desc:`${r}을(를) 위해 PIN 입력`}); return !!res.ok && isAdminUnlocked();
   }
@@ -661,7 +615,6 @@
   document.getElementById("goLog").addEventListener("click",()=>{ if(isAdminUnlocked()){adminMenuOverlay.classList.remove("show"); showSection("sec-log");}else toast("PIN 필요"); });
   document.getElementById("btnBackFromEmp").addEventListener("click",()=>showSection("sec-att"));
   document.getElementById("btnBackFromLog").addEventListener("click",()=>showSection("sec-att"));
-  document.getElementById("btnChangePin").addEventListener("click",async()=>{ if(await ensureAdmin("PIN 변경")){ adminMenuOverlay.classList.remove("show"); await showPinModal("change"); } });
   document.getElementById("btnSaveTodayNotice").addEventListener("click",async()=>{ if(await ensureAdmin("공지 저장")){ setTodayNotice(document.getElementById("adminNoticeInput").value); toast("저장됨"); } });
   document.getElementById("btnClearTodayNotice").addEventListener("click",async()=>{ if(await ensureAdmin("공지 지우기")){ clearTodayNotice(); document.getElementById("adminNoticeInput").value=""; toast("지워짐"); } });
   let logoTap=0, logoT;
@@ -743,7 +696,6 @@
   }
   attCode.addEventListener("input",onCodeChanged);
   document.getElementById("btnClearCode").addEventListener("click",()=>{attCode.value="";onCodeChanged();});
-  // 키패드 리스너 제거됨
 
   document.getElementById("btnIn").addEventListener("click",async()=>{
     const c=attCode.value; if(c.length!==4)return toast("알바생을 선택해주세요");
@@ -753,28 +705,24 @@
     addLog({code:c,name:e.name,type:"IN"}); toast(`${e.name} 출근`); renderAttendancePanel();
   });
   
-  // 퇴근 로직 수정: 체크리스트 내용은 로그(logTable)에만 저장하고 특이사항(outNoteTable)에는 저장하지 않음
   document.getElementById("btnOut").addEventListener("click",async()=>{
     const c=attCode.value; if(c.length!==4)return toast("알바생을 선택해주세요");
     const e=findEmpByCode(c); if(!e)return toast("미등록 코드");
     if(!canClockOut(c))return toast("출근 기록 없음");
     
-    let manualNote = await askOutNote(); // 사용자가 직접 입력한 특이사항 (누락/환불 등)
+    let manualNote = await askOutNote();
     let checklistLogStr = "";
 
     if(e.shiftType==="CLOSE"){
       const res=await openCloseCheckModal(getCloseChecklist());
       if(!res.skip){
         addCloseCheckLog({code:c,name:e.name,items:res.items,extra:res.extra});
-        // 마감체크 텍스트 생성
         checklistLogStr = `[마감체크] ${res.items.join("/")} ${res.extra?"| "+res.extra:""}`;
       }
     }
 
-    // 특이사항 테이블에는 '수기 입력 내용'만 저장
     if(manualNote) addOutNote({code:c, name:e.name, text:manualNote});
 
-    // 메인 로그에는 '수기 입력 내용' + '마감 체크리스트 내용' 모두 저장
     let combinedNote = "";
     if(manualNote && checklistLogStr) combinedNote = manualNote + "\n" + checklistLogStr;
     else if(manualNote) combinedNote = manualNote;
@@ -1031,7 +979,7 @@
   document.getElementById("btnSaveCloseChecklist").addEventListener("click",()=>{ const l=Array.from(document.querySelectorAll(".admCLInput")).map(i=>i.value.trim()).filter(Boolean); setCloseChecklist(l); toast("저장됨"); renderAdminCloseChecklist(); });
   document.getElementById("btnResetCloseChecklist").addEventListener("click",()=>{ localStorage.removeItem(LS_KEYS.CLOSE_CHECKLIST); renderAdminCloseChecklist(); });
 
-  (async()=>{ if(!hasPin())await showPinModal("setup"); renderAttendancePanel(); updateAdminStateText(); })();
+  (async()=>{ renderAttendancePanel(); updateAdminStateText(); })();
 </script>
 </body>
 </html>
