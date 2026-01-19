@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <title>탐나는피자 화성남양점</title>
+  <title>탐나피자 관리자 (서버동기화)</title>
   <style>
+    /* 화이트 테마 설정 */
     :root{
       --bg: #f4f6f9; --panel: #ffffff; --panel2: #f8f9fa;
       --text: #2c3e50; --muted: #8395a7; --line: #dcdde1;
@@ -66,7 +67,6 @@
     .tag.in{ border-color: transparent; color: #fff; background: var(--good); }
     .tag.out{ border-color: transparent; color: #fff; background: var(--bad); }
     .tag.open{ border-color: transparent; color: #fff; background: var(--warn); }
-    /* 주휴수당 태그 스타일 추가 */
     .tag.juhyu { border-color: transparent; color: #d35400; background: rgba(230, 126, 34, 0.15); margin-top: 2px; width: 100%; }
 
     .section{ display:none; }
@@ -131,7 +131,6 @@
     .calPay{ font-size: 11px; color: var(--good); font-weight: 700; display:block; margin-top:2px; }
     .calDay:hover{ background: #f8f9fa !important; }
 
-    /* 총 급여 표시 박스 */
     .totalWageBox { background: var(--panel2); border: 2px solid var(--accent); border-radius: 14px; padding: 16px; text-align:center; margin-bottom: 14px; display:flex; flex-direction:column; align-items:center; gap:4px; }
     .totalWageLabel { color: var(--muted); font-size: 13px; font-weight: 800; }
     .totalWageValue { color: var(--text); font-size: 20px; font-weight: 900; }
@@ -799,7 +798,7 @@ document.getElementById("empSearch").addEventListener("input",renderEmployees);
 function renderEmployees(){
   document.getElementById("nextCodeHint").textContent=`다음 코드: ${nextAvailableCode()}`;
   const q=document.getElementById("empSearch").value.toLowerCase(), emps=getEmployees().filter(e=>e.code.includes(q)||e.name.toLowerCase().includes(q));
-  document.getElementById("empTable").innerHTML=emps.length?emps.map(e=>`<tr><td><span class="tag open">${e.code}</span></td><td>${escapeHtml(e.name)}</td><td class="muted typeCell">${e.shiftType==="CLOSE"?"마감":"미들"}</td><td class="muted">${(e.wage||0).toLocaleString()}</td><td class="muted timeCell">${e.workStart}~${e.workEnd}</td><td style="text-align:right;"><button class="btn small" onclick="editEmp('${e.code}')">수정</button> <button class="btn small bad" onclick="delEmp('${e.code}')">삭제</button></td></tr>`).join("") : `<tr><td colspan="6" class="muted">없음</td></tr>`;
+  document.getElementById("empTable").innerHTML=emps.length?emps.map(e=>`<tr><td><span class="tag open">${e.code}</span></td><td>${escapeHtml(e.name)}</td><td class="muted typeCell">${e.shiftType==="CLOSE"?"마감":"미들"}</td><td class="muted">${(e.wage||0).toLocaleString()}</td><td class="muted timeCell">${e.workStart}~${e.workEnd}</td><td style="text-align:right;"><button class="btn small" onclick="window.editEmp('${e.code}')">수정</button> <button class="btn small bad" onclick="window.delEmp('${e.code}')">삭제</button></td></tr>`).join("") : `<tr><td colspan="6" class="muted">없음</td></tr>`;
 }
 window.delEmp=async(c)=>{ if(await ensureAdmin("삭제") && confirm("삭제할까요?")){ const l=getEmployees().filter(e=>e.code!==c); setEmployees(l); toast("삭제됨"); renderEmployees(); renderQuickButtons(); } };
 window.editEmp=async(c)=>{ if(!await ensureAdmin("수정"))return; const e=findEmpByCode(c); if(!e)return; document.getElementById("empEditCode").value=e.code; document.getElementById("empEditName").value=e.name; document.getElementById("empEditShiftType").value=e.shiftType||"MID"; document.getElementById("empEditWage").value=e.wage||""; document.getElementById("empEditMemo").value=e.memo||""; document.getElementById("empEditWorkStart").value=e.workStart||"17:00"; document.getElementById("empEditWorkEnd").value=e.workEnd||"23:30"; document.getElementById("empEditOverlay").classList.add("show"); };
@@ -963,8 +962,10 @@ function renderLogAll(){
     if(!tags) return note.length > 10 ? note.slice(0,10)+"..." : note;
     return tags;
   };
-  // 삭제 버튼 제거됨
-  document.getElementById("logTable").innerHTML=list.slice().reverse().map(l=>`<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name||"")}</td><td>${fmtTS(l.ts)}</td><td>${makeNoteTag(l.note)}</td><td><button class="btn small" onclick="editLog(${l.id})">수정</button></td></tr>`).join("")||`<tr><td colspan="6" class="muted">기록 없음</td></tr>`;
+  
+  // [수정됨] 삭제 버튼을 없애고 수정 버튼만 남김
+  document.getElementById("logTable").innerHTML=list.slice().reverse().map(l=>`<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name||"")}</td><td>${fmtTS(l.ts)}</td><td>${makeNoteTag(l.note)}</td><td><button class="btn small" onclick="window.editLog(${l.id})">수정</button></td></tr>`).join("")||`<tr><td colspan="6" class="muted">기록 없음</td></tr>`;
+  
   const ons=getOutNotes().slice().reverse().filter(x=>!f||x.code===f);
   document.getElementById("outNoteTable").innerHTML=ons.map((x,i)=>`<tr><td>${ons.length-i}</td><td>${x.date}</td><td>${x.code}</td><td>${escapeHtml(x.name)}</td><td>${fmtTS(x.ts)}</td><td>${escapeHtml(x.text)}</td></tr>`).join("");
   const cls=getCloseCheckLogs().slice().reverse().filter(x=>!f||x.code===f);
