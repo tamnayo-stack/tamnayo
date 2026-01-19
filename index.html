@@ -488,7 +488,6 @@
       <button class="btn" id="btnClearTodayNotice">오늘 공지 비우기</button>
     </div>
     <div class="modalActions"><button class="btn" id="adminMenuClose">닫기</button></div>
-    <div class="note">• 로고를 5번 탭하면 관리자 메뉴가 열립니다.</div>
   </div>
 </div>
 
@@ -670,7 +669,7 @@
     const t=getTodayNotice(); if(!t) return true;
     document.getElementById("noticeText").textContent=t; document.getElementById("noticeDateText").textContent=`${todayKey()} 공지`;
     const btn=document.getElementById("noticeOk"), num=document.getElementById("noticeNum");
-    btn.disabled=true; noticeOverlay.classList.add("show"); num.textContent="5"; setRingProgress(0);
+    btn.disabled=true; noticeOverlay.classList.add("show"); num.textContent="2"; setRingProgress(0);
     return new Promise(r=>{
       let s=Date.now(), tm=setInterval(()=>{
         const e=(Date.now()-s)/1000, p=Math.min(1,e/5); setRingProgress(p);
@@ -1018,4 +1017,5 @@
 </script>
 </body>
 </html>
+
 
