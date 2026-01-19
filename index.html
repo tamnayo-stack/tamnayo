@@ -5,9 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <title>탐나피자 관리자 (서버동기화)</title>
+  <title>탐나피자 관리자 (최종완성)</title>
   <style>
-    /* 화이트 테마 설정 */
     :root{
       --bg: #f4f6f9; --panel: #ffffff; --panel2: #f8f9fa;
       --text: #2c3e50; --muted: #8395a7; --line: #dcdde1;
@@ -135,10 +134,13 @@
     .totalWageLabel { color: var(--muted); font-size: 13px; font-weight: 800; }
     .totalWageValue { color: var(--text); font-size: 20px; font-weight: 900; }
     .totalWageDetail { color: var(--good); font-size: 13px; font-weight: 700; }
+    
+    #syncStatus { position:fixed; top:5px; left:50%; transform:translateX(-50%); font-size:10px; color:white; background:rgba(0,0,0,0.5); padding:2px 8px; border-radius:10px; z-index:9999; }
   </style>
 </head>
 
 <body>
+<div id="syncStatus">서버 연결 중...</div>
 <header>
   <div class="topbar">
     <div class="brand">
@@ -192,7 +194,7 @@
             <tbody id="recentTable"></tbody>
           </table>
         </div>
-        <div class="note">최근 기록은 이 아이패드에서 찍힌 내역입니다.</div>
+        <div class="note">최근 기록은 참고용입니다.</div>
       </div>
     </div>
   </section>
@@ -210,14 +212,17 @@
           </div>
           <div class="split" style="margin-top:10px;">
             <div><label>근무 구분</label><select id="empShiftType"><option value="MID">미들</option><option value="CLOSE">마감</option></select></div>
-            <div><label>시급 (원)</label><input id="empWage" type="number" placeholder="예) 10030" inputmode="numeric" /></div>
+            <div><label>평일 시급</label><input id="empWage" type="number" placeholder="예) 10030" inputmode="numeric" /></div>
+          </div>
+          <div class="split" style="margin-top:10px;">
+            <div><label style="color:var(--warn)">주말 시급 (토,일)</label><input id="empWageWeekend" type="number" placeholder="선택 (비워두면 평일동일)" inputmode="numeric" /></div>
+            <div></div>
           </div>
           <div class="split" style="margin-top:10px;">
             <div><label>근무 시작 시간</label><input id="empWorkStart" type="time" value="17:00" /></div>
             <div><label>근무 종료 시간</label><input id="empWorkEnd" type="time" value="23:30" /></div>
           </div>
           <div class="row" style="margin-top:10px;"><button class="btn primary" id="btnAddEmp">등록</button><span class="muted" id="nextCodeHint"></span></div>
-          <div class="note" style="margin-top:6px;">• 마감은 퇴근이 계약 종료보다 빨라도 근무로 계산 (조퇴 제외)</div>
         </div>
         <div class="card" style="box-shadow:none;">
           <h2>알바생 조회 / 삭제</h2>
@@ -227,7 +232,7 @@
           </div>
           <div style="overflow:auto; max-height: 520px;">
             <table>
-              <thead><tr><th style="width:90px;">코드</th><th class="nameCell" style="width:160px;">이름</th><th style="width:90px;">구분</th><th>시급</th><th>근무시간</th><th style="width:110px;">삭제</th></tr></thead>
+              <thead><tr><th style="width:90px;">코드</th><th class="nameCell" style="width:160px;">이름</th><th style="width:90px;">구분</th><th>시급(평/주)</th><th>근무시간</th><th style="width:110px;">삭제</th></tr></thead>
               <tbody id="empTable"></tbody>
             </table>
           </div>
@@ -340,9 +345,13 @@
         <select id="empEditShiftType"><option value="MID">미들</option><option value="CLOSE">마감</option></select>
       </div>
       <div>
-        <label>시급</label>
+        <label>평일 시급</label>
         <input id="empEditWage" type="number" placeholder="숫자만 입력" />
       </div>
+    </div>
+    <div class="split" style="margin-top:10px;">
+      <div><label style="color:var(--warn)">주말 시급 (토,일)</label><input id="empEditWageWeekend" type="number" placeholder="선택" /></div>
+      <div></div>
     </div>
     <label>메모</label>
     <input id="empEditMemo" placeholder="메모(선택)" maxlength="30" />
@@ -486,9 +495,6 @@
 <input id="restoreInput" type="file" accept="application/json" style="display:none;" />
 
 <script type="module">
-/* =========================================
-     [1] 파이어베이스 연결 설정 (서버 연동)
-     ========================================= */
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
@@ -503,27 +509,22 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
-
-  // 서버 데이터를 임시로 담아둘 변수
   let SERVER_CACHE = {}; 
 
-  // 1. 서버에서 데이터가 바뀌면 화면을 자동으로 고침
   onValue(ref(db, 'tamnaData'), (snapshot) => {
     const data = snapshot.val();
     if (data) {
       SERVER_CACHE = data;
-      // 화면 갱신 함수들이 있으면 실행
       try {
         if(typeof renderAttendancePanel === 'function') renderAttendancePanel();
         if(typeof renderLogAll === 'function') renderLogAll();
         if(typeof renderEmployees === 'function') renderEmployees();
         
-        // 동기화 상태 표시 (화면 오른쪽 위)
         let status = document.getElementById('syncStatus');
         if(!status) {
           status = document.createElement('div');
           status.id = 'syncStatus';
-          status.style.cssText = "position:fixed; top:5px; right:5px; font-size:10px; color:#27ae60; z-index:9999; background:rgba(255,255,255,0.8); padding:2px 6px; border-radius:4px;";
+          status.style.cssText = "position:fixed; top:5px; right:5px; font-size:10px; color:#fff; z-index:9999; background:rgba(0,0,0,0.5); padding:2px 6px; border-radius:4px;";
           document.body.appendChild(status);
         }
         status.textContent = "● 서버 동기화됨";
@@ -531,20 +532,15 @@
     }
   });
 
-  // 2. 저장 함수 바꿔치기 (내 폰 -> 서버)
   window.saveJSON = async function(key, val) {
     SERVER_CACHE[key] = val;
     await set(ref(db, 'tamnaData'), SERVER_CACHE);
   };
 
-  // 3. 불러오기 함수 바꿔치기 (내 폰 -> 서버)
   window.loadJSON = function(key, fallback) {
     return SERVER_CACHE[key] ? SERVER_CACHE[key] : fallback;
   };
 
-  /* =========================================
-     [2] 필수 도구들 (절대 지우면 안 됨! 다시 복구해둠)
-     ========================================= */
   const LS_KEYS = { DAILY_NOTICE: "ALBA_DAILY_NOTICE_V1", OUT_NOTES: "ALBA_OUT_NOTES_V1", CLOSE_CHECKLIST: "ALBA_CLOSE_CHECKLIST_V1", CLOSE_CHECK_LOGS: "ALBA_CLOSE_CHECK_LOGS_V1", EMPLOYEES: "ALBA_EMPLOYEES_V2", NEXT_ID: "ALBA_NEXT_EMP_ID_V2", ATT_LOGS: "ALBA_ATT_LOGS_V2", PIN_HASH: "ALBA_ADMIN_PIN_HASH_V1", PIN_SALT: "ALBA_ADMIN_PIN_SALT_V1" };
   const SS_KEYS = { UNLOCK_UNTIL: "ALBA_ADMIN_UNLOCK_UNTIL_V1" };
 
@@ -559,443 +555,466 @@
 
   (function disableDoubleTapZoom(){ let lastTouchEnd=0; document.addEventListener('touchend',function(e){ const now=Date.now(); if(now-lastTouchEnd<=300)e.preventDefault(); lastTouchEnd=now; },{passive:false}); })();
 
-function getEmployees(){ return loadJSON(LS_KEYS.EMPLOYEES, []); }
-function setEmployees(list){ saveJSON(LS_KEYS.EMPLOYEES, list); }
-function getNextEmpId(){ const v=localStorage.getItem(LS_KEYS.NEXT_ID); const n=v?Number(v):1; return Number.isFinite(n)&&n>=1?Math.floor(n):1; }
-function setNextEmpId(n){ localStorage.setItem(LS_KEYS.NEXT_ID, String(n)); }
-function getLogs(){ return loadJSON(LS_KEYS.ATT_LOGS, []); }
-function setLogs(list){ saveJSON(LS_KEYS.ATT_LOGS, list); }
-function findEmpByCode(code){ return getEmployees().find(e=>e.code===code)||null; }
-function getNoticeMap(){ return loadJSON(LS_KEYS.DAILY_NOTICE, {}); }
-function setNoticeMap(map){ saveJSON(LS_KEYS.DAILY_NOTICE, map); }
-function getTodayNotice(){ return getNoticeMap()[todayKey()]?.text || ""; }
-function setTodayNotice(text){ const m=getNoticeMap(); m[todayKey()]={text:String(text||""), updatedAt:nowTS()}; setNoticeMap(m); }
-function clearTodayNotice(){ const m=getNoticeMap(); delete m[todayKey()]; setNoticeMap(m); }
-function getOutNotes(){ return loadJSON(LS_KEYS.OUT_NOTES, []); }
-function setOutNotes(list){ saveJSON(LS_KEYS.OUT_NOTES, list); }
-function getCloseChecklist(){ const def=["가스/전기 확인","쓰레기/재활용 정리","냉장고 정리","매장 불/에어컨 OFF","마감 청소 완료"]; const list=loadJSON(LS_KEYS.CLOSE_CHECKLIST, null); return Array.isArray(list)&&list.length?list:def; }
-function setCloseChecklist(list){ saveJSON(LS_KEYS.CLOSE_CHECKLIST, list); }
-function getCloseCheckLogs(){ return loadJSON(LS_KEYS.CLOSE_CHECK_LOGS, []); }
-function setCloseCheckLogs(list){ saveJSON(LS_KEYS.CLOSE_CHECK_LOGS, list); }
-function addCloseCheckLog({code,name,items,extra}){ const list=getCloseCheckLogs(); const id=list.length?(list[list.length-1].id+1):1; list.push({id,date:dateKey(nowTS()),ts:nowTS(),code,name,items:items||[],extra:String(extra||"").trim()}); setCloseCheckLogs(list); }
-function addOutNote({code,name,text}){ const list=getOutNotes(); const id=list.length?(list[list.length-1].id+1):1; list.push({id,date:dateKey(nowTS()),ts:nowTS(),code,name,text:String(text||"").trim()}); setOutNotes(list); }
+  function getEmployees(){ return loadJSON(LS_KEYS.EMPLOYEES, []); }
+  function setEmployees(list){ saveJSON(LS_KEYS.EMPLOYEES, list); }
+  function getNextEmpId(){ const v=localStorage.getItem(LS_KEYS.NEXT_ID); const n=v?Number(v):1; return Number.isFinite(n)&&n>=1?Math.floor(n):1; }
+  function setNextEmpId(n){ localStorage.setItem(LS_KEYS.NEXT_ID, String(n)); }
+  function getLogs(){ return loadJSON(LS_KEYS.ATT_LOGS, []); }
+  function setLogs(list){ saveJSON(LS_KEYS.ATT_LOGS, list); }
+  function findEmpByCode(code){ return getEmployees().find(e=>e.code===code)||null; }
+  function getNoticeMap(){ return loadJSON(LS_KEYS.DAILY_NOTICE, {}); }
+  function setNoticeMap(map){ saveJSON(LS_KEYS.DAILY_NOTICE, map); }
+  function getTodayNotice(){ return getNoticeMap()[todayKey()]?.text || ""; }
+  function setTodayNotice(text){ const m=getNoticeMap(); m[todayKey()]={text:String(text||""), updatedAt:nowTS()}; setNoticeMap(m); }
+  function clearTodayNotice(){ const m=getNoticeMap(); delete m[todayKey()]; setNoticeMap(m); }
+  function getOutNotes(){ return loadJSON(LS_KEYS.OUT_NOTES, []); }
+  function setOutNotes(list){ saveJSON(LS_KEYS.OUT_NOTES, list); }
+  function getCloseChecklist(){ const def=["가스/전기 확인","쓰레기/재활용 정리","냉장고 정리","매장 불/에어컨 OFF","마감 청소 완료"]; const list=loadJSON(LS_KEYS.CLOSE_CHECKLIST, null); return Array.isArray(list)&&list.length?list:def; }
+  function setCloseChecklist(list){ saveJSON(LS_KEYS.CLOSE_CHECKLIST, list); }
+  function getCloseCheckLogs(){ return loadJSON(LS_KEYS.CLOSE_CHECK_LOGS, []); }
+  function setCloseCheckLogs(list){ saveJSON(LS_KEYS.CLOSE_CHECK_LOGS, list); }
+  function addCloseCheckLog({code,name,items,extra}){ const list=getCloseCheckLogs(); const id=list.length?(list[list.length-1].id+1):1; list.push({id,date:dateKey(nowTS()),ts:nowTS(),code,name,items:items||[],extra:String(extra||"").trim()}); setCloseCheckLogs(list); }
+  function addOutNote({code,name,text}){ const list=getOutNotes(); const id=list.length?(list[list.length-1].id+1):1; list.push({id,date:dateKey(nowTS()),ts:nowTS(),code,name,text:String(text||"").trim()}); setOutNotes(list); }
 
-function hasPin(){ return !!localStorage.getItem(LS_KEYS.PIN_HASH) && !!localStorage.getItem(LS_KEYS.PIN_SALT); }
-function isAdminUnlocked(){ const u=sessionStorage.getItem(SS_KEYS.UNLOCK_UNTIL); return u && Date.now()<Number(u); }
-function setAdminUnlocked(m=10){ sessionStorage.setItem(SS_KEYS.UNLOCK_UNTIL, String(Date.now()+m*60*1000)); updateAdminStateText(); }
-function lockAdmin(){ sessionStorage.removeItem(SS_KEYS.UNLOCK_UNTIL); updateAdminStateText(); }
-function randomSalt(){ const a=new Uint8Array(16); crypto.getRandomValues(a); return Array.from(a).map(b=>b.toString(16).padStart(2,"0")).join(""); }
-async function sha256Hex(s){ const d=new TextEncoder().encode(s); const b=await crypto.subtle.digest("SHA-256",d); return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join(""); }
-async function verifyPin(p){ const s=localStorage.getItem(LS_KEYS.PIN_SALT), h=localStorage.getItem(LS_KEYS.PIN_HASH); if(!s||!h)return false; return (await sha256Hex(`${s}:${p}`))===h; }
-async function setPin(p){ const s=randomSalt(), h=await sha256Hex(`${s}:${p}`); localStorage.setItem(LS_KEYS.PIN_SALT,s); localStorage.setItem(LS_KEYS.PIN_HASH,h); }
+  function hasPin(){ return !!localStorage.getItem(LS_KEYS.PIN_HASH) && !!localStorage.getItem(LS_KEYS.PIN_SALT); }
+  function isAdminUnlocked(){ const u=sessionStorage.getItem(SS_KEYS.UNLOCK_UNTIL); return u && Date.now()<Number(u); }
+  function setAdminUnlocked(m=10){ sessionStorage.setItem(SS_KEYS.UNLOCK_UNTIL, String(Date.now()+m*60*1000)); updateAdminStateText(); }
+  function lockAdmin(){ sessionStorage.removeItem(SS_KEYS.UNLOCK_UNTIL); updateAdminStateText(); }
+  function randomSalt(){ const a=new Uint8Array(16); crypto.getRandomValues(a); return Array.from(a).map(b=>b.toString(16).padStart(2,"0")).join(""); }
+  async function sha256Hex(s){ const d=new TextEncoder().encode(s); const b=await crypto.subtle.digest("SHA-256",d); return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join(""); }
+  async function verifyPin(p){ const s=localStorage.getItem(LS_KEYS.PIN_SALT), h=localStorage.getItem(LS_KEYS.PIN_HASH); if(!s||!h)return false; return (await sha256Hex(`${s}:${p}`))===h; }
+  async function setPin(p){ const s=randomSalt(), h=await sha256Hex(`${s}:${p}`); localStorage.setItem(LS_KEYS.PIN_SALT,s); localStorage.setItem(LS_KEYS.PIN_HASH,h); }
 
-const pinOverlay=document.getElementById("pinOverlay");
-let pinMode="unlock", pinResolve=null;
-function showPinModal(mode,opts={}){
-  pinMode=mode; document.getElementById("pinTitle").textContent=opts.title||(mode==="setup"?"관리자 PIN 설정":"관리자 PIN");
-  document.getElementById("pinDesc").textContent=opts.desc||"";
-  ["pinSetupBlock","pinUnlockBlock","pinChangeBlock"].forEach(id=>document.getElementById(id).style.display="none");
-  if(mode==="setup") document.getElementById("pinSetupBlock").style.display="block";
-  else if(mode==="change") document.getElementById("pinChangeBlock").style.display="block";
-  else document.getElementById("pinUnlockBlock").style.display="block";
-  ["pinNew","pinNew2","pinInput","pinOld","pinNewC","pinNewC2"].forEach(id=>{ const el=document.getElementById(id); if(el)el.value=""; });
-  pinOverlay.classList.add("show"); setTimeout(()=>document.getElementById(mode==="setup"?"pinNew":mode==="change"?"pinOld":"pinInput")?.focus(),50);
-  return new Promise(r=>{ pinResolve=r; });
-}
-function hidePinModal(res){ pinOverlay.classList.remove("show"); if(pinResolve){ pinResolve(res); pinResolve=null; } }
-document.getElementById("pinCancel").addEventListener("click",()=>hidePinModal({ok:false}));
-pinOverlay.addEventListener("click",e=>{if(e.target===pinOverlay)hidePinModal({ok:false});});
-document.getElementById("pinOk").addEventListener("click",async()=>{
-  if(pinMode==="setup"){
-    const p1=(document.getElementById("pinNew").value||"").replace(/\D/g,"");
-    if(p1.length<4||p1.length>8)return toast("4~8자리 숫자");
-    if(p1!==(document.getElementById("pinNew2").value||"").replace(/\D/g,""))return toast("불일치");
-    await setPin(p1); setAdminUnlocked(); toast("설정 완료"); hidePinModal({ok:true});
-  }else if(pinMode==="unlock"){
-    const p=(document.getElementById("pinInput").value||"").replace(/\D/g,"");
-    if(await verifyPin(p)){ setAdminUnlocked(); toast("해제됨"); hidePinModal({ok:true}); } else toast("PIN 오류");
-  }else if(pinMode==="change"){
-    const o=(document.getElementById("pinOld").value||"").replace(/\D/g,"");
-    const n=(document.getElementById("pinNewC").value||"").replace(/\D/g,"");
-    if(!await verifyPin(o))return toast("현재 PIN 오류");
-    if(n.length<4||n.length>8)return toast("새 PIN 4~8자리");
-    if(n!==(document.getElementById("pinNewC2").value||"").replace(/\D/g,""))return toast("불일치");
-    await setPin(n); setAdminUnlocked(); toast("변경 완료"); hidePinModal({ok:true});
+  const pinOverlay=document.getElementById("pinOverlay");
+  let pinMode="unlock", pinResolve=null;
+  function showPinModal(mode,opts={}){
+    pinMode=mode; document.getElementById("pinTitle").textContent=opts.title||(mode==="setup"?"관리자 PIN 설정":"관리자 PIN");
+    document.getElementById("pinDesc").textContent=opts.desc||"";
+    ["pinSetupBlock","pinUnlockBlock","pinChangeBlock"].forEach(id=>document.getElementById(id).style.display="none");
+    if(mode==="setup") document.getElementById("pinSetupBlock").style.display="block";
+    else if(mode==="change") document.getElementById("pinChangeBlock").style.display="block";
+    else document.getElementById("pinUnlockBlock").style.display="block";
+    ["pinNew","pinNew2","pinInput","pinOld","pinNewC","pinNewC2"].forEach(id=>{ const el=document.getElementById(id); if(el)el.value=""; });
+    pinOverlay.classList.add("show"); setTimeout(()=>document.getElementById(mode==="setup"?"pinNew":mode==="change"?"pinOld":"pinInput")?.focus(),50);
+    return new Promise(r=>{ pinResolve=r; });
   }
-});
-async function ensureAdmin(r="관리자 기능"){
-  if(!hasPin()){ await showPinModal("setup"); return isAdminUnlocked(); }
-  if(isAdminUnlocked()) return true;
-  const res=await showPinModal("unlock",{desc:`${r}을(를) 위해 PIN 입력`}); return !!res.ok && isAdminUnlocked();
-}
-
-function showSection(id){
-  document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
-  document.getElementById(id)?.classList.add("active");
-  if(id==="sec-att") renderAttendancePanel();
-  if(id==="sec-emp") renderEmployees();
-  if(id==="sec-log"){ renderLogFilterOptions(); renderLogAll(); }
-}
-function tickClock(){
-  const d=new Date(); document.getElementById("nowTime").textContent=`${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
-  document.getElementById("nowDate").textContent=`${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${["일","월","화","수","목","금","토"][d.getDay()]})`;
-}
-setInterval(tickClock,250); tickClock();
-
-const adminMenuOverlay=document.getElementById("adminMenuOverlay");
-function updateAdminStateText(){
-  if(!isAdminUnlocked()){ document.getElementById("adminStateText").textContent="상태: 잠금 (PIN 필요)"; return; }
-  const ms=Math.max(0,Number(sessionStorage.getItem(SS_KEYS.UNLOCK_UNTIL)||0)-Date.now());
-  document.getElementById("adminStateText").textContent=`상태: 해제됨 (${Math.floor(ms/60000)}m ${String(Math.floor((ms%60000)/1000)).padStart(2,"0")}s)`;
-}
-setInterval(updateAdminStateText,500); updateAdminStateText();
-function openAdminMenu(){
-  document.getElementById("adminNoticeInput").value=getTodayNotice(); renderAdminCloseChecklist();
-  adminMenuOverlay.classList.add("show"); updateAdminStateText();
-}
-document.getElementById("adminMenuClose").addEventListener("click",()=>adminMenuOverlay.classList.remove("show"));
-document.getElementById("btnLockAdmin").addEventListener("click",()=>{ lockAdmin(); toast("잠금 완료"); adminMenuOverlay.classList.remove("show"); showSection("sec-att"); });
-document.getElementById("goEmp").addEventListener("click",()=>{ if(isAdminUnlocked()){adminMenuOverlay.classList.remove("show"); showSection("sec-emp");}else toast("PIN 필요"); });
-document.getElementById("goLog").addEventListener("click",()=>{ if(isAdminUnlocked()){adminMenuOverlay.classList.remove("show"); showSection("sec-log");}else toast("PIN 필요"); });
-document.getElementById("btnBackFromEmp").addEventListener("click",()=>showSection("sec-att"));
-document.getElementById("btnBackFromLog").addEventListener("click",()=>showSection("sec-att"));
-document.getElementById("btnChangePin").addEventListener("click",async()=>{ if(await ensureAdmin("PIN 변경")){ adminMenuOverlay.classList.remove("show"); await showPinModal("change"); } });
-document.getElementById("btnSaveTodayNotice").addEventListener("click",async()=>{ if(await ensureAdmin("공지 저장")){ setTodayNotice(document.getElementById("adminNoticeInput").value); toast("저장됨"); } });
-document.getElementById("btnClearTodayNotice").addEventListener("click",async()=>{ if(await ensureAdmin("공지 지우기")){ clearTodayNotice(); document.getElementById("adminNoticeInput").value=""; toast("지워짐"); } });
-let logoTap=0, logoT;
-document.getElementById("logoImg").addEventListener("click",async()=>{
-  logoTap++; clearTimeout(logoT); logoT=setTimeout(()=>{logoTap=0},1300);
-  if(logoTap>=5){ logoTap=0; if(await ensureAdmin("관리자 메뉴")) openAdminMenu(); }
-});
-
-const noticeOverlay=document.getElementById("noticeOverlay");
-function setRingProgress(p){ const c=2*Math.PI*30; document.getElementById("noticeRing").style.strokeDasharray=`${c}`; document.getElementById("noticeRing").style.strokeDashoffset=`${c*(1-p)}`; }
-async function showNoticeCountdownIfAny(){
-  const t=getTodayNotice(); if(!t) return true;
-  document.getElementById("noticeText").textContent=t; document.getElementById("noticeDateText").textContent=`${todayKey()} 공지`;
-  const btn=document.getElementById("noticeOk"), num=document.getElementById("noticeNum");
-  btn.disabled=true; noticeOverlay.classList.add("show"); num.textContent="5"; setRingProgress(0);
-  return new Promise(r=>{
-    let s=Date.now(), tm=setInterval(()=>{
-      const e=(Date.now()-s)/1000, p=Math.min(1,e/5); setRingProgress(p);
-      num.textContent=String(Math.max(0,5-Math.floor(e)));
-      if(p>=1){ clearInterval(tm); btn.disabled=false; noticeOverlay.querySelector(".countWrap").style.display="none"; }
-    },60);
-    const done=()=>{ clearInterval(tm); noticeOverlay.classList.remove("show"); noticeOverlay.querySelector(".countWrap").style.display=""; btn.removeEventListener("click",done); r(true); };
-    btn.addEventListener("click",done);
+  function hidePinModal(res){ pinOverlay.classList.remove("show"); if(pinResolve){ pinResolve(res); pinResolve=null; } }
+  document.getElementById("pinCancel").addEventListener("click",()=>hidePinModal({ok:false}));
+  pinOverlay.addEventListener("click",e=>{if(e.target===pinOverlay)hidePinModal({ok:false});});
+  document.getElementById("pinOk").addEventListener("click",async()=>{
+    if(pinMode==="setup"){
+      const p1=(document.getElementById("pinNew").value||"").replace(/\D/g,"");
+      if(p1.length<4||p1.length>8)return toast("4~8자리 숫자");
+      if(p1!==(document.getElementById("pinNew2").value||"").replace(/\D/g,""))return toast("불일치");
+      await setPin(p1); setAdminUnlocked(); toast("설정 완료"); hidePinModal({ok:true});
+    }else if(pinMode==="unlock"){
+      const p=(document.getElementById("pinInput").value||"").replace(/\D/g,"");
+      if(await verifyPin(p)){ setAdminUnlocked(); toast("해제됨"); hidePinModal({ok:true}); } else toast("PIN 오류");
+    }else if(pinMode==="change"){
+      const o=(document.getElementById("pinOld").value||"").replace(/\D/g,"");
+      const n=(document.getElementById("pinNewC").value||"").replace(/\D/g,"");
+      if(!await verifyPin(o))return toast("현재 PIN 오류");
+      if(n.length<4||n.length>8)return toast("새 PIN 4~8자리");
+      if(n!==(document.getElementById("pinNewC2").value||"").replace(/\D/g,""))return toast("불일치");
+      await setPin(n); setAdminUnlocked(); toast("변경 완료"); hidePinModal({ok:true});
+    }
   });
-}
+  async function ensureAdmin(r="관리자 기능"){
+    if(!hasPin()){ await showPinModal("setup"); return isAdminUnlocked(); }
+    if(isAdminUnlocked()) return true;
+    const res=await showPinModal("unlock",{desc:`${r}을(를) 위해 PIN 입력`}); return !!res.ok && isAdminUnlocked();
+  }
 
-const outNoteOverlay=document.getElementById("outNoteOverlay");
-function askOutNote(){
-  document.getElementById("outNoteText").value=""; outNoteOverlay.classList.add("show");
-  return new Promise(r=>{
-    const c=()=>{ document.getElementById("outNoteSkip").removeEventListener("click",s); document.getElementById("outNoteSave").removeEventListener("click",sv); outNoteOverlay.removeEventListener("click",bg); };
-    const s=()=>{ c(); outNoteOverlay.classList.remove("show"); r(null); };
-    const sv=()=>{ const t=document.getElementById("outNoteText").value; c(); outNoteOverlay.classList.remove("show"); r(t); };
-    const bg=e=>{ if(e.target===outNoteOverlay) s(); };
-    document.getElementById("outNoteSkip").addEventListener("click",s); document.getElementById("outNoteSave").addEventListener("click",sv); outNoteOverlay.addEventListener("click",bg);
-  });
-}
-document.querySelectorAll('#outNoteOverlay button[data-cat]').forEach(b=>{
-  b.addEventListener("click",()=>{
-    const t=document.getElementById("outNoteText"), cat=b.dataset.cat, pre=`[${cat}] `;
-    b.classList.add("cat-active"); setTimeout(()=>b.classList.remove("cat-active"),500);
-    const v=t.value||"", lines=v.split("\n"); if(lines[lines.length-1].trim()===pre.trim())return;
-    t.value=(v.trim()?v.trim()+"\n":"")+pre; t.focus();
-  });
-});
+  function showSection(id){
+    document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+    document.getElementById(id)?.classList.add("active");
+    if(id==="sec-att") renderAttendancePanel();
+    if(id==="sec-emp") renderEmployees();
+    if(id==="sec-log"){ renderLogFilterOptions(); renderLogAll(); }
+  }
+  function tickClock(){
+    const d=new Date(); document.getElementById("nowTime").textContent=`${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
+    document.getElementById("nowDate").textContent=`${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${["일","월","화","수","목","금","토"][d.getDay()]})`;
+  }
+  setInterval(tickClock,250); tickClock();
 
-const closeCheckOverlay=document.getElementById("closeCheckOverlay");
-function openCloseCheckModal(items){
-  const lst=document.getElementById("closeCheckList"), ex=document.getElementById("closeCheckExtra"), done=document.getElementById("closeCheckDone"); // 건너뛰기 제거
-  ex.value=""; lst.innerHTML=items.map((t,i)=>`<label class="checkItem"><input type="checkbox" data-i="${i}" /><div><div class="t">${escapeHtml(t)}</div></div></label>`).join("");
-  done.disabled=false; closeCheckOverlay.classList.add("show");
-  return new Promise(r=>{
-    const c=()=>{ done.removeEventListener("click",d); closeCheckOverlay.removeEventListener("click",bg); };
-    const s=()=>{ c(); closeCheckOverlay.classList.remove("show"); r({skip:true,items:[],extra:""}); }; // 백그라운드 클릭 시 스킵 처리 (취소 개념)
-    const d=()=>{
-      const boxes=lst.querySelectorAll('input[type="checkbox"]');
-      if(!Array.from(boxes).every(b=>b.checked)) return toast("모두 체크해주세요","danger");
-      c(); closeCheckOverlay.classList.remove("show");
-      r({skip:false, items:Array.from(boxes).filter(b=>b.checked).map(b=>items[b.dataset.i]), extra:ex.value.trim()});
-    };
-    const bg=e=>{if(e.target===closeCheckOverlay)s();};
-    done.addEventListener("click",d); closeCheckOverlay.addEventListener("click",bg);
+  const adminMenuOverlay=document.getElementById("adminMenuOverlay");
+  function updateAdminStateText(){
+    if(!isAdminUnlocked()){ document.getElementById("adminStateText").textContent="상태: 잠금 (PIN 필요)"; return; }
+    const ms=Math.max(0,Number(sessionStorage.getItem(SS_KEYS.UNLOCK_UNTIL)||0)-Date.now());
+    document.getElementById("adminStateText").textContent=`상태: 해제됨 (${Math.floor(ms/60000)}m ${String(Math.floor((ms%60000)/1000)).padStart(2,"0")}s)`;
+  }
+  setInterval(updateAdminStateText,500); updateAdminStateText();
+  function openAdminMenu(){
+    document.getElementById("adminNoticeInput").value=getTodayNotice(); renderAdminCloseChecklist();
+    adminMenuOverlay.classList.add("show"); updateAdminStateText();
+  }
+  document.getElementById("adminMenuClose").addEventListener("click",()=>adminMenuOverlay.classList.remove("show"));
+  document.getElementById("btnLockAdmin").addEventListener("click",()=>{ lockAdmin(); toast("잠금 완료"); adminMenuOverlay.classList.remove("show"); showSection("sec-att"); });
+  document.getElementById("goEmp").addEventListener("click",()=>{ if(isAdminUnlocked()){adminMenuOverlay.classList.remove("show"); showSection("sec-emp");}else toast("PIN 필요"); });
+  document.getElementById("goLog").addEventListener("click",()=>{ if(isAdminUnlocked()){adminMenuOverlay.classList.remove("show"); showSection("sec-log");}else toast("PIN 필요"); });
+  document.getElementById("btnBackFromEmp").addEventListener("click",()=>showSection("sec-att"));
+  document.getElementById("btnBackFromLog").addEventListener("click",()=>showSection("sec-att"));
+  document.getElementById("btnChangePin").addEventListener("click",async()=>{ if(await ensureAdmin("PIN 변경")){ adminMenuOverlay.classList.remove("show"); await showPinModal("change"); } });
+  document.getElementById("btnSaveTodayNotice").addEventListener("click",async()=>{ if(await ensureAdmin("공지 저장")){ setTodayNotice(document.getElementById("adminNoticeInput").value); toast("저장됨"); } });
+  document.getElementById("btnClearTodayNotice").addEventListener("click",async()=>{ if(await ensureAdmin("공지 지우기")){ clearTodayNotice(); document.getElementById("adminNoticeInput").value=""; toast("지워짐"); } });
+  let logoTap=0, logoT;
+  document.getElementById("logoImg").addEventListener("click",async()=>{
+    logoTap++; clearTimeout(logoT); logoT=setTimeout(()=>{logoTap=0},1300);
+    if(logoTap>=5){ logoTap=0; if(await ensureAdmin("관리자 메뉴")) openAdminMenu(); }
   });
-}
 
-const attCode=document.getElementById("attCode"), attName=document.getElementById("attName"), attStatus=document.getElementById("attStatus"), attLast=document.getElementById("attLast");
-function getLastEvent(code){ const logs=getLogs(); for(let i=logs.length-1;i>=0;i--)if(logs[i].code===code)return logs[i]; return null; }
-function canClockIn(code){ const l=getLastEvent(code); return !l||l.type!=="IN"; }
-function canClockOut(code){ const l=getLastEvent(code); return !!l&&l.type==="IN"; }
-function nextLogId(){ const logs=getLogs(); let m=0; for(const l of logs)if(Number(l.id)>m)m=Number(l.id); return m+1; }
-function addLog({code,name,type,note=""}){ const l=getLogs(); l.push({id:nextLogId(),code,name,type,ts:nowTS(),note}); setLogs(l); }
-function onCodeChanged(){
-  const c=normalizeCodeInput(attCode.value); attCode.value=c;
-  if(c.length!==4){ attName.value=""; attStatus.textContent="-"; attLast.textContent="-"; return; }
-  const e=findEmpByCode(c); attName.value=e?e.name:"";
-  if(!e){ attStatus.textContent="미등록 코드"; attLast.textContent="-"; return; }
-  const l=getLastEvent(c);
-  attStatus.textContent=l&&l.type==="IN"?"출근 상태":"퇴근 상태";
-  attLast.textContent=l?`${l.type==="IN"?"출근":"퇴근"} · ${fmtTS(l.ts)}`:"기록 없음";
-}
-attCode.addEventListener("input",onCodeChanged);
-document.getElementById("btnClearCode").addEventListener("click",()=>{attCode.value="";onCodeChanged();attCode.focus();});
-document.querySelectorAll(".kbd button").forEach(b=>{
-  b.addEventListener("click",()=>{
-    const k=b.dataset.k; let v=normalizeCodeInput(attCode.value);
-    if(k==="bk")v=v.slice(0,-1); else if(k==="clr")v=""; else if(v.length<4)v+=k;
-    attCode.value=v; onCodeChanged();
+  const noticeOverlay=document.getElementById("noticeOverlay");
+  function setRingProgress(p){ const c=2*Math.PI*30; document.getElementById("noticeRing").style.strokeDasharray=`${c}`; document.getElementById("noticeRing").style.strokeDashoffset=`${c*(1-p)}`; }
+  async function showNoticeCountdownIfAny(){
+    const t=getTodayNotice(); if(!t) return true;
+    document.getElementById("noticeText").textContent=t; document.getElementById("noticeDateText").textContent=`${todayKey()} 공지`;
+    const btn=document.getElementById("noticeOk"), num=document.getElementById("noticeNum");
+    btn.disabled=true; noticeOverlay.classList.add("show"); num.textContent="5"; setRingProgress(0);
+    return new Promise(r=>{
+      let s=Date.now(), tm=setInterval(()=>{
+        const e=(Date.now()-s)/1000, p=Math.min(1,e/5); setRingProgress(p);
+        num.textContent=String(Math.max(0,5-Math.floor(e)));
+        if(p>=1){ clearInterval(tm); btn.disabled=false; noticeOverlay.querySelector(".countWrap").style.display="none"; }
+      },60);
+      const done=()=>{ clearInterval(tm); noticeOverlay.classList.remove("show"); noticeOverlay.querySelector(".countWrap").style.display=""; btn.removeEventListener("click",done); r(true); };
+      btn.addEventListener("click",done);
+    });
+  }
+
+  const outNoteOverlay=document.getElementById("outNoteOverlay");
+  function askOutNote(){
+    document.getElementById("outNoteText").value=""; outNoteOverlay.classList.add("show");
+    return new Promise(r=>{
+      const c=()=>{ document.getElementById("outNoteSkip").removeEventListener("click",s); document.getElementById("outNoteSave").removeEventListener("click",sv); outNoteOverlay.removeEventListener("click",bg); };
+      const s=()=>{ c(); outNoteOverlay.classList.remove("show"); r(null); };
+      const sv=()=>{ const t=document.getElementById("outNoteText").value; c(); outNoteOverlay.classList.remove("show"); r(t); };
+      const bg=e=>{ if(e.target===outNoteOverlay) s(); };
+      document.getElementById("outNoteSkip").addEventListener("click",s); document.getElementById("outNoteSave").addEventListener("click",sv); outNoteOverlay.addEventListener("click",bg);
+    });
+  }
+  document.querySelectorAll('#outNoteOverlay button[data-cat]').forEach(b=>{
+    b.addEventListener("click",()=>{
+      const t=document.getElementById("outNoteText"), cat=b.dataset.cat, pre=`[${cat}] `;
+      b.classList.add("cat-active"); setTimeout(()=>b.classList.remove("cat-active"),500);
+      const v=t.value||"", lines=v.split("\n"); if(lines[lines.length-1].trim()===pre.trim())return;
+      t.value=(v.trim()?v.trim()+"\n":"")+pre; t.focus();
+    });
   });
-});
-document.getElementById("btnIn").addEventListener("click",async()=>{
-  const c=attCode.value; if(c.length!==4)return toast("4자리 코드 입력");
-  const e=findEmpByCode(c); if(!e)return toast("미등록 코드");
-  if(!canClockIn(c))return toast("이미 출근 상태");
-  await showNoticeCountdownIfAny();
-  addLog({code:c,name:e.name,type:"IN"}); toast(`${e.name} 출근`); renderAttendancePanel();
-});
-document.getElementById("btnOut").addEventListener("click",async()=>{
-  const c=attCode.value; if(c.length!==4)return toast("4자리 코드 입력");
-  const e=findEmpByCode(c); if(!e)return toast("미등록 코드");
-  if(!canClockOut(c))return toast("출근 기록 없음");
-  let note=await askOutNote();
-  if(e.shiftType==="CLOSE"){
-    const res=await openCloseCheckModal(getCloseChecklist());
-    if(!res.skip){
-      addCloseCheckLog({code:c,name:e.name,items:res.items,extra:res.extra});
-      const ln=`[마감체크] ${res.items.join("/")} ${res.extra?"| "+res.extra:""}`;
-      note=(note?note+"\n":"")+ln;
+
+  const closeCheckOverlay=document.getElementById("closeCheckOverlay");
+  function openCloseCheckModal(items){
+    const lst=document.getElementById("closeCheckList"), ex=document.getElementById("closeCheckExtra"), done=document.getElementById("closeCheckDone");
+    ex.value=""; lst.innerHTML=items.map((t,i)=>`<label class="checkItem"><input type="checkbox" data-i="${i}" /><div><div class="t">${escapeHtml(t)}</div></div></label>`).join("");
+    done.disabled=false; closeCheckOverlay.classList.add("show");
+    return new Promise(r=>{
+      const c=()=>{ done.removeEventListener("click",d); closeCheckOverlay.removeEventListener("click",bg); };
+      const d=()=>{
+        const boxes=lst.querySelectorAll('input[type="checkbox"]');
+        if(!Array.from(boxes).every(b=>b.checked)) return toast("모두 체크해주세요","danger");
+        c(); closeCheckOverlay.classList.remove("show");
+        r({skip:false, items:Array.from(boxes).filter(b=>b.checked).map(b=>items[b.dataset.i]), extra:ex.value.trim()});
+      };
+      const bg=e=>{if(e.target===closeCheckOverlay){ c(); closeCheckOverlay.classList.remove("show"); r({skip:true,items:[],extra:""}); }};
+      done.addEventListener("click",d); closeCheckOverlay.addEventListener("click",bg);
+    });
+  }
+
+  const attCode=document.getElementById("attCode"), attName=document.getElementById("attName"), attStatus=document.getElementById("attStatus"), attLast=document.getElementById("attLast");
+  function getLastEvent(code){ const logs=getLogs(); for(let i=logs.length-1;i>=0;i--)if(logs[i].code===code)return logs[i]; return null; }
+  function canClockIn(code){ const l=getLastEvent(code); return !l||l.type!=="IN"; }
+  function canClockOut(code){ const l=getLastEvent(code); return !!l&&l.type==="IN"; }
+  function nextLogId(){ const logs=getLogs(); let m=0; for(const l of logs)if(Number(l.id)>m)m=Number(l.id); return m+1; }
+  function addLog({code,name,type,note=""}){ const l=getLogs(); l.push({id:nextLogId(),code,name,type,ts:nowTS(),note}); setLogs(l); }
+  function onCodeChanged(){
+    const c=normalizeCodeInput(attCode.value); attCode.value=c;
+    if(c.length!==4){ attName.value=""; attStatus.textContent="-"; attLast.textContent="-"; return; }
+    const e=findEmpByCode(c); attName.value=e?e.name:"";
+    if(!e){ attStatus.textContent="미등록 코드"; attLast.textContent="-"; return; }
+    const l=getLastEvent(c);
+    attStatus.textContent=l&&l.type==="IN"?"출근 상태":"퇴근 상태";
+    attLast.textContent=l?`${l.type==="IN"?"출근":"퇴근"} · ${fmtTS(l.ts)}`:"기록 없음";
+  }
+  attCode.addEventListener("input",onCodeChanged);
+  document.getElementById("btnClearCode").addEventListener("click",()=>{attCode.value="";onCodeChanged();attCode.focus();});
+  document.querySelectorAll(".kbd button").forEach(b=>{
+    b.addEventListener("click",()=>{
+      const k=b.dataset.k; let v=normalizeCodeInput(attCode.value);
+      if(k==="bk")v=v.slice(0,-1); else if(k==="clr")v=""; else if(v.length<4)v+=k;
+      attCode.value=v; onCodeChanged();
+    });
+  });
+  document.getElementById("btnIn").addEventListener("click",async()=>{
+    const c=attCode.value; if(c.length!==4)return toast("4자리 코드 입력");
+    const e=findEmpByCode(c); if(!e)return toast("미등록 코드");
+    if(!canClockIn(c))return toast("이미 출근 상태");
+    await showNoticeCountdownIfAny();
+    addLog({code:c,name:e.name,type:"IN"}); toast(`${e.name} 출근`); renderAttendancePanel();
+  });
+  document.getElementById("btnOut").addEventListener("click",async()=>{
+    const c=attCode.value; if(c.length!==4)return toast("4자리 코드 입력");
+    const e=findEmpByCode(c); if(!e)return toast("미등록 코드");
+    if(!canClockOut(c))return toast("출근 기록 없음");
+    let note=await askOutNote();
+    if(e.shiftType==="CLOSE"){
+      const res=await openCloseCheckModal(getCloseChecklist());
+      if(!res.skip){
+        addCloseCheckLog({code:c,name:e.name,items:res.items,extra:res.extra});
+        const ln=`[마감체크] ${res.items.join("/")} ${res.extra?"| "+res.extra:""}`;
+        note=(note?note+"\n":"")+ln;
+      }
+    }
+    if(note) addOutNote({code:c,name:e.name,text:note});
+    addLog({code:c,name:e.name,type:"OUT",note:note||""}); toast(`${e.name} 퇴근`); renderAttendancePanel();
+  });
+  function renderRecent(){
+    document.getElementById("recentTable").innerHTML=getLogs().slice(-15).reverse().map(l=>`<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name)}</td><td>${fmtTS(l.ts)}</td></tr>`).join("")||`<tr><td colspan="4" class="muted">기록 없음</td></tr>`;
+  }
+  function renderQuickButtons(){
+    const div=document.getElementById("quickButtons"), emps=getEmployees();
+    if(!emps.length) div.innerHTML=`<span class="muted">관리자 메뉴에서 알바생을 등록하세요.</span>`;
+    else{
+      div.innerHTML=emps.map(e=>`<button class="btn small" data-c="${e.code}">${escapeHtml(e.name)} <span class="muted">${e.code}</span></button>`).join("");
+      div.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{ attCode.value=b.dataset.c; onCodeChanged(); }));
     }
   }
-  if(note) addOutNote({code:c,name:e.name,text:note});
-  addLog({code:c,name:e.name,type:"OUT",note:note||""}); toast(`${e.name} 퇴근`); renderAttendancePanel();
-});
-function renderRecent(){
-  document.getElementById("recentTable").innerHTML=getLogs().slice(-15).reverse().map(l=>`<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name)}</td><td>${fmtTS(l.ts)}</td></tr>`).join("")||`<tr><td colspan="4" class="muted">기록 없음</td></tr>`;
-}
-function renderQuickButtons(){
-  const div=document.getElementById("quickButtons"), emps=getEmployees();
-  if(!emps.length) div.innerHTML=`<span class="muted">관리자 메뉴에서 알바생을 등록하세요.</span>`;
-  else{
-    div.innerHTML=emps.map(e=>`<button class="btn small" data-c="${e.code}">${escapeHtml(e.name)} <span class="muted">${e.code}</span></button>`).join("");
-    div.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{ attCode.value=b.dataset.c; onCodeChanged(); }));
+  function renderAttendancePanel(){ renderRecent(); renderQuickButtons(); onCodeChanged(); }
+
+  /* Employee */
+  function nextAvailableCode(){ const s=new Set(getEmployees().map(e=>Number(e.code))); for(let i=1;i<=9999;i++)if(!s.has(i))return pad4(i); return pad4(getNextEmpId()); }
+  function addEmployee(name,memo,ws,we,st,wage,wageW){
+    const emps=getEmployees(), code=nextAvailableCode();
+    emps.push({code, name, memo, workStart:ws, workEnd:we, shiftType:st, wage:Number(wage)||0, wageWeekend:Number(wageW)||0, createdAt:nowTS()});
+    setEmployees(emps); setNextEmpId(Math.max(getNextEmpId(),Number(code)+1));
   }
-}
-function renderAttendancePanel(){ renderRecent(); renderQuickButtons(); onCodeChanged(); }
-
-/* Employee */
-function nextAvailableCode(){ const s=new Set(getEmployees().map(e=>Number(e.code))); for(let i=1;i<=9999;i++)if(!s.has(i))return pad4(i); return pad4(getNextEmpId()); }
-function addEmployee(name,memo,ws,we,st,wage){ const emps=getEmployees(), code=nextAvailableCode(); emps.push({code, name, memo, workStart:ws, workEnd:we, shiftType:st, wage:Number(wage)||0, createdAt:nowTS()}); setEmployees(emps); setNextEmpId(Math.max(getNextEmpId(),Number(code)+1)); }
-function updateEmployee(code,patch){ const emps=getEmployees(), idx=emps.findIndex(e=>e.code===code); if(idx>=0){ emps[idx]={...emps[idx],...patch}; setEmployees(emps); } }
-document.getElementById("btnAddEmp").addEventListener("click",async()=>{
-  if(!await ensureAdmin("등록"))return toast("PIN 필요");
-  try{ const nm=document.getElementById("empName").value.trim(); if(!nm) throw new Error("이름 입력"); addEmployee(nm, document.getElementById("empMemo").value, document.getElementById("empWorkStart").value, document.getElementById("empWorkEnd").value, document.getElementById("empShiftType").value, document.getElementById("empWage").value); document.getElementById("empName").value=""; document.getElementById("empMemo").value=""; document.getElementById("empWage").value=""; toast("등록 완료"); renderEmployees(); renderQuickButtons(); }catch(e){ toast(e.message); }
-});
-document.getElementById("btnRefreshEmp").addEventListener("click",renderEmployees);
-document.getElementById("empSearch").addEventListener("input",renderEmployees);
-function renderEmployees(){
-  document.getElementById("nextCodeHint").textContent=`다음 코드: ${nextAvailableCode()}`;
-  const q=document.getElementById("empSearch").value.toLowerCase(), emps=getEmployees().filter(e=>e.code.includes(q)||e.name.toLowerCase().includes(q));
-  document.getElementById("empTable").innerHTML=emps.length?emps.map(e=>`<tr><td><span class="tag open">${e.code}</span></td><td>${escapeHtml(e.name)}</td><td class="muted typeCell">${e.shiftType==="CLOSE"?"마감":"미들"}</td><td class="muted">${(e.wage||0).toLocaleString()}</td><td class="muted timeCell">${e.workStart}~${e.workEnd}</td><td style="text-align:right;"><button class="btn small" onclick="window.editEmp('${e.code}')">수정</button> <button class="btn small bad" onclick="window.delEmp('${e.code}')">삭제</button></td></tr>`).join("") : `<tr><td colspan="6" class="muted">없음</td></tr>`;
-}
-window.delEmp=async(c)=>{ if(await ensureAdmin("삭제") && confirm("삭제할까요?")){ const l=getEmployees().filter(e=>e.code!==c); setEmployees(l); toast("삭제됨"); renderEmployees(); renderQuickButtons(); } };
-window.editEmp=async(c)=>{ if(!await ensureAdmin("수정"))return; const e=findEmpByCode(c); if(!e)return; document.getElementById("empEditCode").value=e.code; document.getElementById("empEditName").value=e.name; document.getElementById("empEditShiftType").value=e.shiftType||"MID"; document.getElementById("empEditWage").value=e.wage||""; document.getElementById("empEditMemo").value=e.memo||""; document.getElementById("empEditWorkStart").value=e.workStart||"17:00"; document.getElementById("empEditWorkEnd").value=e.workEnd||"23:30"; document.getElementById("empEditOverlay").classList.add("show"); };
-document.getElementById("empEditSave").addEventListener("click",()=>{
-  const c=document.getElementById("empEditCode").value, n=document.getElementById("empEditName").value.trim();
-  if(!n)return toast("이름 입력");
-  updateEmployee(c,{ name:n, shiftType:document.getElementById("empEditShiftType").value, wage:Number(document.getElementById("empEditWage").value)||0, memo:document.getElementById("empEditMemo").value, workStart:document.getElementById("empEditWorkStart").value, workEnd:document.getElementById("empEditWorkEnd").value });
-  document.getElementById("empEditOverlay").classList.remove("show"); toast("수정 완료"); renderEmployees(); renderQuickButtons(); renderLogAll();
-});
-document.getElementById("empEditCancel").addEventListener("click",()=>document.getElementById("empEditOverlay").classList.remove("show"));
-
-/* Logs & Calendar */
-let calYear=new Date().getFullYear(), calMonth=new Date().getMonth()+1;
-function getDayKey(y,m,d){ return `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`; }
-function calcDayStats(dk, tCode){
-  const logs=getLogs().filter(l=>dateKey(l.ts)===dk && (!tCode||l.code===tCode)).sort((a,b)=>a.ts-b.ts);
-  let ms=0, pay=0, codeMap={};
-  logs.forEach(l=>{ if(!codeMap[l.code])codeMap[l.code]=[]; codeMap[l.code].push(l); });
-  Object.keys(codeMap).forEach(c=>{
-    const e=findEmpByCode(c), wage=e?e.wage||0:0, evts=codeMap[c];
-    let inTs=null;
-    evts.forEach(ev=>{ if(ev.type==="IN") inTs=ev.ts; else if(ev.type==="OUT" && inTs){ const d=ev.ts-inTs; ms+=d; pay+=Math.floor((d/3600000)*wage); inTs=null; } });
+  function updateEmployee(code,patch){ const emps=getEmployees(), idx=emps.findIndex(e=>e.code===code); if(idx>=0){ emps[idx]={...emps[idx],...patch}; setEmployees(emps); } }
+  document.getElementById("btnAddEmp").addEventListener("click",async()=>{
+    if(!await ensureAdmin("등록"))return toast("PIN 필요");
+    try{
+      const nm=document.getElementById("empName").value.trim(); if(!nm) throw new Error("이름 입력");
+      addEmployee(nm, document.getElementById("empMemo").value, document.getElementById("empWorkStart").value, document.getElementById("empWorkEnd").value, document.getElementById("empShiftType").value, document.getElementById("empWage").value, document.getElementById("empWageWeekend").value);
+      document.getElementById("empName").value=""; document.getElementById("empMemo").value=""; document.getElementById("empWage").value=""; document.getElementById("empWageWeekend").value="";
+      toast("등록 완료"); renderEmployees(); renderQuickButtons();
+    }catch(e){ toast(e.message); }
   });
-  return { h:Math.floor(ms/3600000), m:Math.floor((ms%3600000)/60000), pay, has:logs.length>0 };
-}
+  document.getElementById("btnRefreshEmp").addEventListener("click",renderEmployees);
+  document.getElementById("empSearch").addEventListener("input",renderEmployees);
+  function renderEmployees(){
+    document.getElementById("nextCodeHint").textContent=`다음 코드: ${nextAvailableCode()}`;
+    const q=document.getElementById("empSearch").value.toLowerCase(), emps=getEmployees().filter(e=>e.code.includes(q)||e.name.toLowerCase().includes(q));
+    document.getElementById("empTable").innerHTML=emps.length?emps.map(e=>`<tr><td><span class="tag open">${e.code}</span></td><td>${escapeHtml(e.name)}</td><td class="muted typeCell">${e.shiftType==="CLOSE"?"마감":"미들"}</td><td class="muted">${(e.wage||0).toLocaleString()} / ${e.wageWeekend ? e.wageWeekend.toLocaleString() : '-'}</td><td class="muted timeCell">${e.workStart}~${e.workEnd}</td><td style="text-align:right;"><button class="btn small" onclick="window.editEmp('${e.code}')">수정</button> <button class="btn small bad" onclick="window.delEmp('${e.code}')">삭제</button></td></tr>`).join("") : `<tr><td colspan="6" class="muted">없음</td></tr>`;
+  }
+  window.delEmp=async(c)=>{ if(await ensureAdmin("삭제") && confirm("삭제할까요?")){ const l=getEmployees().filter(e=>e.code!==c); setEmployees(l); toast("삭제됨"); renderEmployees(); renderQuickButtons(); } };
+  window.editEmp=async(c)=>{
+    if(!await ensureAdmin("수정"))return;
+    const e=findEmpByCode(c); if(!e)return;
+    document.getElementById("empEditCode").value=e.code; document.getElementById("empEditName").value=e.name;
+    document.getElementById("empEditShiftType").value=e.shiftType||"MID"; document.getElementById("empEditWage").value=e.wage||"";
+    document.getElementById("empEditWageWeekend").value=e.wageWeekend||"";
+    document.getElementById("empEditMemo").value=e.memo||""; document.getElementById("empEditWorkStart").value=e.workStart||"17:00"; document.getElementById("empEditWorkEnd").value=e.workEnd||"23:30";
+    document.getElementById("empEditOverlay").classList.add("show");
+  };
+  document.getElementById("empEditSave").addEventListener("click",()=>{
+    const c=document.getElementById("empEditCode").value, n=document.getElementById("empEditName").value.trim();
+    if(!n)return toast("이름 입력");
+    updateEmployee(c,{
+      name:n, shiftType:document.getElementById("empEditShiftType").value,
+      wage:Number(document.getElementById("empEditWage").value)||0,
+      wageWeekend:Number(document.getElementById("empEditWageWeekend").value)||0,
+      memo:document.getElementById("empEditMemo").value,
+      workStart:document.getElementById("empEditWorkStart").value, workEnd:document.getElementById("empEditWorkEnd").value
+    });
+    document.getElementById("empEditOverlay").classList.remove("show"); toast("수정 완료"); renderEmployees(); renderQuickButtons(); renderLogAll();
+  });
+  document.getElementById("empEditCancel").addEventListener("click",()=>document.getElementById("empEditOverlay").classList.remove("show"));
 
-/* 신규 함수: 특정 주의 주휴수당 계산 */
-function getWeeklyJuhyuSum(sundayDate, filterCode){
-   // Sunday end of day
-   const endTs = new Date(sundayDate).setHours(23,59,59,999);
-   // Monday start of day (Sunday - 6 days)
-   const startDate = new Date(sundayDate);
-   startDate.setDate(startDate.getDate() - 6);
-   const startTs = startDate.setHours(0,0,0,0);
-   const allLogs = getLogs();
-   const employees = getEmployees().filter(e => !filterCode || e.code === filterCode);
-   let totalJuhyu = 0;
-   employees.forEach(emp => {
-     const logs = allLogs.filter(l => l.code === emp.code && l.ts >= startTs && l.ts <= endTs).sort((a,b)=>a.ts-b.ts);
-     let ms = 0;
-     logs.forEach(l => {
-       if(l.type==='IN') l._tIn = l.ts;
-       else if(l.type==='OUT') {
-         const prevIn = logs.find(x => x.type === 'IN' && x.ts < l.ts && !x._used);
-         if(prevIn) { ms += (l.ts - prevIn.ts); prevIn._used = true; }
+  /* Logs & Calendar */
+  let calYear=new Date().getFullYear(), calMonth=new Date().getMonth()+1;
+  function getDayKey(y,m,d){ return `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`; }
+  
+  function calcDayStats(dk, tCode){
+    const logs=getLogs().filter(l=>dateKey(l.ts)===dk && (!tCode||l.code===tCode)).sort((a,b)=>a.ts-b.ts);
+    let ms=0, pay=0, codeMap={};
+    logs.forEach(l=>{ if(!codeMap[l.code])codeMap[l.code]=[]; codeMap[l.code].push(l); });
+    Object.keys(codeMap).forEach(c=>{
+      const e=findEmpByCode(c);
+      let inTs=null;
+      const evts=codeMap[c];
+      const dateObj = new Date(dk);
+      const isWeekend = (dateObj.getDay() === 0 || dateObj.getDay() === 6);
+      const wage = (e && isWeekend && e.wageWeekend) ? e.wageWeekend : (e ? e.wage : 0);
+
+      evts.forEach(ev=>{
+        if(ev.type==="IN") inTs=ev.ts;
+        else if(ev.type==="OUT" && inTs){
+          const d=ev.ts-inTs; ms+=d;
+          pay+=Math.floor((d/3600000)*wage); inTs=null;
+        }
+      });
+    });
+    return { h:Math.floor(ms/3600000), m:Math.floor((ms%3600000)/60000), pay, has:logs.length>0 };
+  }
+
+  function getWeeklyJuhyuSum(sundayDate, filterCode){
+     const endTs = new Date(sundayDate).setHours(23,59,59,999);
+     const startDate = new Date(sundayDate); startDate.setDate(startDate.getDate() - 6);
+     const startTs = startDate.setHours(0,0,0,0);
+     const allLogs = getLogs();
+     const employees = getEmployees().filter(e => !filterCode || e.code === filterCode);
+     let totalJuhyu = 0;
+     employees.forEach(emp => {
+       const logs = allLogs.filter(l => l.code === emp.code && l.ts >= startTs && l.ts <= endTs).sort((a,b)=>a.ts-b.ts);
+       let ms = 0;
+       logs.forEach(l => {
+         if(l.type==='IN') l._tIn = l.ts;
+         else if(l.type==='OUT') {
+           const prevIn = logs.find(x => x.type === 'IN' && x.ts < l.ts && !x._used);
+           if(prevIn) { ms += (l.ts - prevIn.ts); prevIn._used = true; }
+         }
+       });
+       logs.forEach(l => delete l._used);
+       const hours = ms / 3600000;
+       if(hours >= 15) {
+          const juhyuHours = (Math.min(hours, 40) / 40) * 8;
+          totalJuhyu += Math.floor(juhyuHours * emp.wage);
        }
      });
-     logs.forEach(l => delete l._used);
-     const hours = ms / 3600000;
-     if(hours >= 15) {
-        const juhyuHours = (Math.min(hours, 40) / 40) * 8;
-        totalJuhyu += Math.floor(juhyuHours * emp.wage);
-     }
-   });
-   return totalJuhyu;
-}
-
-function renderCalendar(){
-  const g=document.getElementById("calendarView"); if(!g)return;
-  document.getElementById("calTitle").textContent=`${calYear}. ${String(calMonth).padStart(2,"0")}`;
-  while(g.children.length>7) g.removeChild(g.lastChild);
-  const start=new Date(calYear,calMonth-1,1).getDay(), end=new Date(calYear,calMonth,0).getDate(), tFilter=document.getElementById("logFilterEmp").value;
-  for(let i=0;i<start;i++){ const d=document.createElement("div"); d.className="calDay empty"; g.appendChild(d); }
-  for(let d=1;d<=end;d++){
-    const div=document.createElement("div"); div.className="calDay";
-    const dateObj = new Date(calYear, calMonth-1, d);
-    const k=getDayKey(calYear,calMonth,d); if(k===todayKey())div.classList.add("today");
-    const st=calcDayStats(k, tFilter);
-    
-    let inner = `<div class="calNum">${d}</div>`;
-    // 주휴수당 표시 (일요일만)
-    if(dateObj.getDay() === 0) { 
-       const juhyu = getWeeklyJuhyuSum(dateObj, tFilter);
-       if(juhyu > 0) inner += `<span class="tag juhyu">주휴💰 +${juhyu.toLocaleString()}</span>`;
-    }
-    if(st.has) inner += `<div class="calData"><span class="calTime">${st.h>0?st.h+'h ':''}${st.m}m</span>${st.pay>0?`<span class="calPay">${st.pay.toLocaleString()}원</span>`:''}</div>`;
-    
-    div.innerHTML = inner;
-    g.appendChild(div);
+     return totalJuhyu;
   }
-  updateMonthlyWageEstimate(); 
-}
-document.getElementById("calPrevBtn").addEventListener("click",()=>{ calMonth--; if(calMonth<1){calMonth=12;calYear--;} renderCalendar(); });
-document.getElementById("calNextBtn").addEventListener("click",()=>{ calMonth++; if(calMonth>12){calMonth=1;calYear++;} renderCalendar(); });
 
-function getSundayStr(ts) {
-  const d = new Date(ts);
-  const dist = (7 - d.getDay()) % 7; 
-  const sunday = new Date(d.getFullYear(), d.getMonth(), d.getDate() + dist);
-  return `${sunday.getFullYear()}-${String(sunday.getMonth()+1).padStart(2,"0")}`;
-}
+  function renderCalendar(){
+    const g=document.getElementById("calendarView"); if(!g)return;
+    document.getElementById("calTitle").textContent=`${calYear}. ${String(calMonth).padStart(2,"0")}`;
+    while(g.children.length>7) g.removeChild(g.lastChild);
+    const start=new Date(calYear,calMonth-1,1).getDay(), end=new Date(calYear,calMonth,0).getDate(), tFilter=document.getElementById("logFilterEmp").value;
+    for(let i=0;i<start;i++){ const d=document.createElement("div"); d.className="calDay empty"; g.appendChild(d); }
+    for(let d=1;d<=end;d++){
+      const div=document.createElement("div"); div.className="calDay";
+      const dateObj = new Date(calYear, calMonth-1, d);
+      const k=getDayKey(calYear,calMonth,d); if(k===todayKey())div.classList.add("today");
+      const st=calcDayStats(k, tFilter);
+      let inner = `<div class="calNum">${d}</div>`;
+      if(dateObj.getDay() === 0) { 
+         const juhyu = getWeeklyJuhyuSum(dateObj, tFilter);
+         if(juhyu > 0) inner += `<span class="tag juhyu">주휴💰 +${juhyu.toLocaleString()}</span>`;
+      }
+      if(st.has) inner += `<div class="calData"><span class="calTime">${st.h>0?st.h+'h ':''}${st.m}m</span>${st.pay>0?`<span class="calPay">${st.pay.toLocaleString()}원</span>`:''}</div>`;
+      div.innerHTML = inner;
+      g.appendChild(div);
+    }
+    updateMonthlyWageEstimate(); 
+  }
+  document.getElementById("calPrevBtn").addEventListener("click",()=>{ calMonth--; if(calMonth<1){calMonth=12;calYear--;} renderCalendar(); });
+  document.getElementById("calNextBtn").addEventListener("click",()=>{ calMonth++; if(calMonth>12){calMonth=1;calYear++;} renderCalendar(); });
 
-function updateMonthlyWageEstimate() {
-  const tEmp = document.getElementById("logFilterEmp").value;
-  document.getElementById("totalWageTitle").textContent = `${calMonth}월 예상 급여 ${tEmp ? '(선택된 알바생)' : '(전체)'}`;
-  const targetPrefix = `${calYear}-${String(calMonth).padStart(2,"0")}`;
-  const allLogs = getLogs();
-  const currentMonthLogs = allLogs.filter(l => dateKey(l.ts).startsWith(targetPrefix));
-  const employees = getEmployees().filter(e => !tEmp || e.code === tEmp);
-  let totalBase = 0;
-  let totalJuhyu = 0;
-  employees.forEach(emp => {
-    const empLogs = currentMonthLogs.filter(l => l.code === emp.code).sort((a,b)=>a.ts-b.ts);
-    let empBaseMs = 0;
-    empLogs.forEach(l => {
-      if(l.type === 'IN') l._tempIn = l.ts;
-      else if(l.type === 'OUT') {
-         const prevIn = empLogs.find(xx => xx.type === 'IN' && xx.ts < l.ts && !xx._usedBase);
-         if(prevIn) { empBaseMs += (l.ts - prevIn.ts); prevIn._usedBase = true; }
-      }
-    });
-    empLogs.forEach(l => delete l._usedBase);
-    totalBase += Math.floor((empBaseMs / 3600000) * emp.wage);
-    const allEmpLogs = allLogs.filter(l => l.code === emp.code).sort((a,b)=>a.ts-b.ts);
-    const weeks = {};
-    allEmpLogs.forEach(l => {
-      const d = new Date(l.ts);
-      const day = d.getDay(); 
-      const dist = day === 0 ? 0 : 7 - day;
-      const sundayDate = new Date(d.getFullYear(), d.getMonth(), d.getDate() + dist);
-      const sundayKey = `${sundayDate.getFullYear()}-${String(sundayDate.getMonth()+1).padStart(2,"0")}-${String(sundayDate.getDate()).padStart(2,"0")}`;
-      if (!weeks[sundayKey]) weeks[sundayKey] = { ms: 0 };
-      if(l.type === 'IN') l._tempIn = l.ts;
-      else if(l.type === 'OUT') {
-         const prevIn = allEmpLogs.find(xx => xx.type === 'IN' && xx.ts < l.ts && !xx._usedJuhyu);
-         if(prevIn) { weeks[sundayKey].ms += (l.ts - prevIn.ts); prevIn._usedJuhyu = true; }
-      }
-    });
-    allEmpLogs.forEach(l => delete l._usedJuhyu);
-    Object.keys(weeks).forEach(sundayKey => {
-      if (sundayKey.startsWith(targetPrefix)) {
-        const hours = weeks[sundayKey].ms / 3600000;
-        if(hours >= 15) {
-          const juhyu = Math.floor( ((Math.min(hours, 40)/40)*8) * emp.wage );
-          totalJuhyu += juhyu;
+  function updateMonthlyWageEstimate() {
+    const tEmp = document.getElementById("logFilterEmp").value;
+    document.getElementById("totalWageTitle").textContent = `${calMonth}월 예상 급여 ${tEmp ? '(선택된 알바생)' : '(전체)'}`;
+    const targetPrefix = `${calYear}-${String(calMonth).padStart(2,"0")}`;
+    const allLogs = getLogs();
+    const currentMonthLogs = allLogs.filter(l => dateKey(l.ts).startsWith(targetPrefix));
+    const employees = getEmployees().filter(e => !tEmp || e.code === tEmp);
+    let totalBase = 0;
+    let totalJuhyu = 0;
+    employees.forEach(emp => {
+      const empLogs = currentMonthLogs.filter(l => l.code === emp.code).sort((a,b)=>a.ts-b.ts);
+      let empBaseMs = 0;
+      empLogs.forEach(l => {
+        if(l.type === 'IN') l._tempIn = l.ts;
+        else if(l.type === 'OUT') {
+           const prevIn = empLogs.find(xx => xx.type === 'IN' && xx.ts < l.ts && !xx._usedBase);
+           if(prevIn) { 
+             const ms = l.ts - prevIn.ts;
+             const dt = new Date(l.ts);
+             const isWeekend = dt.getDay() === 0 || dt.getDay() === 6;
+             const wage = (isWeekend && emp.wageWeekend) ? emp.wageWeekend : emp.wage;
+             totalBase += Math.floor((ms / 3600000) * wage);
+             prevIn._usedBase = true; 
+           }
         }
-      }
+      });
+      empLogs.forEach(l => delete l._usedBase);
+      const allEmpLogs = allLogs.filter(l => l.code === emp.code).sort((a,b)=>a.ts-b.ts);
+      const weeks = {};
+      allEmpLogs.forEach(l => {
+        const d = new Date(l.ts);
+        const day = d.getDay(); 
+        const dist = day === 0 ? 0 : 7 - day;
+        const sundayDate = new Date(d.getFullYear(), d.getMonth(), d.getDate() + dist);
+        const sundayKey = `${sundayDate.getFullYear()}-${String(sundayDate.getMonth()+1).padStart(2,"0")}-${String(sundayDate.getDate()).padStart(2,"0")}`;
+        if (!weeks[sundayKey]) weeks[sundayKey] = { ms: 0 };
+        if(l.type === 'IN') l._tempIn = l.ts;
+        else if(l.type === 'OUT') {
+           const prevIn = allEmpLogs.find(xx => xx.type === 'IN' && xx.ts < l.ts && !xx._usedJuhyu);
+           if(prevIn) { weeks[sundayKey].ms += (l.ts - prevIn.ts); prevIn._usedJuhyu = true; }
+        }
+      });
+      allEmpLogs.forEach(l => delete l._usedJuhyu);
+      Object.keys(weeks).forEach(sundayKey => {
+        if (sundayKey.startsWith(targetPrefix)) {
+          const hours = weeks[sundayKey].ms / 3600000;
+          if(hours >= 15) {
+            const juhyu = Math.floor( ((Math.min(hours, 40)/40)*8) * emp.wage );
+            totalJuhyu += juhyu;
+          }
+        }
+      });
     });
-  });
-  document.getElementById("totalWageAmount").textContent = (totalBase + totalJuhyu).toLocaleString() + "원";
-  document.getElementById("totalWageDetail").textContent = `(기본 ${totalBase.toLocaleString()} + 주휴 ${totalJuhyu.toLocaleString()})`;
-}
+    document.getElementById("totalWageAmount").textContent = (totalBase + totalJuhyu).toLocaleString() + "원";
+    document.getElementById("totalWageDetail").textContent = `(기본 ${totalBase.toLocaleString()} + 주휴 ${totalJuhyu.toLocaleString()})`;
+  }
 
-function renderLogFilterOptions(){
-  const sel=document.getElementById("logFilterEmp"), old=sel.value;
-  sel.innerHTML=`<option value="">전체 알바생</option>`+getEmployees().map(e=>`<option value="${e.code}">${e.code} ${escapeHtml(e.name)}</option>`).join("");
-  sel.value=old;
-}
-document.getElementById("logFilterEmp").addEventListener("change",renderLogAll);
+  function renderLogFilterOptions(){
+    const sel=document.getElementById("logFilterEmp"), old=sel.value;
+    sel.innerHTML=`<option value="">전체 알바생</option>`+getEmployees().map(e=>`<option value="${e.code}">${e.code} ${escapeHtml(e.name)}</option>`).join("");
+    sel.value=old;
+  }
+  document.getElementById("logFilterEmp").addEventListener("change",renderLogAll);
 
-function renderLogAll(){
-  const f=document.getElementById("logFilterEmp").value, all=getLogs(), list=f?all.filter(l=>l.code===f):all;
-  document.getElementById("logTotal").textContent=list.length;
-  // 비고란 태그 변환
-  const makeNoteTag = (note) => {
-    if(!note) return "";
-    let tags = "";
-    if(note.includes("[마감체크]")) tags += `<span class="tag good" style="margin-right:4px;">마감✅</span>`;
-    if(note.includes("[누락]") || note.includes("[환불]") || note.includes("[물품]") || note.includes("[기타]")) tags += `<span class="tag warn" style="margin-right:4px;">특이📝</span>`;
-    if(note.includes("수동추가")) tags += `<span class="tag" style="background:#eee; color:#888;">수동</span>`;
-    if(!tags) return note.length > 10 ? note.slice(0,10)+"..." : note;
-    return tags;
-  };
-  
-  // [수정됨] 삭제 버튼을 없애고 수정 버튼만 남김
-  document.getElementById("logTable").innerHTML=list.slice().reverse().map(l=>`<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name||"")}</td><td>${fmtTS(l.ts)}</td><td>${makeNoteTag(l.note)}</td><td><button class="btn small" onclick="window.editLog(${l.id})">수정</button></td></tr>`).join("")||`<tr><td colspan="6" class="muted">기록 없음</td></tr>`;
-  
-  const ons=getOutNotes().slice().reverse().filter(x=>!f||x.code===f);
-  document.getElementById("outNoteTable").innerHTML=ons.map((x,i)=>`<tr><td>${ons.length-i}</td><td>${x.date}</td><td>${x.code}</td><td>${escapeHtml(x.name)}</td><td>${fmtTS(x.ts)}</td><td>${escapeHtml(x.text)}</td></tr>`).join("");
-  const cls=getCloseCheckLogs().slice().reverse().filter(x=>!f||x.code===f);
-  document.getElementById("closeCheckTable").innerHTML=cls.map((x,i)=>`<tr><td>${cls.length-i}</td><td>${x.date}</td><td>${x.code}</td><td>${escapeHtml(x.name)}</td><td>${fmtTS(x.ts)}</td><td>${escapeHtml((x.items||[]).join("/"))}</td><td>${escapeHtml(x.extra)}</td></tr>`).join("");
-  renderCalendar();
-}
+  function renderLogAll(){
+    const f=document.getElementById("logFilterEmp").value, all=getLogs(), list=f?all.filter(l=>l.code===f):all;
+    document.getElementById("logTotal").textContent=list.length;
+    const makeNoteTag = (note) => {
+      if(!note) return "";
+      let tags = "";
+      if(note.includes("[마감체크]")) tags += `<span class="tag good" style="margin-right:4px;">마감✅</span>`;
+      if(note.includes("[누락]") || note.includes("[환불]") || note.includes("[물품]") || note.includes("[기타]")) tags += `<span class="tag warn" style="margin-right:4px;">특이📝</span>`;
+      if(note.includes("수동추가")) tags += `<span class="tag" style="background:#eee; color:#888;">수동</span>`;
+      if(!tags) return note.length > 10 ? note.slice(0,10)+"..." : note;
+      return tags;
+    };
+    document.getElementById("logTable").innerHTML=list.slice().reverse().map(l=>`<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name||"")}</td><td>${fmtTS(l.ts)}</td><td>${makeNoteTag(l.note)}</td><td><button class="btn small" onclick="window.editLog(${l.id})">수정</button></td></tr>`).join("")||`<tr><td colspan="6" class="muted">기록 없음</td></tr>`;
+    
+    const ons=getOutNotes().slice().reverse().filter(x=>!f||x.code===f);
+    document.getElementById("outNoteTable").innerHTML=ons.map((x,i)=>`<tr><td>${ons.length-i}</td><td>${x.date}</td><td>${x.code}</td><td>${escapeHtml(x.name)}</td><td>${fmtTS(x.ts)}</td><td>${escapeHtml(x.text)}</td></tr>`).join("");
+    const cls=getCloseCheckLogs().slice().reverse().filter(x=>!f||x.code===f);
+    document.getElementById("closeCheckTable").innerHTML=cls.map((x,i)=>`<tr><td>${cls.length-i}</td><td>${x.date}</td><td>${x.code}</td><td>${escapeHtml(x.name)}</td><td>${fmtTS(x.ts)}</td><td>${escapeHtml((x.items||[]).join("/"))}</td><td>${escapeHtml(x.extra)}</td></tr>`).join("");
+    renderCalendar();
+  }
 
-window.editLog=async(id)=>{ if(!await ensureAdmin("수정"))return; const l=getLogs().find(x=>x.id===id); if(!l)return; document.getElementById("logEditCode").value=l.code; document.getElementById("logEditName").value=l.name||""; document.getElementById("logEditType").value=l.type; const d=new Date(l.ts); document.getElementById("logEditTs").value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}T${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; document.getElementById("logEditNote").value=l.note||""; document.getElementById("logEditSave").onclick=()=>{ const ts=new Date(document.getElementById("logEditTs").value).getTime(); if(!ts)return toast("시간 확인"); const logs=getLogs(), idx=logs.findIndex(x=>x.id===id); if(idx>=0){ logs[idx]={...logs[idx], type:document.getElementById("logEditType").value, ts, note:document.getElementById("logEditNote").value}; setLogs(logs); } document.getElementById("logEditOverlay").classList.remove("show"); toast("수정됨"); renderLogAll(); renderAttendancePanel(); }; document.getElementById("logEditDelete").onclick=()=>{ if(confirm("삭제?")){ setLogs(getLogs().filter(x=>x.id!==id)); document.getElementById("logEditOverlay").classList.remove("show"); toast("삭제됨"); renderLogAll(); renderAttendancePanel(); } }; document.getElementById("logEditOverlay").classList.add("show"); };
-document.getElementById("logEditCancel").addEventListener("click",()=>document.getElementById("logEditOverlay").classList.remove("show"));
+  window.editLog=async(id)=>{ if(!await ensureAdmin("수정"))return; const l=getLogs().find(x=>x.id===id); if(!l)return; document.getElementById("logEditCode").value=l.code; document.getElementById("logEditName").value=l.name||""; document.getElementById("logEditType").value=l.type; const d=new Date(l.ts); document.getElementById("logEditTs").value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}T${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; document.getElementById("logEditNote").value=l.note||""; document.getElementById("logEditSave").onclick=()=>{ const ts=new Date(document.getElementById("logEditTs").value).getTime(); if(!ts)return toast("시간 확인"); const logs=getLogs(), idx=logs.findIndex(x=>x.id===id); if(idx>=0){ logs[idx]={...logs[idx], type:document.getElementById("logEditType").value, ts, note:document.getElementById("logEditNote").value}; setLogs(logs); } document.getElementById("logEditOverlay").classList.remove("show"); toast("수정됨"); renderLogAll(); renderAttendancePanel(); }; document.getElementById("logEditDelete").onclick=()=>{ if(confirm("삭제?")){ setLogs(getLogs().filter(x=>x.id!==id)); document.getElementById("logEditOverlay").classList.remove("show"); toast("삭제됨"); renderLogAll(); renderAttendancePanel(); } }; document.getElementById("logEditOverlay").classList.add("show"); };
+  document.getElementById("logEditCancel").addEventListener("click",()=>document.getElementById("logEditOverlay").classList.remove("show"));
 
-document.getElementById("btnAddShift").addEventListener("click",async()=>{ if(!await ensureAdmin("추가"))return; const emps=getEmployees(); if(!emps.length)return toast("알바생 없음"); document.getElementById("logAddEmp").innerHTML=emps.map(e=>`<option value="${e.code}">${e.code} ${e.name}</option>`).join(""); const t=new Date(); document.getElementById("logAddDate").value=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`; document.getElementById("logAddOverlay").classList.add("show"); });
-document.getElementById("logAddSave").addEventListener("click",()=>{ const c=document.getElementById("logAddEmp").value, e=findEmpByCode(c), dt=document.getElementById("logAddDate").value, md=document.getElementById("logAddMode").value, inT=document.getElementById("logAddInTime").value, outT=document.getElementById("logAddOutTime").value, mkTs=(t)=>new Date(`${dt}T${t}`).getTime(); if(md==="SHIFT"){ addLog({code:c,name:e.name,type:"IN",note:"수동추가"}); const l=getLogs(); l[l.length-1].ts=mkTs(inT); setLogs(l); addLog({code:c,name:e.name,type:"OUT",note:"수동추가"}); const l2=getLogs(); l2[l2.length-1].ts=mkTs(outT); setLogs(l2); } else if(md==="IN"){ addLog({code:c,name:e.name,type:"IN",note:"수동추가"}); const l=getLogs(); l[l.length-1].ts=mkTs(inT); setLogs(l); } else{ addLog({code:c,name:e.name,type:"OUT",note:"수동추가"}); const l=getLogs(); l[l.length-1].ts=mkTs(outT); setLogs(l); } document.getElementById("logAddOverlay").classList.remove("show"); toast("추가됨"); renderLogAll(); renderAttendancePanel(); });
-document.getElementById("logAddCancel").addEventListener("click",()=>document.getElementById("logAddOverlay").classList.remove("show"));
+  document.getElementById("btnAddShift").addEventListener("click",async()=>{ if(!await ensureAdmin("추가"))return; const emps=getEmployees(); if(!emps.length)return toast("알바생 없음"); document.getElementById("logAddEmp").innerHTML=emps.map(e=>`<option value="${e.code}">${e.code} ${e.name}</option>`).join(""); const t=new Date(); document.getElementById("logAddDate").value=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`; document.getElementById("logAddOverlay").classList.add("show"); });
+  document.getElementById("logAddSave").addEventListener("click",()=>{ const c=document.getElementById("logAddEmp").value, e=findEmpByCode(c), dt=document.getElementById("logAddDate").value, md=document.getElementById("logAddMode").value, inT=document.getElementById("logAddInTime").value, outT=document.getElementById("logAddOutTime").value, mkTs=(t)=>new Date(`${dt}T${t}`).getTime(); if(md==="SHIFT"){ addLog({code:c,name:e.name,type:"IN",note:"수동추가"}); const l=getLogs(); l[l.length-1].ts=mkTs(inT); setLogs(l); addLog({code:c,name:e.name,type:"OUT",note:"수동추가"}); const l2=getLogs(); l2[l2.length-1].ts=mkTs(outT); setLogs(l2); } else if(md==="IN"){ addLog({code:c,name:e.name,type:"IN",note:"수동추가"}); const l=getLogs(); l[l.length-1].ts=mkTs(inT); setLogs(l); } else{ addLog({code:c,name:e.name,type:"OUT",note:"수동추가"}); const l=getLogs(); l[l.length-1].ts=mkTs(outT); setLogs(l); } document.getElementById("logAddOverlay").classList.remove("show"); toast("추가됨"); renderLogAll(); renderAttendancePanel(); });
+  document.getElementById("logAddCancel").addEventListener("click",()=>document.getElementById("logAddOverlay").classList.remove("show"));
 
-function downloadFile(fn,txt,mime){ const b=new Blob([txt],{type:mime}), a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download=fn; document.body.appendChild(a); a.click(); a.remove(); }
-function exportCsv(){ const f=document.getElementById("logFilterEmp").value, l=getLogs().filter(x=>!f||x.code===f); const csv="id,type,code,name,ts,time,note\n"+l.map(x=>`${x.id},${x.type},${x.code},"${x.name}",${x.ts},"${fmtTS(x.ts)}","${(x.note||"").replace(/"/g,'""')}"`).join("\n"); downloadFile(`근태_${todayKey()}.csv`,csv,"text/csv;charset=utf-8"); }
-document.getElementById("btnExportCsv").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
-document.getElementById("btnExportCsv2").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
-document.getElementById("btnBackupJson").addEventListener("click",async()=>{ if(await ensureAdmin()){ const d={ver:1,at:nowTS(),emps:getEmployees(),nxt:getNextEmpId(),logs:getLogs(),notices:getNoticeMap(),out:getOutNotes()}; downloadFile(`백업_${todayKey()}.json`,JSON.stringify(d,null,2),"application/json"); } });
-document.getElementById("btnRestoreJson").addEventListener("click",async()=>{ if(await ensureAdmin()){ const i=document.getElementById("restoreInput"); i.value=""; i.click(); } });
-document.getElementById("restoreInput").addEventListener("change",async(e)=>{ const f=e.target.files[0]; if(!f)return; try{ const d=JSON.parse(await f.text()); if(!confirm("복원 시 기존 데이터와 병합됩니다. 진행할까요?"))return; const emps=getEmployees(), eMap=new Map(emps.map(x=>[x.code,x])); (d.emps||[]).forEach(x=>eMap.set(x.code,x)); setEmployees(Array.from(eMap.values())); const logs=getLogs(), lIds=new Set(logs.map(x=>x.id)); (d.logs||[]).forEach(x=>{if(!lIds.has(x.id))logs.push(x)}); setLogs(logs.sort((a,b)=>a.ts-b.ts)); toast("복원 완료"); location.reload(); }catch{ toast("파일 오류"); } });
-document.getElementById("btnResetAll").addEventListener("click",async()=>{ if(await ensureAdmin() && confirm("전체 초기화?? (복구불가)")){ localStorage.clear(); location.reload(); } });
+  function downloadFile(fn,txt,mime){ const b=new Blob([txt],{type:mime}), a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download=fn; document.body.appendChild(a); a.click(); a.remove(); }
+  function exportCsv(){ const f=document.getElementById("logFilterEmp").value, l=getLogs().filter(x=>!f||x.code===f); const csv="id,type,code,name,ts,time,note\n"+l.map(x=>`${x.id},${x.type},${x.code},"${x.name}",${x.ts},"${fmtTS(x.ts)}","${(x.note||"").replace(/"/g,'""')}"`).join("\n"); downloadFile(`근태_${todayKey()}.csv`,csv,"text/csv;charset=utf-8"); }
+  document.getElementById("btnExportCsv").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
+  document.getElementById("btnExportCsv2").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
+  document.getElementById("btnBackupJson").addEventListener("click",async()=>{ if(await ensureAdmin()){ const d={ver:1,at:nowTS(),emps:getEmployees(),nxt:getNextEmpId(),logs:getLogs(),notices:getNoticeMap(),out:getOutNotes()}; downloadFile(`백업_${todayKey()}.json`,JSON.stringify(d,null,2),"application/json"); } });
+  document.getElementById("btnRestoreJson").addEventListener("click",async()=>{ if(await ensureAdmin()){ const i=document.getElementById("restoreInput"); i.value=""; i.click(); } });
+  document.getElementById("restoreInput").addEventListener("change",async(e)=>{ const f=e.target.files[0]; if(!f)return; try{ const d=JSON.parse(await f.text()); if(!confirm("복원 시 기존 데이터와 병합됩니다. 진행할까요?"))return; const emps=getEmployees(), eMap=new Map(emps.map(x=>[x.code,x])); (d.emps||[]).forEach(x=>eMap.set(x.code,x)); setEmployees(Array.from(eMap.values())); const logs=getLogs(), lIds=new Set(logs.map(x=>x.id)); (d.logs||[]).forEach(x=>{if(!lIds.has(x.id))logs.push(x)}); setLogs(logs.sort((a,b)=>a.ts-b.ts)); toast("복원 완료"); location.reload(); }catch{ toast("파일 오류"); } });
+  document.getElementById("btnResetAll").addEventListener("click",async()=>{ if(await ensureAdmin() && confirm("전체 초기화?? (복구불가)")){ localStorage.clear(); location.reload(); } });
 
-function renderAdminCloseChecklist(){ const lst=document.getElementById("adminCloseChecklistList"), items=getCloseChecklist(); lst.innerHTML=items.map((t,i)=>`<div class="admCLRow"><div class="idx">${i+1}</div><input class="admCLInput" value="${escapeHtml(t)}" /><button class="btn small" onclick="delCLItem(${i})">삭제</button></div>`).join(""); }
-window.delCLItem=async(i)=>{ const l=getCloseChecklist(); l.splice(i,1); setCloseChecklist(l); renderAdminCloseChecklist(); };
-document.getElementById("btnAddCloseChecklistItem").addEventListener("click",()=>{ const v=document.getElementById("adminCloseNewItem").value.trim(); if(!v)return; const l=getCloseChecklist(); l.push(v); setCloseChecklist(l); document.getElementById("adminCloseNewItem").value=""; renderAdminCloseChecklist(); });
-document.getElementById("btnSaveCloseChecklist").addEventListener("click",()=>{ const l=Array.from(document.querySelectorAll(".admCLInput")).map(i=>i.value.trim()).filter(Boolean); setCloseChecklist(l); toast("저장됨"); renderAdminCloseChecklist(); });
-document.getElementById("btnResetCloseChecklist").addEventListener("click",()=>{ localStorage.removeItem(LS_KEYS.CLOSE_CHECKLIST); renderAdminCloseChecklist(); });
+  function renderAdminCloseChecklist(){ const lst=document.getElementById("adminCloseChecklistList"), items=getCloseChecklist(); lst.innerHTML=items.map((t,i)=>`<div class="admCLRow"><div class="idx">${i+1}</div><input class="admCLInput" value="${escapeHtml(t)}" /><button class="btn small" onclick="delCLItem(${i})">삭제</button></div>`).join(""); }
+  window.delCLItem=async(i)=>{ const l=getCloseChecklist(); l.splice(i,1); setCloseChecklist(l); renderAdminCloseChecklist(); };
+  document.getElementById("btnAddCloseChecklistItem").addEventListener("click",()=>{ const v=document.getElementById("adminCloseNewItem").value.trim(); if(!v)return; const l=getCloseChecklist(); l.push(v); setCloseChecklist(l); document.getElementById("adminCloseNewItem").value=""; renderAdminCloseChecklist(); });
+  document.getElementById("btnSaveCloseChecklist").addEventListener("click",()=>{ const l=Array.from(document.querySelectorAll(".admCLInput")).map(i=>i.value.trim()).filter(Boolean); setCloseChecklist(l); toast("저장됨"); renderAdminCloseChecklist(); });
+  document.getElementById("btnResetCloseChecklist").addEventListener("click",()=>{ localStorage.removeItem(LS_KEYS.CLOSE_CHECKLIST); renderAdminCloseChecklist(); });
 
-(async()=>{ if(!hasPin())await showPinModal("setup"); renderAttendancePanel(); updateAdminStateText(); })();
+  (async()=>{ if(!hasPin())await showPinModal("setup"); renderAttendancePanel(); updateAdminStateText(); })();
 </script>
 </body>
 </html>
