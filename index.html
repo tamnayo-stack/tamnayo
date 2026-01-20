@@ -2,9 +2,10 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="format-detection" content="telephone=no" />
   <title>탐나는피자 화성남양점</title>
   <style>
     :root{
@@ -14,7 +15,16 @@
       --shadow: 0 8px 20px rgba(0,0,0,0.08); --radius: 18px;
     }
     *{ box-sizing:border-box; }
-    body{ margin:0; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; background: var(--bg); color:var(--text); min-height:100dvh; }
+    body{ 
+      margin:0; 
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; 
+      background: var(--bg); 
+      color:var(--text); 
+      min-height:100dvh;
+      -webkit-user-select: none; user-select: none;
+      -webkit-touch-callout: none; touch-action: manipulation;
+    }
+    input, textarea { -webkit-user-select: text; user-select: text; }
     header{ padding: 14px 18px 10px; position: sticky; top:0; background: rgba(255,255,255,.90); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); z-index:10; }
     .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; max-width:1100px; margin:0 auto; }
     .brand{ display:flex; align-items:center; gap:12px; }
@@ -170,9 +180,12 @@
         <div class="hr"></div>
         <div class="row" style="gap:12px;">
           <div style="flex:1 1 100%;">
-            <div class="muted" style="font-size:13px; font-weight:900;">출근/퇴근자 선택</div>
+            <div class="muted" style="font-size:13px; font-weight:900;">빠른 선택 (알바생 버튼)</div>
             <div id="quickButtons" style="margin-top:8px;"></div>
-            <div class="note">• 본인의 이름이 있는 버튼을 누르면 코드가 자동 입력됩니다.<br/>• 출근/퇴근 누락 시 사장님께 말씀해 주세요. </div>
+            <div class="note">
+              • 알바생 버튼을 누르면 코드가 자동 입력됩니다.<br/>
+              • 출퇴근 누락 시 <b>사장님께 말씀해주세요.</b>
+            </div>
           </div>
         </div>
       </div>
@@ -202,7 +215,7 @@
           </div>
           <div class="split" style="margin-top:10px;">
             <div><label>근무 구분</label><select id="empShiftType"><option value="MID">미들</option><option value="CLOSE">마감</option></select></div>
-            <div><label>평일 시급</label><input id="empWage" type="number" placeholder="예) 10,030" inputmode="numeric" /></div>
+            <div><label>평일 시급</label><input id="empWage" type="number" placeholder="예) 10030" inputmode="numeric" /></div>
           </div>
           <div class="split" style="margin-top:10px;">
             <div><label style="color:var(--warn)">주말 시급 (토,일)</label><input id="empWageWeekend" type="number" placeholder="선택 (비워두면 평일동일)" inputmode="numeric" /></div>
@@ -385,7 +398,7 @@
 <div class="modalOverlay" id="logEditOverlay" role="dialog" aria-modal="true">
   <div class="modal">
     <h3>근무 기록 수정</h3>
-    <div class="muted" id="logEditHelp">시간/유형/비고를 수정하거나 삭제할 수 있습니다.</div>
+    <div class="muted">시간/유형/비고를 수정하거나 삭제할 수 있습니다.</div>
     <div class="hr"></div>
     <div class="split" style="margin-top:10px;">
       <div><label>코드</label><input id="logEditCode" readonly /></div>
@@ -466,6 +479,8 @@
   </div>
 </div>
 
+<input id="restoreInput" type="file" accept="application/json" style="display:none;" />
+
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
@@ -489,7 +504,11 @@
       SERVER_CACHE = data;
       try {
         if(typeof renderAttendancePanel === 'function') renderAttendancePanel();
-        if(typeof renderLogAll === 'function') renderLogAll();
+        if(typeof renderLogAll === 'function') {
+          // 데이터 수신 시 필터 옵션과 로그를 모두 갱신
+          renderLogFilterOptions();
+          renderLogAll();
+        }
         if(typeof renderEmployees === 'function') renderEmployees();
         
         let status = document.getElementById('syncStatus');
@@ -548,7 +567,6 @@
   function addCloseCheckLog({code,name,items,extra}){ const list=getCloseCheckLogs(); const id=list.length?(list[list.length-1].id+1):1; list.push({id,date:dateKey(nowTS()),ts:nowTS(),code,name,items:items||[],extra:String(extra||"").trim()}); setCloseCheckLogs(list); }
   function addOutNote({code,name,text}){ const list=getOutNotes(); const id=list.length?(list[list.length-1].id+1):1; list.push({id,date:dateKey(nowTS()),ts:nowTS(),code,name,text:String(text||"").trim()}); setOutNotes(list); }
 
-  /* PIN Logic - Hardcoded 0721 */
   function hasPin(){ return true; } 
   function isAdminUnlocked(){ const u=sessionStorage.getItem(SS_KEYS.UNLOCK_UNTIL); return u && Date.now()<Number(u); }
   function setAdminUnlocked(m=10){ sessionStorage.setItem(SS_KEYS.UNLOCK_UNTIL, String(Date.now()+m*60*1000)); updateAdminStateText(); }
@@ -566,7 +584,7 @@
   }
   function hidePinModal(res){ pinOverlay.classList.remove("show"); if(pinResolve){ pinResolve(res); pinResolve=null; } }
   document.getElementById("pinCancel").addEventListener("click",()=>hidePinModal({ok:false}));
-  pinOverlay.addEventListener("click",e=>{if(e.target===pinOverlay)hidePinModal({ok:false});});
+  
   document.getElementById("pinOk").addEventListener("click",()=>{
     const p=(document.getElementById("pinInput").value||"").replace(/\D/g,"");
     if(verifyPin(p)){ setAdminUnlocked(); toast("해제됨"); hidePinModal({ok:true}); } else toast("PIN 오류 (0721)");
@@ -637,11 +655,12 @@
   function askOutNote(){
     document.getElementById("outNoteText").value=""; outNoteOverlay.classList.add("show");
     return new Promise(r=>{
-      const c=()=>{ document.getElementById("outNoteSkip").removeEventListener("click",s); document.getElementById("outNoteSave").removeEventListener("click",sv); outNoteOverlay.removeEventListener("click",bg); };
+      const c=()=>{ document.getElementById("outNoteSkip").removeEventListener("click",s); document.getElementById("outNoteSave").removeEventListener("click",sv); /* outNoteOverlay.removeEventListener("click",bg); */ };
       const s=()=>{ c(); outNoteOverlay.classList.remove("show"); r(null); };
       const sv=()=>{ const t=document.getElementById("outNoteText").value; c(); outNoteOverlay.classList.remove("show"); r(t); };
-      const bg=e=>{ if(e.target===outNoteOverlay) s(); };
-      document.getElementById("outNoteSkip").addEventListener("click",s); document.getElementById("outNoteSave").addEventListener("click",sv); outNoteOverlay.addEventListener("click",bg);
+      // const bg=e=>{ if(e.target===outNoteOverlay) s(); };
+      document.getElementById("outNoteSkip").addEventListener("click",s); document.getElementById("outNoteSave").addEventListener("click",sv); 
+      // outNoteOverlay.addEventListener("click",bg);
     });
   }
   document.querySelectorAll('#outNoteOverlay button[data-cat]').forEach(b=>{
@@ -659,15 +678,16 @@
     lst.innerHTML=items.map((t,i)=>`<label class="checkItem"><input type="checkbox" data-i="${i}" /><div><div class="t">${escapeHtml(t)}</div></div></label>`).join("");
     done.disabled=false; closeCheckOverlay.classList.add("show");
     return new Promise(r=>{
-      const c=()=>{ done.removeEventListener("click",d); closeCheckOverlay.removeEventListener("click",bg); };
+      const c=()=>{ done.removeEventListener("click",d); /* closeCheckOverlay.removeEventListener("click",bg); */ };
       const d=()=>{
         const boxes=lst.querySelectorAll('input[type="checkbox"]');
         if(!Array.from(boxes).every(b=>b.checked)) return toast("모두 체크해주세요","danger");
         c(); closeCheckOverlay.classList.remove("show");
         r({skip:false, items:Array.from(boxes).filter(b=>b.checked).map(b=>items[b.dataset.i]), extra:""});
       };
-      const bg=e=>{if(e.target===closeCheckOverlay){ c(); closeCheckOverlay.classList.remove("show"); r({skip:true,items:[],extra:""}); }};
-      done.addEventListener("click",d); closeCheckOverlay.addEventListener("click",bg);
+      // const bg=e=>{if(e.target===closeCheckOverlay){ c(); closeCheckOverlay.classList.remove("show"); r({skip:true,items:[],extra:""}); }};
+      done.addEventListener("click",d); 
+      // closeCheckOverlay.addEventListener("click",bg);
     });
   }
 
@@ -963,7 +983,28 @@
   
   // 백업/복원 이벤트 제거됨
 
-  document.getElementById("btnResetAll").addEventListener("click",async()=>{ if(await ensureAdmin() && confirm("전체 초기화?? (복구불가)")){ localStorage.clear(); await set(ref(db, 'tamnaData'), null); location.reload(); } });
+  document.getElementById("btnResetAll").addEventListener("click",async()=>{
+    if(!await ensureAdmin("전체 초기화")) return;
+    
+    // 1. 확인 입력 요구
+    const answer = prompt("⚠️ 경고: 모든 데이터가 영구 삭제됩니다.\n동의하시면 '전체삭제' 라고 입력하세요.");
+    if(answer !== "전체삭제") return toast("취소되었습니다.");
+
+    // 2. 비상용 자동 백업
+    try {
+      const d = { ver: 1, at: nowTS(), emps: getEmployees(), logs: getLogs(), notices: getNoticeMap(), out: getOutNotes(), closeLogs: getCloseCheckLogs() };
+      downloadFile(`비상백업_초기화전_${todayKey()}.json`, JSON.stringify(d, null, 2), "application/json");
+      toast("비상 백업 파일이 다운로드되었습니다.");
+    } catch(e) {
+      if(!confirm("백업 다운로드에 실패했습니다. 그래도 삭제할까요?")) return;
+    }
+
+    // 3. 실제 삭제
+    localStorage.clear();
+    await set(ref(db, 'tamnaData'), null);
+    alert("초기화 완료.");
+    location.reload();
+  });
 
   function renderAdminCloseChecklist(){ const lst=document.getElementById("adminCloseChecklistList"), items=getCloseChecklist(); lst.innerHTML=items.map((t,i)=>`<div class="admCLRow"><div class="idx">${i+1}</div><input class="admCLInput" value="${escapeHtml(t)}" /><button class="btn small" onclick="delCLItem(${i})">삭제</button></div>`).join(""); }
   window.delCLItem=async(i)=>{ const l=getCloseChecklist(); l.splice(i,1); setCloseChecklist(l); renderAdminCloseChecklist(); };
@@ -975,5 +1016,3 @@
 </script>
 </body>
 </html>
-
-
