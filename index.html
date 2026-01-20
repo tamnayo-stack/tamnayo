@@ -202,7 +202,7 @@
           </div>
           <div class="split" style="margin-top:10px;">
             <div><label>근무 구분</label><select id="empShiftType"><option value="MID">미들</option><option value="CLOSE">마감</option></select></div>
-            <div><label>평일 시급</label><input id="empWage" type="number" placeholder="예) 10030" inputmode="numeric" /></div>
+            <div><label>평일 시급</label><input id="empWage" type="number" placeholder="예) 10,030" inputmode="numeric" /></div>
           </div>
           <div class="split" style="margin-top:10px;">
             <div><label style="color:var(--warn)">주말 시급 (토,일)</label><input id="empWageWeekend" type="number" placeholder="선택 (비워두면 평일동일)" inputmode="numeric" /></div>
@@ -311,7 +311,7 @@
       <button class="btn small" type="button" data-cat="재고">재고</button>
       <button class="btn small" type="button" data-cat="기타">기타</button>
     </div>
-    <textarea id="outNoteText" placeholder="예)&#10;[환불] 18:20 음료 누락 환불&#10;[재고] 고무장갑 없음&#10;[기타] 17:55 현금결제&#10;&#10;근무 중 발생한 특이사항을 적어주세요.&#10;특이사항이 없다면 건너뛰기!"></textarea>
+    <textarea id="outNoteText" placeholder="예)&#10;[환불] 18:20 음료 누락 환불&#10;[재고] 고무장갑 없음&#10;[기타] 17:55 현금결제 or 건의사항&#10;&#10;근무 중 발생한 특이사항을 적어주세요.&#10;특이사항이 없다면 건너뛰기!"></textarea>
     <div class="modalActions">
       <button class="btn" id="outNoteSkip">건너뛰기</button>
       <button class="btn primary" id="outNoteSave">저장 후 퇴근</button>
@@ -975,4 +975,5 @@
 </script>
 </body>
 </html>
+
 
