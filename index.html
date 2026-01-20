@@ -277,7 +277,7 @@
       <div class="muted" style="font-size:13px; font-weight:900; margin-bottom:8px;">마감 체크리스트 기록</div>
       <div style="overflow:auto; max-height: 280px;">
         <table>
-          <thead><tr><th style="width:70px;">순번</th><th style="width:110px;">날짜</th><th style="width:90px;">코드</th><th style="width:140px;">작성자</th><th style="width:180px;">시간</th><th>체크</th><th>메모</th></tr></thead>
+          <thead><tr><th style="width:70px;">순번</th><th style="width:110px;">날짜</th><th style="width:90px;">코드</th><th style="width:140px;">작성자</th><th style="width:180px;">시간</th><th>체크</th></tr></thead>
           <tbody id="closeCheckTable"></tbody>
         </table>
       </div>
@@ -312,7 +312,11 @@
       <button class="btn small" type="button" data-cat="물품">물품</button>
       <button class="btn small" type="button" data-cat="기타">기타</button>
     </div>
-    <textarea id="outNoteText" placeholder="예) 18:20 주문 건 음료 누락 / 환불 등"></textarea>
+    <div class="note" style="margin-bottom:6px;">
+      예) 18:20 주문 건 음료 누락<br/>
+      환불 등 내용을 입력하세요.
+    </div>
+    <textarea id="outNoteText" placeholder="내용 입력"></textarea>
     <div class="modalActions">
       <button class="btn" id="outNoteSkip">건너뛰기</button>
       <button class="btn primary" id="outNoteSave">저장 후 퇴근</button>
@@ -412,9 +416,7 @@
     <div class="muted">마감 항목을 체크한 뒤 퇴근을 완료하세요.</div>
     <div class="hr"></div>
     <div id="closeCheckList" class="checkList"></div>
-    <label style="margin-top:10px;">추가 메모 (선택)</label>
-    <textarea id="closeCheckExtra" placeholder="예) 바닥 청소 늦음 / 재고 부족 등"></textarea>
-    <div class="modalActions">
+    <div class="modalActions" style="margin-top:20px;">
       <button class="btn primary" id="closeCheckDone" disabled>완료 후 퇴근</button>
     </div>
   </div>
@@ -443,12 +445,10 @@
     <div class="menuGrid">
       <button class="btn primary" id="goEmp">알바생 관리</button>
       <button class="btn primary" id="goLog">근태 조회</button>
-      <button class="btn" id="btnBackupJson">백업(JSON)</button>
-      <button class="btn" id="btnRestoreJson">복원(JSON)</button>
       <button class="btn warn" id="btnExportCsv2">CSV 내보내기</button>
       <button class="btn bad" id="btnResetAll">전체 초기화</button>
       <button class="btn" id="btnLockAdmin">관리자 잠금</button>
-      </div>
+    </div>
     <div class="hr"></div><div class="hr"></div>
     <div class="muted" style="font-size:13px; font-weight:900;">마감 체크리스트 편집</div>
     <div class="row" style="margin-top:10px; gap:10px; flex-wrap:wrap;">
@@ -470,8 +470,6 @@
     <div class="modalActions"><button class="btn" id="adminMenuClose">닫기</button></div>
   </div>
 </div>
-
-<input id="restoreInput" type="file" accept="application/json" style="display:none;" />
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -556,16 +554,15 @@
   function addOutNote({code,name,text}){ const list=getOutNotes(); const id=list.length?(list[list.length-1].id+1):1; list.push({id,date:dateKey(nowTS()),ts:nowTS(),code,name,text:String(text||"").trim()}); setOutNotes(list); }
 
   /* PIN Logic - Hardcoded 0721 */
-  function hasPin(){ return true; } // PIN is always "set"
+  function hasPin(){ return true; } 
   function isAdminUnlocked(){ const u=sessionStorage.getItem(SS_KEYS.UNLOCK_UNTIL); return u && Date.now()<Number(u); }
   function setAdminUnlocked(m=10){ sessionStorage.setItem(SS_KEYS.UNLOCK_UNTIL, String(Date.now()+m*60*1000)); updateAdminStateText(); }
   function lockAdmin(){ sessionStorage.removeItem(SS_KEYS.UNLOCK_UNTIL); updateAdminStateText(); }
-  function verifyPin(p){ return p === "0721"; } // Hardcoded check
+  function verifyPin(p){ return p === "0721"; } 
 
   const pinOverlay=document.getElementById("pinOverlay");
   let pinResolve=null;
   function showPinModal(mode,opts={}){
-    // Mode is ignored because only "unlock" is used now
     document.getElementById("pinTitle").textContent=opts.title||"관리자 PIN";
     document.getElementById("pinDesc").textContent=opts.desc||"";
     document.getElementById("pinInput").value="";
@@ -663,8 +660,8 @@
 
   const closeCheckOverlay=document.getElementById("closeCheckOverlay");
   function openCloseCheckModal(items){
-    const lst=document.getElementById("closeCheckList"), ex=document.getElementById("closeCheckExtra"), done=document.getElementById("closeCheckDone");
-    ex.value=""; lst.innerHTML=items.map((t,i)=>`<label class="checkItem"><input type="checkbox" data-i="${i}" /><div><div class="t">${escapeHtml(t)}</div></div></label>`).join("");
+    const lst=document.getElementById("closeCheckList"), done=document.getElementById("closeCheckDone");
+    lst.innerHTML=items.map((t,i)=>`<label class="checkItem"><input type="checkbox" data-i="${i}" /><div><div class="t">${escapeHtml(t)}</div></div></label>`).join("");
     done.disabled=false; closeCheckOverlay.classList.add("show");
     return new Promise(r=>{
       const c=()=>{ done.removeEventListener("click",d); closeCheckOverlay.removeEventListener("click",bg); };
@@ -672,7 +669,7 @@
         const boxes=lst.querySelectorAll('input[type="checkbox"]');
         if(!Array.from(boxes).every(b=>b.checked)) return toast("모두 체크해주세요","danger");
         c(); closeCheckOverlay.classList.remove("show");
-        r({skip:false, items:Array.from(boxes).filter(b=>b.checked).map(b=>items[b.dataset.i]), extra:ex.value.trim()});
+        r({skip:false, items:Array.from(boxes).filter(b=>b.checked).map(b=>items[b.dataset.i]), extra:""});
       };
       const bg=e=>{if(e.target===closeCheckOverlay){ c(); closeCheckOverlay.classList.remove("show"); r({skip:true,items:[],extra:""}); }};
       done.addEventListener("click",d); closeCheckOverlay.addEventListener("click",bg);
@@ -717,7 +714,7 @@
       const res=await openCloseCheckModal(getCloseChecklist());
       if(!res.skip){
         addCloseCheckLog({code:c,name:e.name,items:res.items,extra:res.extra});
-        checklistLogStr = `[마감체크] ${res.items.join("/")} ${res.extra?"| "+res.extra:""}`;
+        checklistLogStr = `[마감체크] ${res.items.join("/")}`;
       }
     }
 
@@ -953,7 +950,7 @@
     const ons=getOutNotes().slice().reverse().filter(x=>!f||x.code===f);
     document.getElementById("outNoteTable").innerHTML=ons.map((x,i)=>`<tr><td>${ons.length-i}</td><td>${x.date}</td><td>${x.code}</td><td>${escapeHtml(x.name)}</td><td>${fmtTS(x.ts)}</td><td>${escapeHtml(x.text)}</td></tr>`).join("");
     const cls=getCloseCheckLogs().slice().reverse().filter(x=>!f||x.code===f);
-    document.getElementById("closeCheckTable").innerHTML=cls.map((x,i)=>`<tr><td>${cls.length-i}</td><td>${x.date}</td><td>${x.code}</td><td>${escapeHtml(x.name)}</td><td>${fmtTS(x.ts)}</td><td>${escapeHtml((x.items||[]).join("/"))}</td><td>${escapeHtml(x.extra)}</td></tr>`).join("");
+    document.getElementById("closeCheckTable").innerHTML=cls.map((x,i)=>`<tr><td>${cls.length-i}</td><td>${x.date}</td><td>${x.code}</td><td>${escapeHtml(x.name)}</td><td>${fmtTS(x.ts)}</td><td>${escapeHtml((x.items||[]).join("/"))}</td></tr>`).join("");
     renderCalendar();
   }
 
@@ -968,9 +965,9 @@
   function exportCsv(){ const f=document.getElementById("logFilterEmp").value, l=getLogs().filter(x=>!f||x.code===f); const csv="id,type,code,name,ts,time,note\n"+l.map(x=>`${x.id},${x.type},${x.code},"${x.name}",${x.ts},"${fmtTS(x.ts)}","${(x.note||"").replace(/"/g,'""')}"`).join("\n"); downloadFile(`근태_${todayKey()}.csv`,csv,"text/csv;charset=utf-8"); }
   document.getElementById("btnExportCsv").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
   document.getElementById("btnExportCsv2").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
-  document.getElementById("btnBackupJson").addEventListener("click",async()=>{ if(await ensureAdmin()){ const d={ver:1,at:nowTS(),emps:getEmployees(),nxt:getNextEmpId(),logs:getLogs(),notices:getNoticeMap(),out:getOutNotes()}; downloadFile(`백업_${todayKey()}.json`,JSON.stringify(d,null,2),"application/json"); } });
-  document.getElementById("btnRestoreJson").addEventListener("click",async()=>{ if(await ensureAdmin()){ const i=document.getElementById("restoreInput"); i.value=""; i.click(); } });
-  document.getElementById("restoreInput").addEventListener("change",async(e)=>{ const f=e.target.files[0]; if(!f)return; try{ const d=JSON.parse(await f.text()); if(!confirm("복원 시 기존 데이터와 병합됩니다. 진행할까요?"))return; const emps=getEmployees(), eMap=new Map(emps.map(x=>[x.code,x])); (d.emps||[]).forEach(x=>eMap.set(x.code,x)); setEmployees(Array.from(eMap.values())); const logs=getLogs(), lIds=new Set(logs.map(x=>x.id)); (d.logs||[]).forEach(x=>{if(!lIds.has(x.id))logs.push(x)}); setLogs(logs.sort((a,b)=>a.ts-b.ts)); toast("복원 완료"); location.reload(); }catch{ toast("파일 오류"); } });
+  
+  // 백업/복원 이벤트 제거됨
+
   document.getElementById("btnResetAll").addEventListener("click",async()=>{ if(await ensureAdmin() && confirm("전체 초기화?? (복구불가)")){ localStorage.clear(); await set(ref(db, 'tamnaData'), null); location.reload(); } });
 
   function renderAdminCloseChecklist(){ const lst=document.getElementById("adminCloseChecklistList"), items=getCloseChecklist(); lst.innerHTML=items.map((t,i)=>`<div class="admCLRow"><div class="idx">${i+1}</div><input class="admCLInput" value="${escapeHtml(t)}" /><button class="btn small" onclick="delCLItem(${i})">삭제</button></div>`).join(""); }
