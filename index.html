@@ -170,9 +170,9 @@
         <div class="hr"></div>
         <div class="row" style="gap:12px;">
           <div style="flex:1 1 100%;">
-            <div class="muted" style="font-size:13px; font-weight:900;">빠른 선택 (알바생 버튼)</div>
+            <div class="muted" style="font-size:13px; font-weight:900;">출근/퇴근자 선택</div>
             <div id="quickButtons" style="margin-top:8px;"></div>
-            <div class="note">• 알바생 버튼을 누르면 코드가 자동 입력됩니다.<br/>• 알바생 화면에서는 출근/퇴근만 가능합니다.</div>
+            <div class="note">• 본인의 이름이 있는 버튼을 누르면 코드가 자동 입력됩니다.<br/>• 출근/퇴근 누락 시 사장님께 말씀해 주세요. </div>
           </div>
         </div>
       </div>
@@ -184,7 +184,7 @@
             <tbody id="recentTable"></tbody>
           </table>
         </div>
-        <div class="note">최근 기록은 참고용입니다.</div>
+        <div class="note">최근 기록은 누락 방지를 위한 참고용입니다.</div>
       </div>
     </div>
   </section>
@@ -307,16 +307,11 @@
     <div class="hr"></div>
     <label>특이사항</label>
     <div class="row" style="gap:8px; margin:8px 0 10px;">
-      <button class="btn small" type="button" data-cat="누락">누락</button>
       <button class="btn small" type="button" data-cat="환불">환불</button>
-      <button class="btn small" type="button" data-cat="물품">물품</button>
+      <button class="btn small" type="button" data-cat="재고">재고</button>
       <button class="btn small" type="button" data-cat="기타">기타</button>
     </div>
-    <div class="note" style="margin-bottom:6px;">
-      예) 18:20 주문 건 음료 누락<br/>
-      환불 등 내용을 입력하세요.
-    </div>
-    <textarea id="outNoteText" placeholder="내용 입력"></textarea>
+    <textarea id="outNoteText" placeholder="예)&#10;[환불] 18:20 음료 누락 환불&#10;[재고] 고무장갑 없음&#10;[기타] 17:55 현금결제&#10;&#10;근무 중 발생한 특이사항을 적어주세요.&#10;특이사항이 없다면 건너뛰기!"></textarea>
     <div class="modalActions">
       <button class="btn" id="outNoteSkip">건너뛰기</button>
       <button class="btn primary" id="outNoteSave">저장 후 퇴근</button>
@@ -980,3 +975,4 @@
 </script>
 </body>
 </html>
+
