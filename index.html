@@ -320,11 +320,12 @@
     <div class="hr"></div>
     <label>특이사항</label>
     <div class="row" style="gap:8px; margin:8px 0 10px;">
+      <button class="btn small" type="button" data-cat="누락">누락</button>
       <button class="btn small" type="button" data-cat="환불">환불</button>
-      <button class="btn small" type="button" data-cat="재고">재고</button>
+      <button class="btn small" type="button" data-cat="물품">물품</button>
       <button class="btn small" type="button" data-cat="기타">기타</button>
     </div>
-    <textarea id="outNoteText" placeholder="예)&#10;[환불] 18:20 음료 누락 환불&#10;[재고] 고무장갑 없음&#10;[기타] 17:55 현금결제 or 건의사항&#10;&#10;근무 중 발생한 특이사항을 적어주세요.&#10;특이사항이 없다면 건너뛰기!"></textarea>
+    <textarea id="outNoteText" placeholder="예) [환불] 18:20 음료 누락 환불&#10;[재고] 고무장갑 없음&#10;[기타] 사장님 보너스 주세요.&#10; 근무 중 발생한 특이사항을 적어주세요.&#10;특이사항이 없다면 건너뛰기!"></textarea>
     <div class="modalActions">
       <button class="btn" id="outNoteSkip">건너뛰기</button>
       <button class="btn primary" id="outNoteSave">저장 후 퇴근</button>
@@ -505,7 +506,6 @@
       try {
         if(typeof renderAttendancePanel === 'function') renderAttendancePanel();
         if(typeof renderLogAll === 'function') {
-          // 데이터 수신 시 필터 옵션과 로그를 모두 갱신
           renderLogFilterOptions();
           renderLogAll();
         }
@@ -560,7 +560,7 @@
   function clearTodayNotice(){ const m=getNoticeMap(); delete m[todayKey()]; setNoticeMap(m); }
   function getOutNotes(){ return loadJSON(LS_KEYS.OUT_NOTES, []); }
   function setOutNotes(list){ saveJSON(LS_KEYS.OUT_NOTES, list); }
-  function getCloseChecklist(){ const def=["가스/전기 확인","쓰레기/재활용 정리","냉장고 정리","매장 불/에어컨 OFF","마감 청소 완료"]; const list=loadJSON(LS_KEYS.CLOSE_CHECKLIST, null); return Array.isArray(list)&&list.length?list:def; }
+  function getCloseChecklist(){ const def=["가스/전기 확인","쓰레기/재활용 정리","냉장고 정리","매장 불/에어컨 OFF","오븐/토핑대/도우롤러 아래 바닥 쓸기"]; const list=loadJSON(LS_KEYS.CLOSE_CHECKLIST, null); return Array.isArray(list)&&list.length?list:def; }
   function setCloseChecklist(list){ saveJSON(LS_KEYS.CLOSE_CHECKLIST, list); }
   function getCloseCheckLogs(){ return loadJSON(LS_KEYS.CLOSE_CHECK_LOGS, []); }
   function setCloseCheckLogs(list){ saveJSON(LS_KEYS.CLOSE_CHECK_LOGS, list); }
@@ -655,12 +655,10 @@
   function askOutNote(){
     document.getElementById("outNoteText").value=""; outNoteOverlay.classList.add("show");
     return new Promise(r=>{
-      const c=()=>{ document.getElementById("outNoteSkip").removeEventListener("click",s); document.getElementById("outNoteSave").removeEventListener("click",sv); /* outNoteOverlay.removeEventListener("click",bg); */ };
+      const c=()=>{ document.getElementById("outNoteSkip").removeEventListener("click",s); document.getElementById("outNoteSave").removeEventListener("click",sv); };
       const s=()=>{ c(); outNoteOverlay.classList.remove("show"); r(null); };
       const sv=()=>{ const t=document.getElementById("outNoteText").value; c(); outNoteOverlay.classList.remove("show"); r(t); };
-      // const bg=e=>{ if(e.target===outNoteOverlay) s(); };
       document.getElementById("outNoteSkip").addEventListener("click",s); document.getElementById("outNoteSave").addEventListener("click",sv); 
-      // outNoteOverlay.addEventListener("click",bg);
     });
   }
   document.querySelectorAll('#outNoteOverlay button[data-cat]').forEach(b=>{
@@ -678,16 +676,14 @@
     lst.innerHTML=items.map((t,i)=>`<label class="checkItem"><input type="checkbox" data-i="${i}" /><div><div class="t">${escapeHtml(t)}</div></div></label>`).join("");
     done.disabled=false; closeCheckOverlay.classList.add("show");
     return new Promise(r=>{
-      const c=()=>{ done.removeEventListener("click",d); /* closeCheckOverlay.removeEventListener("click",bg); */ };
+      const c=()=>{ done.removeEventListener("click",d); };
       const d=()=>{
         const boxes=lst.querySelectorAll('input[type="checkbox"]');
         if(!Array.from(boxes).every(b=>b.checked)) return toast("모두 체크해주세요","danger");
         c(); closeCheckOverlay.classList.remove("show");
         r({skip:false, items:Array.from(boxes).filter(b=>b.checked).map(b=>items[b.dataset.i]), extra:""});
       };
-      // const bg=e=>{if(e.target===closeCheckOverlay){ c(); closeCheckOverlay.classList.remove("show"); r({skip:true,items:[],extra:""}); }};
       done.addEventListener("click",d); 
-      // closeCheckOverlay.addEventListener("click",bg);
     });
   }
 
@@ -805,10 +801,34 @@
   });
   document.getElementById("empEditCancel").addEventListener("click",()=>document.getElementById("empEditOverlay").classList.remove("show"));
 
-  /* Logs & Calendar */
+  /* Logs & Calendar & Wage Logic */
   let calYear=new Date().getFullYear(), calMonth=new Date().getMonth()+1;
   function getDayKey(y,m,d){ return `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`; }
   
+  // 마감 조 급여 계산용 헬퍼 함수
+  function getAdjustedWorkTime(emp, inTs, outTs) {
+    if (emp.shiftType !== 'CLOSE' || !emp.workEnd) return outTs; // 마감 아니면 그대로
+
+    const d = new Date(inTs);
+    const [h, m] = emp.workEnd.split(':').map(Number);
+    const scheduledEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
+    
+    // 안전장치: 마감시간보다 60분 이상 일찍 퇴근하면 '조퇴'로 간주하여 실제 시간 적용
+    const safetyMs = 60 * 60 * 1000; 
+
+    if (outTs < scheduledEnd) {
+      // 일찍 퇴근한 경우
+      if (scheduledEnd - outTs > safetyMs) return outTs; // 너무 일찍 가면 실제시간
+      return scheduledEnd; // 아니면 마감시간 보장
+    } else {
+      // 늦게 퇴근한 경우 (10분 단위 절삭)
+      const diff = outTs - scheduledEnd;
+      const tenMins = 10 * 60 * 1000;
+      const extra = Math.floor(diff / tenMins) * tenMins;
+      return scheduledEnd + extra;
+    }
+  }
+
   function calcDayStats(dk, tCode){
     const logs=getLogs().filter(l=>dateKey(l.ts)===dk && (!tCode||l.code===tCode)).sort((a,b)=>a.ts-b.ts);
     let ms=0, pay=0, codeMap={};
@@ -824,7 +844,8 @@
       evts.forEach(ev=>{
         if(ev.type==="IN") inTs=ev.ts;
         else if(ev.type==="OUT" && inTs){
-          const d=ev.ts-inTs; ms+=d;
+          const adjOutTs = getAdjustedWorkTime(e, inTs, ev.ts); // 조정된 퇴근시간 적용
+          const d=adjOutTs-inTs; ms+=d;
           pay+=Math.floor((d/3600000)*wage); inTs=null;
         }
       });
@@ -846,7 +867,11 @@
          if(l.type==='IN') l._tIn = l.ts;
          else if(l.type==='OUT') {
            const prevIn = logs.find(x => x.type === 'IN' && x.ts < l.ts && !x._used);
-           if(prevIn) { ms += (l.ts - prevIn.ts); prevIn._used = true; }
+           if(prevIn) { 
+             const adjOutTs = getAdjustedWorkTime(emp, prevIn.ts, l.ts); // 주휴 계산에도 적용
+             ms += (adjOutTs - prevIn.ts); 
+             prevIn._used = true; 
+           }
          }
        });
        logs.forEach(l => delete l._used);
@@ -901,7 +926,8 @@
         else if(l.type === 'OUT') {
            const prevIn = empLogs.find(xx => xx.type === 'IN' && xx.ts < l.ts && !xx._usedBase);
            if(prevIn) { 
-             const ms = l.ts - prevIn.ts;
+             const adjOutTs = getAdjustedWorkTime(emp, prevIn.ts, l.ts); // 월급 계산에도 적용
+             const ms = adjOutTs - prevIn.ts;
              const dt = new Date(l.ts);
              const isWeekend = dt.getDay() === 0 || dt.getDay() === 6;
              const wage = (isWeekend && emp.wageWeekend) ? emp.wageWeekend : emp.wage;
@@ -923,7 +949,11 @@
         if(l.type === 'IN') l._tempIn = l.ts;
         else if(l.type === 'OUT') {
            const prevIn = allEmpLogs.find(xx => xx.type === 'IN' && xx.ts < l.ts && !xx._usedJuhyu);
-           if(prevIn) { weeks[sundayKey].ms += (l.ts - prevIn.ts); prevIn._usedJuhyu = true; }
+           if(prevIn) { 
+             const adjOutTs = getAdjustedWorkTime(emp, prevIn.ts, l.ts); // 주휴 시간 계산에도 적용
+             weeks[sundayKey].ms += (adjOutTs - prevIn.ts); 
+             prevIn._usedJuhyu = true; 
+           }
         }
       });
       allEmpLogs.forEach(l => delete l._usedJuhyu);
