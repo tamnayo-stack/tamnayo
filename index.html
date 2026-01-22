@@ -27,10 +27,11 @@
       -webkit-user-select: none; user-select: none;
       -webkit-touch-callout: none; touch-action: manipulation;
     }
-    /* 입력창은 선택 가능하게 */
-    input, textarea { -webkit-user-select: text; user-select: text; }
-    /* SunEditor 내부 텍스트 선택 가능하게 */
-    .se-wrapper-inner { -webkit-user-select: text !important; user-select: text !important; }
+    /* 입력창과 에디터 내부는 선택 가능하게 */
+    input, textarea, .se-wrapper-inner, .sun-editor-editable { 
+      -webkit-user-select: text !important; 
+      user-select: text !important; 
+    }
 
     header{ padding: 14px 18px 10px; position: sticky; top:0; background: rgba(255,255,255,.90); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); z-index:10; }
     .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; max-width:1100px; margin:0 auto; }
@@ -121,6 +122,10 @@
     .admCLRow input{ flex: 1 1 auto; }
     .admCLRow .idx{ width: 28px; text-align:center; color: var(--muted); font-weight: 900; font-variant-numeric: tabular-nums; }
     
+    /* SunEditor 높이 및 스타일 보정 */
+    .sun-editor { border-radius: 12px; overflow: hidden; border: 1px solid #ced6e0 !important; font-family: sans-serif !important; }
+    .se-container { z-index: 9999 !important; }
+
     #adminMenuOverlay .modal{ padding-bottom: 18px; max-height: 88vh; overflow-y: auto; overscroll-behavior: contain; }
     #adminMenuOverlay .modal::-webkit-scrollbar{ width: 10px; }
     #adminMenuOverlay .modal::-webkit-scrollbar-thumb{ background: #bdc3c7; border-radius: 999px; border: 3px solid rgba(0,0,0,0); background-clip: padding-box; }
@@ -333,7 +338,7 @@
       <button class="btn small" type="button" data-cat="물품">물품</button>
       <button class="btn small" type="button" data-cat="기타">기타</button>
     </div>
-    <textarea id="outNoteText" placeholder="예) [환불] 18:20 음료 누락 환불&#10;[재고] 고무장갑 없음&#10;[기타] 17:55 현금결제 or 건의사항&#10;&#10;근무 중 발생한 특이사항을 적어주세요.&#10;특이사항이 없다면 건너뛰기!"></textarea>
+    <textarea id="outNoteText" placeholder="예) [환불] 18:20 음료 누락 환불&#10;[재고] 고무장갑 없음&#10;[기타] 사장님 보너스 주세요.&#10; 근무 중 발생한 특이사항을 적어주세요.&#10;특이사항이 없다면 건너뛰기!"></textarea>
     <div class="modalActions">
       <button class="btn" id="outNoteSkip">건너뛰기</button>
       <button class="btn primary" id="outNoteSave">저장 후 퇴근</button>
@@ -491,7 +496,7 @@
 <input id="restoreInput" type="file" accept="application/json" style="display:none;" />
 
 <script src="https://cdn.jsdelivr.net/npm/suneditor@latest/dist/suneditor.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/suneditor@latest/src/lang/ko.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/suneditor@latest/dist/lang/ko.js"></script>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -510,13 +515,13 @@
   const db = getDatabase(app);
   let SERVER_CACHE = {}; 
   
-  // SunEditor 초기화
+  // SunEditor 초기화 (안전장치 추가)
   let noticeEditor;
-  document.addEventListener("DOMContentLoaded", () => {
-      // 에디터 생성 (모바일 최적화)
-      try {
+  setTimeout(() => {
+    try {
+      if (typeof SunEditor !== 'undefined') {
         noticeEditor = SunEditor.create('adminNoticeInput', {
-            lang: SUNEDITOR_LANG['ko'],
+            lang: SUNEDITOR_LANG ? SUNEDITOR_LANG['ko'] : null,
             buttonList: [
                 ['font', 'fontSize', 'formatBlock'],
                 ['bold', 'underline', 'italic', 'strike', 'fontColor', 'hiliteColor'],
@@ -528,8 +533,11 @@
             height: '250px',
             placeholder: '공지사항을 입력하세요...'
         });
-      } catch(e) { console.error("SunEditor init failed", e); }
-  });
+      } else {
+        console.error("SunEditor library not loaded.");
+      }
+    } catch(e) { console.error("Editor init fail", e); }
+  }, 500); // 0.5초 딜레이를 줘서 확실히 로드된 후 실행
 
   onValue(ref(db, 'tamnaData'), (snapshot) => {
     const data = snapshot.val();
@@ -832,17 +840,28 @@
     const q=document.getElementById("empSearch").value.toLowerCase(), emps=getEmployees().filter(e=>e.code.includes(q)||e.name.toLowerCase().includes(q));
     document.getElementById("empTable").innerHTML=emps.length?emps.map(e=>`<tr><td><span class="tag open">${e.code}</span></td><td>${escapeHtml(e.name)}</td><td class="muted typeCell">${e.shiftType==="CLOSE"?"마감":"미들"}</td><td class="muted">${(e.wage||0).toLocaleString()} / ${e.wageWeekend ? e.wageWeekend.toLocaleString() : '-'}</td><td class="muted timeCell">${e.workStart}~${e.workEnd}</td><td style="text-align:right;"><button class="btn small" onclick="window.editEmp('${e.code}')">수정</button> <button class="btn small bad" onclick="window.delEmp('${e.code}')">삭제</button></td></tr>`).join("") : `<tr><td colspan="6" class="muted">없음</td></tr>`;
   }
-  window.delEmp=async(c)=>{ if(await ensureAdmin("삭제") && confirm("이 알바생의 '모든 출퇴근 기록'도 함께 삭제할까요?\n(테스트용 알바생이었다면 '확인'을 누르세요.)")){ 
-    const l=getEmployees().filter(e=>e.code!==c); 
-    setEmployees(l); 
-    const allLogs = getLogs().filter(log => log.code !== c);
-    setLogs(allLogs);
-    toast("삭제됨"); renderEmployees(); renderQuickButtons(); renderAttendancePanel(); renderLogAll();
-  } else if(await ensureAdmin("삭제")) {
-    const l=getEmployees().filter(e=>e.code!==c); 
-    setEmployees(l); 
-    toast("삭제됨"); renderEmployees(); renderQuickButtons();
-  }};
+  // 알바생 삭제 로직 수정 (기록 삭제 여부 질문)
+  window.delEmp=async(c)=>{ 
+    if(await ensureAdmin("삭제")) {
+        const delLogs = confirm("이 알바생의 '모든 출퇴근 기록'도 함께 삭제할까요?\n(테스트용 알바생이었다면 '확인'을 누르세요.)");
+        
+        // 알바생 삭제
+        const l = getEmployees().filter(e=>e.code!==c); 
+        setEmployees(l); 
+        
+        // 기록 삭제 (확인 시)
+        if(delLogs) {
+            const allLogs = getLogs().filter(log => log.code !== c);
+            setLogs(allLogs);
+        }
+
+        toast("삭제됨"); 
+        renderEmployees(); 
+        renderQuickButtons();
+        renderAttendancePanel(); // 최근 기록 갱신
+        renderLogAll(); // 로그 화면 갱신
+    } 
+  };
   window.editEmp=async(c)=>{
     if(!await ensureAdmin("수정"))return;
     const e=findEmpByCode(c); if(!e)return;
