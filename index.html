@@ -816,7 +816,8 @@
   }
 
   function getAdjustedWorkTime(emp, inTs, outTs) {
-    if (emp.shiftType !== 'CLOSE' || !emp.workEnd) return outTs;
+    // shiftType에 상관없이 workEnd가 있으면 적용
+    if (!emp.workEnd) return outTs;
     const d = new Date(inTs);
     const [h, m] = emp.workEnd.split(':').map(Number);
     let scheduledEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
@@ -1055,28 +1056,7 @@
   
   // 백업/복원 이벤트 제거됨
 
-  document.getElementById("btnResetAll").addEventListener("click",async()=>{
-    if(!await ensureAdmin("전체 초기화")) return;
-    
-    // 1. 확인 입력 요구
-    const answer = prompt("⚠️ 경고: 모든 데이터가 영구 삭제됩니다.\n동의하시면 '전체삭제' 라고 입력하세요.");
-    if(answer !== "전체삭제") return toast("취소되었습니다.");
-
-    // 2. 비상용 자동 백업
-    try {
-      const d = { ver: 1, at: nowTS(), emps: getEmployees(), logs: getLogs(), notices: getNoticeMap(), out: getOutNotes(), closeLogs: getCloseCheckLogs() };
-      downloadFile(`비상백업_초기화전_${todayKey()}.json`, JSON.stringify(d, null, 2), "application/json");
-      toast("비상 백업 파일이 다운로드되었습니다.");
-    } catch(e) {
-      if(!confirm("백업 다운로드에 실패했습니다. 그래도 삭제할까요?")) return;
-    }
-
-    // 3. 실제 삭제
-    localStorage.clear();
-    await set(ref(db, 'tamnaData'), null);
-    alert("초기화 완료.");
-    location.reload();
-  });
+  document.getElementById("btnResetAll").addEventListener("click",async()=>{ if(await ensureAdmin() && confirm("전체 초기화?? (복구불가)")){ localStorage.clear(); await set(ref(db, 'tamnaData'), null); location.reload(); } });
 
   function renderAdminCloseChecklist(){ const lst=document.getElementById("adminCloseChecklistList"), items=getCloseChecklist(); lst.innerHTML=items.map((t,i)=>`<div class="admCLRow"><div class="idx">${i+1}</div><input class="admCLInput" value="${escapeHtml(t)}" /><button class="btn small" onclick="delCLItem(${i})">삭제</button></div>`).join(""); }
   window.delCLItem=async(i)=>{ const l=getCloseChecklist(); l.splice(i,1); setCloseChecklist(l); renderAdminCloseChecklist(); };
