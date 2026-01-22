@@ -77,6 +77,7 @@
     .tag.out{ border-color: transparent; color: #fff; background: var(--bad); }
     .tag.open{ border-color: transparent; color: #fff; background: var(--warn); }
     .tag.juhyu { border-color: transparent; color: #d35400; background: rgba(230, 126, 34, 0.15); margin-top: 2px; width: 100%; }
+    .tag.adj { border-color: var(--accent); color: var(--accent); background: rgba(52,152,219,0.1); margin-left:6px; font-size:11px; }
 
     .section{ display:none; }
     .section.active{ display:block; }
@@ -805,23 +806,27 @@
   let calYear=new Date().getFullYear(), calMonth=new Date().getMonth()+1;
   function getDayKey(y,m,d){ return `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`; }
   
-  // 마감 조 급여 계산용 헬퍼 함수
-  function getAdjustedWorkTime(emp, inTs, outTs) {
-    if (emp.shiftType !== 'CLOSE' || !emp.workEnd) return outTs; // 마감 아니면 그대로
+  function getAdjustedStartTime(emp, inTs) {
+    if (!emp.workStart) return inTs;
+    const d = new Date(inTs);
+    const [h, m] = emp.workStart.split(':').map(Number);
+    const scheduledStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
+    if (inTs < scheduledStart) return scheduledStart; 
+    return inTs;
+  }
 
+  function getAdjustedWorkTime(emp, inTs, outTs) {
+    if (emp.shiftType !== 'CLOSE' || !emp.workEnd) return outTs;
     const d = new Date(inTs);
     const [h, m] = emp.workEnd.split(':').map(Number);
-    const scheduledEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
+    let scheduledEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
+    if (scheduledEnd < inTs) { scheduledEnd += 24 * 60 * 60 * 1000; }
     
-    // 안전장치: 마감시간보다 60분 이상 일찍 퇴근하면 '조퇴'로 간주하여 실제 시간 적용
     const safetyMs = 60 * 60 * 1000; 
-
     if (outTs < scheduledEnd) {
-      // 일찍 퇴근한 경우
-      if (scheduledEnd - outTs > safetyMs) return outTs; // 너무 일찍 가면 실제시간
-      return scheduledEnd; // 아니면 마감시간 보장
+      if (scheduledEnd - outTs > safetyMs) return outTs;
+      return scheduledEnd;
     } else {
-      // 늦게 퇴근한 경우 (10분 단위 절삭)
       const diff = outTs - scheduledEnd;
       const tenMins = 10 * 60 * 1000;
       const extra = Math.floor(diff / tenMins) * tenMins;
@@ -844,9 +849,13 @@
       evts.forEach(ev=>{
         if(ev.type==="IN") inTs=ev.ts;
         else if(ev.type==="OUT" && inTs){
-          const adjOutTs = getAdjustedWorkTime(e, inTs, ev.ts); // 조정된 퇴근시간 적용
-          const d=adjOutTs-inTs; ms+=d;
-          pay+=Math.floor((d/3600000)*wage); inTs=null;
+          const adjInTs = getAdjustedStartTime(e, inTs);
+          const adjOutTs = getAdjustedWorkTime(e, inTs, ev.ts);
+          if(adjOutTs > adjInTs) {
+             const d=adjOutTs-adjInTs; ms+=d;
+             pay+=Math.floor((d/3600000)*wage);
+          }
+          inTs=null;
         }
       });
     });
@@ -868,8 +877,9 @@
          else if(l.type==='OUT') {
            const prevIn = logs.find(x => x.type === 'IN' && x.ts < l.ts && !x._used);
            if(prevIn) { 
-             const adjOutTs = getAdjustedWorkTime(emp, prevIn.ts, l.ts); // 주휴 계산에도 적용
-             ms += (adjOutTs - prevIn.ts); 
+             const adjInTs = getAdjustedStartTime(emp, prevIn.ts);
+             const adjOutTs = getAdjustedWorkTime(emp, prevIn.ts, l.ts);
+             if(adjOutTs > adjInTs) ms += (adjOutTs - adjInTs); 
              prevIn._used = true; 
            }
          }
@@ -926,12 +936,15 @@
         else if(l.type === 'OUT') {
            const prevIn = empLogs.find(xx => xx.type === 'IN' && xx.ts < l.ts && !xx._usedBase);
            if(prevIn) { 
-             const adjOutTs = getAdjustedWorkTime(emp, prevIn.ts, l.ts); // 월급 계산에도 적용
-             const ms = adjOutTs - prevIn.ts;
-             const dt = new Date(l.ts);
-             const isWeekend = dt.getDay() === 0 || dt.getDay() === 6;
-             const wage = (isWeekend && emp.wageWeekend) ? emp.wageWeekend : emp.wage;
-             totalBase += Math.floor((ms / 3600000) * wage);
+             const adjInTs = getAdjustedStartTime(emp, prevIn.ts);
+             const adjOutTs = getAdjustedWorkTime(emp, prevIn.ts, l.ts);
+             if(adjOutTs > adjInTs) {
+               const ms = adjOutTs - adjInTs;
+               const dt = new Date(l.ts);
+               const isWeekend = dt.getDay() === 0 || dt.getDay() === 6;
+               const wage = (isWeekend && emp.wageWeekend) ? emp.wageWeekend : emp.wage;
+               totalBase += Math.floor((ms / 3600000) * wage);
+             }
              prevIn._usedBase = true; 
            }
         }
@@ -950,8 +963,9 @@
         else if(l.type === 'OUT') {
            const prevIn = allEmpLogs.find(xx => xx.type === 'IN' && xx.ts < l.ts && !xx._usedJuhyu);
            if(prevIn) { 
-             const adjOutTs = getAdjustedWorkTime(emp, prevIn.ts, l.ts); // 주휴 시간 계산에도 적용
-             weeks[sundayKey].ms += (adjOutTs - prevIn.ts); 
+             const adjInTs = getAdjustedStartTime(emp, prevIn.ts);
+             const adjOutTs = getAdjustedWorkTime(emp, prevIn.ts, l.ts);
+             if(adjOutTs > adjInTs) weeks[sundayKey].ms += (adjOutTs - adjInTs); 
              prevIn._usedJuhyu = true; 
            }
         }
@@ -990,7 +1004,35 @@
       if(!tags) return note.length > 10 ? note.slice(0,10)+"..." : note;
       return tags;
     };
-    document.getElementById("logTable").innerHTML=list.slice().reverse().map(l=>`<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name||"")}</td><td>${fmtTS(l.ts)}</td><td>${makeNoteTag(l.note)}</td><td><button class="btn small" onclick="window.editLog(${l.id})">수정</button></td></tr>`).join("")||`<tr><td colspan="6" class="muted">기록 없음</td></tr>`;
+    
+    document.getElementById("logTable").innerHTML=list.slice().reverse().map(l=> {
+        let timeDisplay = fmtTS(l.ts);
+        const emp = findEmpByCode(l.code);
+        
+        // 출근 시간 보정 표시
+        if(l.type === "IN" && emp) {
+            const adjInTs = getAdjustedStartTime(emp, l.ts);
+            if(adjInTs !== l.ts) {
+                const d = new Date(adjInTs);
+                const adjStr = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+                timeDisplay += `<br><span class="tag adj">급여시작: ${adjStr}</span>`;
+            }
+        }
+        
+        // 퇴근 시간 보정 표시
+        if(l.type === "OUT" && emp) {
+            const prevIn = list.find(x => x.type === "IN" && x.ts < l.ts && x.code === l.code);
+            if(prevIn) {
+                const adjOutTs = getAdjustedWorkTime(emp, prevIn.ts, l.ts);
+                if(adjOutTs !== l.ts) {
+                    const d = new Date(adjOutTs);
+                    const adjStr = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+                    timeDisplay += `<br><span class="tag adj">급여종료: ${adjStr}</span>`;
+                }
+            }
+        }
+        return `<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name||"")}</td><td>${timeDisplay}</td><td>${makeNoteTag(l.note)}</td><td><button class="btn small" onclick="window.editLog(${l.id})">수정</button></td></tr>`;
+    }).join("")||`<tr><td colspan="6" class="muted">기록 없음</td></tr>`;
     
     const ons=getOutNotes().slice().reverse().filter(x=>!f||x.code===f);
     document.getElementById("outNoteTable").innerHTML=ons.map((x,i)=>`<tr><td>${ons.length-i}</td><td>${x.date}</td><td>${x.code}</td><td>${escapeHtml(x.name)}</td><td>${fmtTS(x.ts)}</td><td>${escapeHtml(x.text)}</td></tr>`).join("");
