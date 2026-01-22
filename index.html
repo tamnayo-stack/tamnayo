@@ -10,10 +10,6 @@
   
   <title>탐나는피자 화성남양점</title>
   
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/suneditor/2.45.1/css/suneditor.min.css" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/suneditor/2.45.1/suneditor.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/suneditor/2.45.1/lang/ko.min.js"></script>
-
   <style>
     :root{
       --bg: #f4f6f9; --panel: #ffffff; --panel2: #f8f9fa;
@@ -31,11 +27,8 @@
       -webkit-user-select: none; user-select: none;
       -webkit-touch-callout: none; touch-action: manipulation;
     }
-    /* 입력창과 에디터 내부는 선택 가능하게 */
-    input, textarea, .se-wrapper-inner, .sun-editor-editable { 
-      -webkit-user-select: text !important; 
-      user-select: text !important; 
-    }
+    /* 입력창은 선택 가능하게 */
+    input, textarea { -webkit-user-select: text; user-select: text; }
 
     header{ padding: 14px 18px 10px; position: sticky; top:0; background: rgba(255,255,255,.90); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); z-index:10; }
     .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; max-width:1100px; margin:0 auto; }
@@ -126,9 +119,17 @@
     .admCLRow input{ flex: 1 1 auto; }
     .admCLRow .idx{ width: 28px; text-align:center; color: var(--muted); font-weight: 900; font-variant-numeric: tabular-nums; }
     
-    /* SunEditor 높이 및 스타일 보정 */
-    .sun-editor { border-radius: 12px; overflow: hidden; border: 1px solid #ced6e0 !important; font-family: sans-serif !important; }
-    .se-container { z-index: 9999 !important; }
+    /* [자체 에디터 스타일] */
+    .editor-toolbar { display: flex; gap: 6px; padding: 8px; background: #f1f2f6; border-bottom: 1px solid #ced6e0; border-radius: 12px 12px 0 0; flex-wrap:wrap; }
+    .editor-btn { padding: 6px 12px; font-weight: 900; background: #fff; border: 1px solid #dcdde1; border-radius: 6px; cursor: pointer; font-size:14px; flex: 0 0 auto; }
+    .editor-btn:active { background: #e2e6ea; transform:scale(0.95); }
+    .editor-content { min-height: 250px; max-height: 400px; overflow-y: auto; padding: 12px; border: 1px solid #ced6e0; border-top: none; border-radius: 0 0 12px 12px; outline: none; background: #fff; -webkit-user-select: text; user-select: text; white-space: pre-wrap; line-height: 1.5; font-size:16px; }
+    .editor-content:focus { box-shadow: inset 0 0 0 2px rgba(52,152,219,.15); }
+    /* 리스트 스타일 복구 */
+    .editor-content ul { padding-left: 20px; margin: 8px 0; }
+    .editor-content li { list-style-type: disc; margin-bottom: 4px; }
+    /* 이미지 스타일 */
+    .editor-content img { max-width: 100%; height: auto; border-radius: 8px; margin: 4px 0; }
 
     #adminMenuOverlay .modal{ padding-bottom: 18px; max-height: 88vh; overflow-y: auto; overscroll-behavior: contain; }
     #adminMenuOverlay .modal::-webkit-scrollbar{ width: 10px; }
@@ -322,7 +323,7 @@
     <h3>오늘의 공지</h3>
     <div class="muted" id="noticeDateText">-</div>
     <div class="hr"></div>
-    <div id="noticeText" style="white-space:pre-wrap; line-height:1.45;"></div>
+    <div id="noticeText" class="editor-content" style="border:none; padding:0; min-height:auto;"></div>
     <div class="countWrap">
       <div class="ring"><svg viewBox="0 0 80 80"><circle class="bg" cx="40" cy="40" r="30"></circle><circle class="fg" id="noticeRing" cx="40" cy="40" r="30"></circle></svg><div class="num" id="noticeNum">5</div></div>
     </div>
@@ -342,7 +343,7 @@
       <button class="btn small" type="button" data-cat="물품">물품</button>
       <button class="btn small" type="button" data-cat="기타">기타</button>
     </div>
-    <textarea id="outNoteText" placeholder="예) [환불] 18:20 음료 누락 환불&#10;[재고] 고무장갑 없음&#10;[기타] 사장님 보너스 주세요.&#10; 근무 중 발생한 특이사항을 적어주세요.&#10;특이사항이 없다면 건너뛰기!"></textarea>
+    <textarea id="outNoteText" placeholder="예)&#10;[환불] 18:20 음료 누락 환불&#10;[재고] 고무장갑 없음&#10;[기타] 17:55 현금결제 or 건의사항&#10;&#10;근무 중 발생한 특이사항을 적어주세요.&#10;특이사항이 없다면 건너뛰기!"></textarea>
     <div class="modalActions">
       <button class="btn" id="outNoteSkip">건너뛰기</button>
       <button class="btn primary" id="outNoteSave">저장 후 퇴근</button>
@@ -486,9 +487,22 @@
       </div>
     </div>
     <div id="adminCloseChecklistList" style="margin-top:10px; display:flex; flex-direction:column; gap:8px;"></div>
-    <div class="muted" style="margin-top:10px; font-size:13px; font-weight:900;">오늘의 공지(출근 시 표시)</div>
-    <label style="margin-top:8px;">공지 내용</label>
-    <textarea id="adminNoticeInput"></textarea>
+    <div class="muted" style="margin-top:10px; font-size:13px; font-weight:900;">오늘의 공지 (자체 에디터)</div>
+    
+    <div style="margin-top:8px; border:1px solid #ced6e0; border-radius:12px; overflow:hidden;">
+      <div class="editor-toolbar">
+        <button class="editor-btn" onclick="execCmd('bold')" title="굵게"><b>B</b></button>
+        <button class="editor-btn" onclick="execCmd('underline')" title="밑줄" style="text-decoration:underline;">U</button>
+        <button class="editor-btn" onclick="execCmd('foreColor', '#e74c3c')" title="빨간색" style="color:#e74c3c; font-weight:900;">A</button>
+        <button class="editor-btn" onclick="execCmd('fontSize', '5')" title="크게">가</button>
+        <button class="editor-btn" onclick="execCmd('insertUnorderedList')" title="리스트">●</button>
+        <button class="editor-btn" onclick="document.getElementById('imgUploadInput').click()" title="이미지 삽입">🖼️</button>
+        <button class="editor-btn" onclick="execCmd('removeFormat')" title="초기화">지우기</button>
+      </div>
+      <div id="adminNoticeInput" class="editor-content" contenteditable="true"></div>
+      <input type="file" id="imgUploadInput" accept="image/*" style="display:none;" onchange="handleImageUpload(this)">
+    </div>
+
     <div class="row" style="margin-top:10px;">
       <button class="btn primary" id="btnSaveTodayNotice">오늘 공지 저장</button>
       <button class="btn" id="btnClearTodayNotice">오늘 공지 비우기</button>
@@ -516,29 +530,24 @@
   const db = getDatabase(app);
   let SERVER_CACHE = {}; 
   
-  // SunEditor 초기화 (안전장치 추가)
-  let noticeEditor;
-  document.addEventListener("DOMContentLoaded", () => {
-    try {
-      if (typeof SunEditor !== 'undefined') {
-        noticeEditor = SunEditor.create('adminNoticeInput', {
-            lang: SUNEDITOR_LANG ? SUNEDITOR_LANG['ko'] : null,
-            buttonList: [
-                ['font', 'fontSize', 'formatBlock'],
-                ['bold', 'underline', 'italic', 'strike', 'fontColor', 'hiliteColor'],
-                ['removeFormat'],
-                ['outdent', 'indent', 'align', 'list', 'lineHeight'],
-                ['fullScreen', 'showBlocks', 'codeView']
-            ],
-            width: '100%',
-            height: '250px',
-            placeholder: '공지사항을 입력하세요...'
-        });
-      } else {
-        console.error("SunEditor library not loaded.");
-      }
-    } catch(e) { console.error("Editor init fail", e); }
-  });
+  // 자체 에디터 명령 실행 함수 (글로벌)
+  window.execCmd = function(command, value = null) {
+    document.execCommand(command, false, value);
+    document.getElementById('adminNoticeInput').focus();
+  };
+
+  // 이미지 업로드 처리 함수
+  window.handleImageUpload = function(input) {
+    if (input.files && input.files[0]) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        // 이미지를 에디터에 삽입
+        document.execCommand('insertImage', false, e.target.result);
+      };
+      reader.readAsDataURL(input.files[0]);
+    }
+    input.value = ''; // 초기화하여 같은 파일 다시 선택 가능하게 함
+  };
 
   onValue(ref(db, 'tamnaData'), (snapshot) => {
     const data = snapshot.val();
@@ -547,7 +556,6 @@
       try {
         if(typeof renderAttendancePanel === 'function') renderAttendancePanel();
         if(typeof renderLogAll === 'function') {
-          // 데이터 수신 시 필터 옵션과 로그를 모두 갱신
           renderLogFilterOptions();
           renderLogAll();
         }
@@ -658,11 +666,8 @@
   }
   setInterval(updateAdminStateText,500); updateAdminStateText();
   function openAdminMenu(){
-    // 에디터에 기존 공지 내용 로드
-    const content = getTodayNotice();
-    if(noticeEditor) {
-        noticeEditor.setContents(content);
-    }
+    // 자체 에디터에 내용 로드
+    document.getElementById("adminNoticeInput").innerHTML = getTodayNotice();
     renderAdminCloseChecklist();
     adminMenuOverlay.classList.add("show"); updateAdminStateText();
   }
@@ -673,20 +678,20 @@
   document.getElementById("btnBackFromEmp").addEventListener("click",()=>showSection("sec-att"));
   document.getElementById("btnBackFromLog").addEventListener("click",()=>showSection("sec-att"));
   
-  // 공지 저장 (에디터 내용 가져오기)
+  // 공지 저장 (자체 에디터 innerHTML 사용)
   document.getElementById("btnSaveTodayNotice").addEventListener("click",async()=>{ 
       if(await ensureAdmin("공지 저장")){ 
-          const content = noticeEditor ? noticeEditor.getContents() : "";
+          const content = document.getElementById("adminNoticeInput").innerHTML;
           setTodayNotice(content); 
           toast("저장됨"); 
       } 
   });
   
-  // 공지 지우기 (에디터도 비우기)
+  // 공지 지우기
   document.getElementById("btnClearTodayNotice").addEventListener("click",async()=>{ 
       if(await ensureAdmin("공지 지우기")){ 
           clearTodayNotice(); 
-          if(noticeEditor) noticeEditor.setContents(""); 
+          document.getElementById("adminNoticeInput").innerHTML = "";
           toast("지워짐"); 
       } 
   });
@@ -701,7 +706,7 @@
   function setRingProgress(p){ const c=2*Math.PI*30; document.getElementById("noticeRing").style.strokeDasharray=`${c}`; document.getElementById("noticeRing").style.strokeDashoffset=`${c*(1-p)}`; }
   async function showNoticeCountdownIfAny(){
     const t=getTodayNotice(); if(!t) return true;
-    document.getElementById("noticeText").innerHTML=t; // innerHTML로 변경
+    document.getElementById("noticeText").innerHTML=t; // innerHTML로 표시
     document.getElementById("noticeDateText").textContent=`${todayKey()} 공지`;
     const btn=document.getElementById("noticeOk"), num=document.getElementById("noticeNum");
     btn.disabled=true; noticeOverlay.classList.add("show"); num.textContent="2"; setRingProgress(0);
@@ -720,12 +725,10 @@
   function askOutNote(){
     document.getElementById("outNoteText").value=""; outNoteOverlay.classList.add("show");
     return new Promise(r=>{
-      const c=()=>{ document.getElementById("outNoteSkip").removeEventListener("click",s); document.getElementById("outNoteSave").removeEventListener("click",sv); /* outNoteOverlay.removeEventListener("click",bg); */ };
+      const c=()=>{ document.getElementById("outNoteSkip").removeEventListener("click",s); document.getElementById("outNoteSave").removeEventListener("click",sv); };
       const s=()=>{ c(); outNoteOverlay.classList.remove("show"); r(null); };
       const sv=()=>{ const t=document.getElementById("outNoteText").value; c(); outNoteOverlay.classList.remove("show"); r(t); };
-      // const bg=e=>{ if(e.target===outNoteOverlay) s(); };
       document.getElementById("outNoteSkip").addEventListener("click",s); document.getElementById("outNoteSave").addEventListener("click",sv); 
-      // outNoteOverlay.addEventListener("click",bg);
     });
   }
   document.querySelectorAll('#outNoteOverlay button[data-cat]').forEach(b=>{
@@ -743,16 +746,14 @@
     lst.innerHTML=items.map((t,i)=>`<label class="checkItem"><input type="checkbox" data-i="${i}" /><div><div class="t">${escapeHtml(t)}</div></div></label>`).join("");
     done.disabled=false; closeCheckOverlay.classList.add("show");
     return new Promise(r=>{
-      const c=()=>{ done.removeEventListener("click",d); /* closeCheckOverlay.removeEventListener("click",bg); */ };
+      const c=()=>{ done.removeEventListener("click",d); };
       const d=()=>{
         const boxes=lst.querySelectorAll('input[type="checkbox"]');
         if(!Array.from(boxes).every(b=>b.checked)) return toast("모두 체크해주세요","danger");
         c(); closeCheckOverlay.classList.remove("show");
         r({skip:false, items:Array.from(boxes).filter(b=>b.checked).map(b=>items[b.dataset.i]), extra:""});
       };
-      // const bg=e=>{if(e.target===closeCheckOverlay){ c(); closeCheckOverlay.classList.remove("show"); r({skip:true,items:[],extra:""}); }};
       done.addEventListener("click",d); 
-      // closeCheckOverlay.addEventListener("click",bg);
     });
   }
 
