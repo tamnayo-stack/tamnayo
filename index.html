@@ -3,14 +3,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
+  
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="format-detection" content="telephone=no" />
+  
   <title>탐나는피자 화성남양점</title>
   
   <link href="https://cdn.jsdelivr.net/npm/suneditor@latest/dist/css/suneditor.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/suneditor@latest/dist/suneditor.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/suneditor@latest/src/lang/ko.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/suneditor@latest/dist/lang/ko.js"></script>
 
   <style>
     :root{
@@ -600,7 +602,7 @@
   function clearTodayNotice(){ const m=getNoticeMap(); delete m[todayKey()]; setNoticeMap(m); }
   function getOutNotes(){ return loadJSON(LS_KEYS.OUT_NOTES, []); }
   function setOutNotes(list){ saveJSON(LS_KEYS.OUT_NOTES, list); }
-  function getCloseChecklist(){ const def=["가스/전기 확인","쓰레기/재활용 정리","냉장고 정리","매장 불/에어컨 OFF","마감 청소 완료"]; const list=loadJSON(LS_KEYS.CLOSE_CHECKLIST, null); return Array.isArray(list)&&list.length?list:def; }
+  function getCloseChecklist(){ const def=["가스/전기 확인","쓰레기/재활용 정리","냉장고 정리","매장 불/에어컨 OFF","오븐/토핑대/도우롤러 아래 바닥 쓸기"]; const list=loadJSON(LS_KEYS.CLOSE_CHECKLIST, null); return Array.isArray(list)&&list.length?list:def; }
   function setCloseChecklist(list){ saveJSON(LS_KEYS.CLOSE_CHECKLIST, list); }
   function getCloseCheckLogs(){ return loadJSON(LS_KEYS.CLOSE_CHECK_LOGS, []); }
   function setCloseCheckLogs(list){ saveJSON(LS_KEYS.CLOSE_CHECK_LOGS, list); }
@@ -718,10 +720,12 @@
   function askOutNote(){
     document.getElementById("outNoteText").value=""; outNoteOverlay.classList.add("show");
     return new Promise(r=>{
-      const c=()=>{ document.getElementById("outNoteSkip").removeEventListener("click",s); document.getElementById("outNoteSave").removeEventListener("click",sv); };
+      const c=()=>{ document.getElementById("outNoteSkip").removeEventListener("click",s); document.getElementById("outNoteSave").removeEventListener("click",sv); /* outNoteOverlay.removeEventListener("click",bg); */ };
       const s=()=>{ c(); outNoteOverlay.classList.remove("show"); r(null); };
       const sv=()=>{ const t=document.getElementById("outNoteText").value; c(); outNoteOverlay.classList.remove("show"); r(t); };
+      // const bg=e=>{ if(e.target===outNoteOverlay) s(); };
       document.getElementById("outNoteSkip").addEventListener("click",s); document.getElementById("outNoteSave").addEventListener("click",sv); 
+      // outNoteOverlay.addEventListener("click",bg);
     });
   }
   document.querySelectorAll('#outNoteOverlay button[data-cat]').forEach(b=>{
@@ -739,14 +743,16 @@
     lst.innerHTML=items.map((t,i)=>`<label class="checkItem"><input type="checkbox" data-i="${i}" /><div><div class="t">${escapeHtml(t)}</div></div></label>`).join("");
     done.disabled=false; closeCheckOverlay.classList.add("show");
     return new Promise(r=>{
-      const c=()=>{ done.removeEventListener("click",d); };
+      const c=()=>{ done.removeEventListener("click",d); /* closeCheckOverlay.removeEventListener("click",bg); */ };
       const d=()=>{
         const boxes=lst.querySelectorAll('input[type="checkbox"]');
         if(!Array.from(boxes).every(b=>b.checked)) return toast("모두 체크해주세요","danger");
         c(); closeCheckOverlay.classList.remove("show");
         r({skip:false, items:Array.from(boxes).filter(b=>b.checked).map(b=>items[b.dataset.i]), extra:""});
       };
+      // const bg=e=>{if(e.target===closeCheckOverlay){ c(); closeCheckOverlay.classList.remove("show"); r({skip:true,items:[],extra:""}); }};
       done.addEventListener("click",d); 
+      // closeCheckOverlay.addEventListener("click",bg);
     });
   }
 
@@ -840,28 +846,17 @@
     const q=document.getElementById("empSearch").value.toLowerCase(), emps=getEmployees().filter(e=>e.code.includes(q)||e.name.toLowerCase().includes(q));
     document.getElementById("empTable").innerHTML=emps.length?emps.map(e=>`<tr><td><span class="tag open">${e.code}</span></td><td>${escapeHtml(e.name)}</td><td class="muted typeCell">${e.shiftType==="CLOSE"?"마감":"미들"}</td><td class="muted">${(e.wage||0).toLocaleString()} / ${e.wageWeekend ? e.wageWeekend.toLocaleString() : '-'}</td><td class="muted timeCell">${e.workStart}~${e.workEnd}</td><td style="text-align:right;"><button class="btn small" onclick="window.editEmp('${e.code}')">수정</button> <button class="btn small bad" onclick="window.delEmp('${e.code}')">삭제</button></td></tr>`).join("") : `<tr><td colspan="6" class="muted">없음</td></tr>`;
   }
-  // 알바생 삭제 로직 수정 (기록 삭제 여부 질문)
-  window.delEmp=async(c)=>{ 
-    if(await ensureAdmin("삭제")) {
-        const delLogs = confirm("이 알바생의 '모든 출퇴근 기록'도 함께 삭제할까요?\n(테스트용 알바생이었다면 '확인'을 누르세요.)");
-        
-        // 알바생 삭제
-        const l = getEmployees().filter(e=>e.code!==c); 
-        setEmployees(l); 
-        
-        // 기록 삭제 (확인 시)
-        if(delLogs) {
-            const allLogs = getLogs().filter(log => log.code !== c);
-            setLogs(allLogs);
-        }
-
-        toast("삭제됨"); 
-        renderEmployees(); 
-        renderQuickButtons();
-        renderAttendancePanel(); // 최근 기록 갱신
-        renderLogAll(); // 로그 화면 갱신
-    } 
-  };
+  window.delEmp=async(c)=>{ if(await ensureAdmin("삭제") && confirm("이 알바생의 '모든 출퇴근 기록'도 함께 삭제할까요?\n(테스트용 알바생이었다면 '확인'을 누르세요.)")){ 
+    const l=getEmployees().filter(e=>e.code!==c); 
+    setEmployees(l); 
+    const allLogs = getLogs().filter(log => log.code !== c);
+    setLogs(allLogs);
+    toast("삭제됨"); renderEmployees(); renderQuickButtons(); renderAttendancePanel(); renderLogAll();
+  } else if(await ensureAdmin("삭제")) {
+    const l=getEmployees().filter(e=>e.code!==c); 
+    setEmployees(l); 
+    toast("삭제됨"); renderEmployees(); renderQuickButtons();
+  }};
   window.editEmp=async(c)=>{
     if(!await ensureAdmin("수정"))return;
     const e=findEmpByCode(c); if(!e)return;
@@ -1018,7 +1013,7 @@
       empLogs.forEach(l => {
         if(l.type === 'IN') l._tempIn = l.ts;
         else if(l.type === 'OUT') {
-           const prevIn = empLogs.find(xx => xx.type === 'IN' && xx.ts < l.ts && !xx._usedBase);
+           const prevIn = empLogs.find(xx => xx.type === 'IN' && xx.ts < l.ts && !x._usedBase);
            if(prevIn) { 
              const adjInTs = getAdjustedStartTime(emp, prevIn.ts);
              const adjOutTs = getAdjustedWorkTime(emp, prevIn.ts, l.ts);
@@ -1088,7 +1083,35 @@
       if(!tags) return note.length > 10 ? note.slice(0,10)+"..." : note;
       return tags;
     };
-    document.getElementById("logTable").innerHTML=list.slice().reverse().map(l=>`<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name||"")}</td><td>${fmtTS(l.ts)}</td><td>${makeNoteTag(l.note)}</td><td><button class="btn small" onclick="window.editLog(${l.id})">수정</button></td></tr>`).join("")||`<tr><td colspan="6" class="muted">기록 없음</td></tr>`;
+    
+    document.getElementById("logTable").innerHTML=list.slice().reverse().map(l=> {
+        let timeDisplay = fmtTS(l.ts);
+        const emp = findEmpByCode(l.code);
+        
+        // 출근 시간 보정 표시
+        if(l.type === "IN" && emp) {
+            const adjInTs = getAdjustedStartTime(emp, l.ts);
+            if(adjInTs !== l.ts) {
+                const d = new Date(adjInTs);
+                const adjStr = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+                timeDisplay += `<br><span class="tag adj">급여시작: ${adjStr}</span>`;
+            }
+        }
+        
+        // 퇴근 시간 보정 표시
+        if(l.type === "OUT" && emp) {
+            const prevIn = list.find(x => x.type === "IN" && x.ts < l.ts && x.code === l.code);
+            if(prevIn) {
+                const adjOutTs = getAdjustedWorkTime(emp, prevIn.ts, l.ts);
+                if(adjOutTs !== l.ts) {
+                    const d = new Date(adjOutTs);
+                    const adjStr = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+                    timeDisplay += `<br><span class="tag adj">급여종료: ${adjStr}</span>`;
+                }
+            }
+        }
+        return `<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name||"")}</td><td>${timeDisplay}</td><td>${makeNoteTag(l.note)}</td><td><button class="btn small" onclick="window.editLog(${l.id})">수정</button></td></tr>`;
+    }).join("")||`<tr><td colspan="6" class="muted">기록 없음</td></tr>`;
     
     const ons=getOutNotes().slice().reverse().filter(x=>!f||x.code===f);
     document.getElementById("outNoteTable").innerHTML=ons.map((x,i)=>`<tr><td>${ons.length-i}</td><td>${x.date}</td><td>${x.code}</td><td>${escapeHtml(x.name)}</td><td>${fmtTS(x.ts)}</td><td>${escapeHtml(x.text)}</td></tr>`).join("");
@@ -1111,7 +1134,28 @@
   
   // 백업/복원 이벤트 제거됨
 
-  document.getElementById("btnResetAll").addEventListener("click",async()=>{ if(await ensureAdmin() && confirm("전체 초기화?? (복구불가)")){ localStorage.clear(); await set(ref(db, 'tamnaData'), null); location.reload(); } });
+  document.getElementById("btnResetAll").addEventListener("click",async()=>{
+    if(!await ensureAdmin("전체 초기화")) return;
+    
+    // 1. 확인 입력 요구
+    const answer = prompt("⚠️ 경고: 모든 데이터가 영구 삭제됩니다.\n동의하시면 '전체삭제' 라고 입력하세요.");
+    if(answer !== "전체삭제") return toast("취소되었습니다.");
+
+    // 2. 비상용 자동 백업
+    try {
+      const d = { ver: 1, at: nowTS(), emps: getEmployees(), logs: getLogs(), notices: getNoticeMap(), out: getOutNotes(), closeLogs: getCloseCheckLogs() };
+      downloadFile(`비상백업_초기화전_${todayKey()}.json`, JSON.stringify(d, null, 2), "application/json");
+      toast("비상 백업 파일이 다운로드되었습니다.");
+    } catch(e) {
+      if(!confirm("백업 다운로드에 실패했습니다. 그래도 삭제할까요?")) return;
+    }
+
+    // 3. 실제 삭제
+    localStorage.clear();
+    await set(ref(db, 'tamnaData'), null);
+    alert("초기화 완료.");
+    location.reload();
+  });
 
   function renderAdminCloseChecklist(){ const lst=document.getElementById("adminCloseChecklistList"), items=getCloseChecklist(); lst.innerHTML=items.map((t,i)=>`<div class="admCLRow"><div class="idx">${i+1}</div><input class="admCLInput" value="${escapeHtml(t)}" /><button class="btn small" onclick="delCLItem(${i})">삭제</button></div>`).join(""); }
   window.delCLItem=async(i)=>{ const l=getCloseChecklist(); l.splice(i,1); setCloseChecklist(l); renderAdminCloseChecklist(); };
