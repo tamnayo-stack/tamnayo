@@ -10,9 +10,9 @@
   
   <title>탐나는피자 화성남양점</title>
   
-  <link href="https://cdn.jsdelivr.net/npm/suneditor@latest/dist/css/suneditor.min.css" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/suneditor@latest/dist/suneditor.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/suneditor@latest/dist/lang/ko.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/suneditor/2.45.1/css/suneditor.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/suneditor/2.45.1/suneditor.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/suneditor/2.45.1/lang/ko.min.js"></script>
 
   <style>
     :root{
@@ -342,7 +342,7 @@
       <button class="btn small" type="button" data-cat="물품">물품</button>
       <button class="btn small" type="button" data-cat="기타">기타</button>
     </div>
-    <textarea id="outNoteText" placeholder="예)&#10;[환불] 18:20 음료 누락 환불&#10;[재고] 고무장갑 없음&#10;[기타] 17:55 현금결제 or 건의사항&#10;&#10;근무 중 발생한 특이사항을 적어주세요.&#10;특이사항이 없다면 건너뛰기!"></textarea>
+    <textarea id="outNoteText" placeholder="예) [환불] 18:20 음료 누락 환불&#10;[재고] 고무장갑 없음&#10;[기타] 사장님 보너스 주세요.&#10; 근무 중 발생한 특이사항을 적어주세요.&#10;특이사항이 없다면 건너뛰기!"></textarea>
     <div class="modalActions">
       <button class="btn" id="outNoteSkip">건너뛰기</button>
       <button class="btn primary" id="outNoteSave">저장 후 퇴근</button>
@@ -846,17 +846,28 @@
     const q=document.getElementById("empSearch").value.toLowerCase(), emps=getEmployees().filter(e=>e.code.includes(q)||e.name.toLowerCase().includes(q));
     document.getElementById("empTable").innerHTML=emps.length?emps.map(e=>`<tr><td><span class="tag open">${e.code}</span></td><td>${escapeHtml(e.name)}</td><td class="muted typeCell">${e.shiftType==="CLOSE"?"마감":"미들"}</td><td class="muted">${(e.wage||0).toLocaleString()} / ${e.wageWeekend ? e.wageWeekend.toLocaleString() : '-'}</td><td class="muted timeCell">${e.workStart}~${e.workEnd}</td><td style="text-align:right;"><button class="btn small" onclick="window.editEmp('${e.code}')">수정</button> <button class="btn small bad" onclick="window.delEmp('${e.code}')">삭제</button></td></tr>`).join("") : `<tr><td colspan="6" class="muted">없음</td></tr>`;
   }
-  window.delEmp=async(c)=>{ if(await ensureAdmin("삭제") && confirm("이 알바생의 '모든 출퇴근 기록'도 함께 삭제할까요?\n(테스트용 알바생이었다면 '확인'을 누르세요.)")){ 
-    const l=getEmployees().filter(e=>e.code!==c); 
-    setEmployees(l); 
-    const allLogs = getLogs().filter(log => log.code !== c);
-    setLogs(allLogs);
-    toast("삭제됨"); renderEmployees(); renderQuickButtons(); renderAttendancePanel(); renderLogAll();
-  } else if(await ensureAdmin("삭제")) {
-    const l=getEmployees().filter(e=>e.code!==c); 
-    setEmployees(l); 
-    toast("삭제됨"); renderEmployees(); renderQuickButtons();
-  }};
+  // 알바생 삭제 로직 수정 (기록 삭제 여부 질문)
+  window.delEmp=async(c)=>{ 
+    if(await ensureAdmin("삭제")) {
+        const delLogs = confirm("이 알바생의 '모든 출퇴근 기록'도 함께 삭제할까요?\n(테스트용 알바생이었다면 '확인'을 누르세요.)");
+        
+        // 알바생 삭제
+        const l = getEmployees().filter(e=>e.code!==c); 
+        setEmployees(l); 
+        
+        // 기록 삭제 (확인 시)
+        if(delLogs) {
+            const allLogs = getLogs().filter(log => log.code !== c);
+            setLogs(allLogs);
+        }
+
+        toast("삭제됨"); 
+        renderEmployees(); 
+        renderQuickButtons();
+        renderAttendancePanel(); // 최근 기록 갱신
+        renderLogAll(); // 로그 화면 갱신
+    } 
+  };
   window.editEmp=async(c)=>{
     if(!await ensureAdmin("수정"))return;
     const e=findEmpByCode(c); if(!e)return;
@@ -1013,7 +1024,7 @@
       empLogs.forEach(l => {
         if(l.type === 'IN') l._tempIn = l.ts;
         else if(l.type === 'OUT') {
-           const prevIn = empLogs.find(xx => xx.type === 'IN' && xx.ts < l.ts && !x._usedBase);
+           const prevIn = empLogs.find(xx => xx.type === 'IN' && xx.ts < l.ts && !xx._usedBase);
            if(prevIn) { 
              const adjInTs = getAdjustedStartTime(emp, prevIn.ts);
              const adjOutTs = getAdjustedWorkTime(emp, prevIn.ts, l.ts);
@@ -1134,28 +1145,7 @@
   
   // 백업/복원 이벤트 제거됨
 
-  document.getElementById("btnResetAll").addEventListener("click",async()=>{
-    if(!await ensureAdmin("전체 초기화")) return;
-    
-    // 1. 확인 입력 요구
-    const answer = prompt("⚠️ 경고: 모든 데이터가 영구 삭제됩니다.\n동의하시면 '전체삭제' 라고 입력하세요.");
-    if(answer !== "전체삭제") return toast("취소되었습니다.");
-
-    // 2. 비상용 자동 백업
-    try {
-      const d = { ver: 1, at: nowTS(), emps: getEmployees(), logs: getLogs(), notices: getNoticeMap(), out: getOutNotes(), closeLogs: getCloseCheckLogs() };
-      downloadFile(`비상백업_초기화전_${todayKey()}.json`, JSON.stringify(d, null, 2), "application/json");
-      toast("비상 백업 파일이 다운로드되었습니다.");
-    } catch(e) {
-      if(!confirm("백업 다운로드에 실패했습니다. 그래도 삭제할까요?")) return;
-    }
-
-    // 3. 실제 삭제
-    localStorage.clear();
-    await set(ref(db, 'tamnaData'), null);
-    alert("초기화 완료.");
-    location.reload();
-  });
+  document.getElementById("btnResetAll").addEventListener("click",async()=>{ if(await ensureAdmin() && confirm("전체 초기화?? (복구불가)")){ localStorage.clear(); await set(ref(db, 'tamnaData'), null); location.reload(); } });
 
   function renderAdminCloseChecklist(){ const lst=document.getElementById("adminCloseChecklistList"), items=getCloseChecklist(); lst.innerHTML=items.map((t,i)=>`<div class="admCLRow"><div class="idx">${i+1}</div><input class="admCLInput" value="${escapeHtml(t)}" /><button class="btn small" onclick="delCLItem(${i})">삭제</button></div>`).join(""); }
   window.delCLItem=async(i)=>{ const l=getCloseChecklist(); l.splice(i,1); setCloseChecklist(l); renderAdminCloseChecklist(); };
