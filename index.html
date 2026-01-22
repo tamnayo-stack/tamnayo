@@ -9,6 +9,8 @@
   <title>탐나는피자 화성남양점</title>
   
   <link href="https://cdn.jsdelivr.net/npm/suneditor@latest/dist/css/suneditor.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/suneditor@latest/dist/suneditor.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/suneditor@latest/src/lang/ko.js"></script>
 
   <style>
     :root{
@@ -338,7 +340,7 @@
       <button class="btn small" type="button" data-cat="물품">물품</button>
       <button class="btn small" type="button" data-cat="기타">기타</button>
     </div>
-    <textarea id="outNoteText" placeholder="예) [환불] 18:20 음료 누락 환불&#10;[재고] 고무장갑 없음&#10;[기타] 사장님 보너스 주세요.&#10; 근무 중 발생한 특이사항을 적어주세요.&#10;특이사항이 없다면 건너뛰기!"></textarea>
+    <textarea id="outNoteText" placeholder="예)&#10;[환불] 18:20 음료 누락 환불&#10;[재고] 고무장갑 없음&#10;[기타] 17:55 현금결제 or 건의사항&#10;&#10;근무 중 발생한 특이사항을 적어주세요.&#10;특이사항이 없다면 건너뛰기!"></textarea>
     <div class="modalActions">
       <button class="btn" id="outNoteSkip">건너뛰기</button>
       <button class="btn primary" id="outNoteSave">저장 후 퇴근</button>
@@ -495,9 +497,6 @@
 
 <input id="restoreInput" type="file" accept="application/json" style="display:none;" />
 
-<script src="https://cdn.jsdelivr.net/npm/suneditor@latest/dist/suneditor.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/suneditor@latest/dist/lang/ko.js"></script>
-
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
@@ -517,7 +516,7 @@
   
   // SunEditor 초기화 (안전장치 추가)
   let noticeEditor;
-  setTimeout(() => {
+  document.addEventListener("DOMContentLoaded", () => {
     try {
       if (typeof SunEditor !== 'undefined') {
         noticeEditor = SunEditor.create('adminNoticeInput', {
@@ -537,7 +536,7 @@
         console.error("SunEditor library not loaded.");
       }
     } catch(e) { console.error("Editor init fail", e); }
-  }, 500); // 0.5초 딜레이를 줘서 확실히 로드된 후 실행
+  });
 
   onValue(ref(db, 'tamnaData'), (snapshot) => {
     const data = snapshot.val();
@@ -546,6 +545,7 @@
       try {
         if(typeof renderAttendancePanel === 'function') renderAttendancePanel();
         if(typeof renderLogAll === 'function') {
+          // 데이터 수신 시 필터 옵션과 로그를 모두 갱신
           renderLogFilterOptions();
           renderLogAll();
         }
@@ -600,7 +600,7 @@
   function clearTodayNotice(){ const m=getNoticeMap(); delete m[todayKey()]; setNoticeMap(m); }
   function getOutNotes(){ return loadJSON(LS_KEYS.OUT_NOTES, []); }
   function setOutNotes(list){ saveJSON(LS_KEYS.OUT_NOTES, list); }
-  function getCloseChecklist(){ const def=["가스/전기 확인","쓰레기/재활용 정리","냉장고 정리","매장 불/에어컨 OFF","오븐/토핑대/도우롤러 아래 바닥 쓸기"]; const list=loadJSON(LS_KEYS.CLOSE_CHECKLIST, null); return Array.isArray(list)&&list.length?list:def; }
+  function getCloseChecklist(){ const def=["가스/전기 확인","쓰레기/재활용 정리","냉장고 정리","매장 불/에어컨 OFF","마감 청소 완료"]; const list=loadJSON(LS_KEYS.CLOSE_CHECKLIST, null); return Array.isArray(list)&&list.length?list:def; }
   function setCloseChecklist(list){ saveJSON(LS_KEYS.CLOSE_CHECKLIST, list); }
   function getCloseCheckLogs(){ return loadJSON(LS_KEYS.CLOSE_CHECK_LOGS, []); }
   function setCloseCheckLogs(list){ saveJSON(LS_KEYS.CLOSE_CHECK_LOGS, list); }
@@ -1088,35 +1088,7 @@
       if(!tags) return note.length > 10 ? note.slice(0,10)+"..." : note;
       return tags;
     };
-    
-    document.getElementById("logTable").innerHTML=list.slice().reverse().map(l=> {
-        let timeDisplay = fmtTS(l.ts);
-        const emp = findEmpByCode(l.code);
-        
-        // 출근 시간 보정 표시
-        if(l.type === "IN" && emp) {
-            const adjInTs = getAdjustedStartTime(emp, l.ts);
-            if(adjInTs !== l.ts) {
-                const d = new Date(adjInTs);
-                const adjStr = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
-                timeDisplay += `<br><span class="tag adj">급여시작: ${adjStr}</span>`;
-            }
-        }
-        
-        // 퇴근 시간 보정 표시
-        if(l.type === "OUT" && emp) {
-            const prevIn = list.find(x => x.type === "IN" && x.ts < l.ts && x.code === l.code);
-            if(prevIn) {
-                const adjOutTs = getAdjustedWorkTime(emp, prevIn.ts, l.ts);
-                if(adjOutTs !== l.ts) {
-                    const d = new Date(adjOutTs);
-                    const adjStr = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
-                    timeDisplay += `<br><span class="tag adj">급여종료: ${adjStr}</span>`;
-                }
-            }
-        }
-        return `<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name||"")}</td><td>${timeDisplay}</td><td>${makeNoteTag(l.note)}</td><td><button class="btn small" onclick="window.editLog(${l.id})">수정</button></td></tr>`;
-    }).join("")||`<tr><td colspan="6" class="muted">기록 없음</td></tr>`;
+    document.getElementById("logTable").innerHTML=list.slice().reverse().map(l=>`<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name||"")}</td><td>${fmtTS(l.ts)}</td><td>${makeNoteTag(l.note)}</td><td><button class="btn small" onclick="window.editLog(${l.id})">수정</button></td></tr>`).join("")||`<tr><td colspan="6" class="muted">기록 없음</td></tr>`;
     
     const ons=getOutNotes().slice().reverse().filter(x=>!f||x.code===f);
     document.getElementById("outNoteTable").innerHTML=ons.map((x,i)=>`<tr><td>${ons.length-i}</td><td>${x.date}</td><td>${x.code}</td><td>${escapeHtml(x.name)}</td><td>${fmtTS(x.ts)}</td><td>${escapeHtml(x.text)}</td></tr>`).join("");
