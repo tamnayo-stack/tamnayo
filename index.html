@@ -119,13 +119,17 @@
     .admCLRow input{ flex: 1 1 auto; }
     .admCLRow .idx{ width: 28px; text-align:center; color: var(--muted); font-weight: 900; font-variant-numeric: tabular-nums; }
     
-    /* [자체 에디터 스타일] */
+    /* [자체 에디터 스타일 수정] */
     .editor-toolbar { display: flex; gap: 6px; padding: 8px; background: #f1f2f6; border-bottom: 1px solid #ced6e0; border-radius: 12px 12px 0 0; flex-wrap:wrap; }
-    .editor-btn { padding: 6px 12px; font-weight: 900; background: #fff; border: 1px solid #dcdde1; border-radius: 6px; cursor: pointer; font-size:14px; flex: 0 0 auto; }
+    .editor-btn { 
+      padding: 8px 12px; font-weight: 900; background: #fff; border: 1px solid #dcdde1; border-radius: 8px; cursor: pointer; font-size:14px; flex: 0 0 auto; 
+      /* 아이패드 터치감 개선 */
+      min-width: 40px; min-height: 40px; display:flex; align-items:center; justify-content:center;
+    }
     .editor-btn:active { background: #e2e6ea; transform:scale(0.95); }
     .editor-content { min-height: 250px; max-height: 400px; overflow-y: auto; padding: 12px; border: 1px solid #ced6e0; border-top: none; border-radius: 0 0 12px 12px; outline: none; background: #fff; -webkit-user-select: text; user-select: text; white-space: pre-wrap; line-height: 1.5; font-size:16px; }
     .editor-content:focus { box-shadow: inset 0 0 0 2px rgba(52,152,219,.15); }
-    /* 리스트 스타일 복구 */
+    /* 리스트 스타일 */
     .editor-content ul { padding-left: 20px; margin: 8px 0; }
     .editor-content li { list-style-type: disc; margin-bottom: 4px; }
     /* 이미지 스타일 */
@@ -487,19 +491,24 @@
       </div>
     </div>
     <div id="adminCloseChecklistList" style="margin-top:10px; display:flex; flex-direction:column; gap:8px;"></div>
-    <div class="muted" style="margin-top:10px; font-size:13px; font-weight:900;">오늘의 공지 (자체 에디터)</div>
     
+    <div class="muted" style="margin-top:10px; font-size:13px; font-weight:900;">오늘의 공지 (자체 에디터)</div>
+    <div class="row" style="margin-top:8px; align-items:center;">
+      <label style="margin:0;">유지 시간(초):</label>
+      <input id="adminNoticeDuration" type="number" value="5" style="width:60px; text-align:center;" />
+    </div>
+
     <div style="margin-top:8px; border:1px solid #ced6e0; border-radius:12px; overflow:hidden;">
       <div class="editor-toolbar">
-        <button class="editor-btn" onclick="execCmd('bold')" title="굵게"><b>B</b></button>
-        <button class="editor-btn" onclick="execCmd('underline')" title="밑줄" style="text-decoration:underline;">U</button>
-        <button class="editor-btn" onclick="execCmd('foreColor', '#e74c3c')" title="빨간색" style="color:#e74c3c; font-weight:900;">A</button>
-        <button class="editor-btn" onclick="execCmd('fontSize', '5')" title="크게">가</button>
-        <button class="editor-btn" onclick="execCmd('insertUnorderedList')" title="리스트">●</button>
-        <button class="editor-btn" onclick="document.getElementById('imgUploadInput').click()" title="이미지 삽입">🖼️</button>
-        <button class="editor-btn" onclick="execCmd('removeFormat')" title="초기화">지우기</button>
+        <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('bold')" title="굵게"><b>B</b></button>
+        <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('underline')" title="밑줄" style="text-decoration:underline;">U</button>
+        <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('foreColor', '#e74c3c')" title="빨간색" style="color:#e74c3c; font-weight:900;">A</button>
+        <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('fontSize', '5')" title="크게">가</button>
+        <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('insertUnorderedList')" title="리스트">●</button>
+        <button class="editor-btn" onmousedown="event.preventDefault(); document.getElementById('imgUploadInput').click()" title="이미지 삽입">🖼️</button>
+        <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('removeFormat')" title="초기화">지우기</button>
       </div>
-      <div id="adminNoticeInput" class="editor-content" contenteditable="true"></div>
+      <div id="adminNoticeInput" class="editor-content" contenteditable="true" inputmode="text"></div>
       <input type="file" id="imgUploadInput" accept="image/*" style="display:none;" onchange="handleImageUpload(this)">
     </div>
 
@@ -533,7 +542,7 @@
   // 자체 에디터 명령 실행 함수 (글로벌)
   window.execCmd = function(command, value = null) {
     document.execCommand(command, false, value);
-    document.getElementById('adminNoticeInput').focus();
+    // document.getElementById('adminNoticeInput').focus(); // 아이패드 키보드 튐 방지
   };
 
   // 이미지 업로드 처리 함수
@@ -541,12 +550,11 @@
     if (input.files && input.files[0]) {
       const reader = new FileReader();
       reader.onload = function(e) {
-        // 이미지를 에디터에 삽입
         document.execCommand('insertImage', false, e.target.result);
       };
       reader.readAsDataURL(input.files[0]);
     }
-    input.value = ''; // 초기화하여 같은 파일 다시 선택 가능하게 함
+    input.value = ''; 
   };
 
   onValue(ref(db, 'tamnaData'), (snapshot) => {
@@ -603,11 +611,21 @@
   function getLogs(){ return loadJSON(LS_KEYS.ATT_LOGS, []); }
   function setLogs(list){ saveJSON(LS_KEYS.ATT_LOGS, list); }
   function findEmpByCode(code){ return getEmployees().find(e=>e.code===code)||null; }
+  
   function getNoticeMap(){ return loadJSON(LS_KEYS.DAILY_NOTICE, {}); }
   function setNoticeMap(map){ saveJSON(LS_KEYS.DAILY_NOTICE, map); }
+  
+  // 공지사항 함수 수정 (시간까지 저장)
   function getTodayNotice(){ return getNoticeMap()[todayKey()]?.text || ""; }
-  function setTodayNotice(text){ const m=getNoticeMap(); m[todayKey()]={text:String(text||""), updatedAt:nowTS()}; setNoticeMap(m); }
+  function getTodayNoticeDuration(){ return getNoticeMap()[todayKey()]?.duration || 5; } // 기본값 5초
+
+  function setTodayNotice(text, duration=5){ 
+    const m=getNoticeMap(); 
+    m[todayKey()]={text:String(text||""), duration: Number(duration), updatedAt:nowTS()}; 
+    setNoticeMap(m); 
+  }
   function clearTodayNotice(){ const m=getNoticeMap(); delete m[todayKey()]; setNoticeMap(m); }
+
   function getOutNotes(){ return loadJSON(LS_KEYS.OUT_NOTES, []); }
   function setOutNotes(list){ saveJSON(LS_KEYS.OUT_NOTES, list); }
   function getCloseChecklist(){ const def=["가스/전기 확인","쓰레기/재활용 정리","냉장고 정리","매장 불/에어컨 OFF","오븐/토핑대/도우롤러 아래 바닥 쓸기"]; const list=loadJSON(LS_KEYS.CLOSE_CHECKLIST, null); return Array.isArray(list)&&list.length?list:def; }
@@ -665,9 +683,13 @@
     document.getElementById("adminStateText").textContent=`상태: 해제됨 (${Math.floor(ms/60000)}m ${String(Math.floor((ms%60000)/1000)).padStart(2,"0")}s)`;
   }
   setInterval(updateAdminStateText,500); updateAdminStateText();
+  
   function openAdminMenu(){
     // 자체 에디터에 내용 로드
     document.getElementById("adminNoticeInput").innerHTML = getTodayNotice();
+    // 공지 유지 시간 로드
+    document.getElementById("adminNoticeDuration").value = getTodayNoticeDuration();
+    
     renderAdminCloseChecklist();
     adminMenuOverlay.classList.add("show"); updateAdminStateText();
   }
@@ -678,11 +700,12 @@
   document.getElementById("btnBackFromEmp").addEventListener("click",()=>showSection("sec-att"));
   document.getElementById("btnBackFromLog").addEventListener("click",()=>showSection("sec-att"));
   
-  // 공지 저장 (자체 에디터 innerHTML 사용)
+  // 공지 저장 (자체 에디터 innerHTML + 시간)
   document.getElementById("btnSaveTodayNotice").addEventListener("click",async()=>{ 
       if(await ensureAdmin("공지 저장")){ 
           const content = document.getElementById("adminNoticeInput").innerHTML;
-          setTodayNotice(content); 
+          const duration = document.getElementById("adminNoticeDuration").value;
+          setTodayNotice(content, duration); 
           toast("저장됨"); 
       } 
   });
@@ -692,6 +715,7 @@
       if(await ensureAdmin("공지 지우기")){ 
           clearTodayNotice(); 
           document.getElementById("adminNoticeInput").innerHTML = "";
+          document.getElementById("adminNoticeDuration").value = 5; // 기본값 리셋
           toast("지워짐"); 
       } 
   });
@@ -704,16 +728,30 @@
 
   const noticeOverlay=document.getElementById("noticeOverlay");
   function setRingProgress(p){ const c=2*Math.PI*30; document.getElementById("noticeRing").style.strokeDasharray=`${c}`; document.getElementById("noticeRing").style.strokeDashoffset=`${c*(1-p)}`; }
+  
   async function showNoticeCountdownIfAny(){
     const t=getTodayNotice(); if(!t) return true;
-    document.getElementById("noticeText").innerHTML=t; // innerHTML로 표시
+    const duration = getTodayNoticeDuration(); // 저장된 시간 불러오기
+
+    // 공지 내용 채우기 + [중요] 스크롤 맨 위로 초기화
+    const noticeEl = document.getElementById("noticeText");
+    noticeEl.innerHTML = t;
+    noticeEl.scrollTop = 0; 
+
     document.getElementById("noticeDateText").textContent=`${todayKey()} 공지`;
     const btn=document.getElementById("noticeOk"), num=document.getElementById("noticeNum");
-    btn.disabled=true; noticeOverlay.classList.add("show"); num.textContent="2"; setRingProgress(0);
+    
+    // 버튼 초기화
+    btn.disabled=true; 
+    noticeOverlay.classList.add("show"); 
+    num.textContent = String(duration); 
+    setRingProgress(0);
+    
     return new Promise(r=>{
       let s=Date.now(), tm=setInterval(()=>{
-        const e=(Date.now()-s)/1000, p=Math.min(1,e/5); setRingProgress(p);
-        num.textContent=String(Math.max(0,5-Math.floor(e)));
+        const e=(Date.now()-s)/1000, p=Math.min(1,e/duration); // duration 사용
+        setRingProgress(p);
+        num.textContent=String(Math.max(0,duration-Math.floor(e)));
         if(p>=1){ clearInterval(tm); btn.disabled=false; noticeOverlay.querySelector(".countWrap").style.display="none"; }
       },60);
       const done=()=>{ clearInterval(tm); noticeOverlay.classList.remove("show"); noticeOverlay.querySelector(".countWrap").style.display=""; btn.removeEventListener("click",done); r(true); };
@@ -847,27 +885,31 @@
     const q=document.getElementById("empSearch").value.toLowerCase(), emps=getEmployees().filter(e=>e.code.includes(q)||e.name.toLowerCase().includes(q));
     document.getElementById("empTable").innerHTML=emps.length?emps.map(e=>`<tr><td><span class="tag open">${e.code}</span></td><td>${escapeHtml(e.name)}</td><td class="muted typeCell">${e.shiftType==="CLOSE"?"마감":"미들"}</td><td class="muted">${(e.wage||0).toLocaleString()} / ${e.wageWeekend ? e.wageWeekend.toLocaleString() : '-'}</td><td class="muted timeCell">${e.workStart}~${e.workEnd}</td><td style="text-align:right;"><button class="btn small" onclick="window.editEmp('${e.code}')">수정</button> <button class="btn small bad" onclick="window.delEmp('${e.code}')">삭제</button></td></tr>`).join("") : `<tr><td colspan="6" class="muted">없음</td></tr>`;
   }
-  // 알바생 삭제 로직 수정 (기록 삭제 여부 질문)
+  // 알바생 삭제 로직 수정 (2단계 질문)
   window.delEmp=async(c)=>{ 
-    if(await ensureAdmin("삭제")) {
-        const delLogs = confirm("이 알바생의 '모든 출퇴근 기록'도 함께 삭제할까요?\n(테스트용 알바생이었다면 '확인'을 누르세요.)");
-        
-        // 알바생 삭제
-        const l = getEmployees().filter(e=>e.code!==c); 
-        setEmployees(l); 
-        
-        // 기록 삭제 (확인 시)
-        if(delLogs) {
-            const allLogs = getLogs().filter(log => log.code !== c);
-            setLogs(allLogs);
-        }
+    if(!await ensureAdmin("삭제")) return;
 
-        toast("삭제됨"); 
-        renderEmployees(); 
-        renderQuickButtons();
-        renderAttendancePanel(); // 최근 기록 갱신
-        renderLogAll(); // 로그 화면 갱신
-    } 
+    // 1단계: 사람 삭제 여부
+    if(!confirm("정말 이 알바생을 삭제하시겠습니까?")) return;
+
+    // 2단계: 기록 삭제 여부
+    const delLogs = confirm("이 알바생의 '모든 출퇴근 기록'도 함께 삭제할까요?\n(테스트용이면 [확인], 기록을 남기려면 [취소])");
+    
+    // 알바생 삭제
+    const l = getEmployees().filter(e=>e.code!==c); 
+    setEmployees(l); 
+    
+    // 기록 삭제 (확인 시)
+    if(delLogs) {
+        const allLogs = getLogs().filter(log => log.code !== c);
+        setLogs(allLogs);
+    }
+
+    toast("삭제되었습니다."); 
+    renderEmployees(); 
+    renderQuickButtons();
+    renderAttendancePanel(); 
+    renderLogAll(); 
   };
   window.editEmp=async(c)=>{
     if(!await ensureAdmin("수정"))return;
