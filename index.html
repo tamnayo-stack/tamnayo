@@ -134,6 +134,9 @@
     .editor-content li { list-style-type: disc; margin-bottom: 4px; }
     /* 이미지 스타일 */
     .editor-content img { max-width: 100%; height: auto; border-radius: 8px; margin: 4px 0; }
+    /* 표 스타일 */
+    .editor-content table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+    .editor-content td { border: 1px solid #dcdde1; padding: 8px; vertical-align: top; }
 
     #adminMenuOverlay .modal{ padding-bottom: 18px; max-height: 88vh; overflow-y: auto; overscroll-behavior: contain; }
     #adminMenuOverlay .modal::-webkit-scrollbar{ width: 10px; }
@@ -505,6 +508,7 @@
         <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('foreColor', '#e74c3c')" title="빨간색" style="color:#e74c3c; font-weight:900;">A</button>
         <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('fontSize', '5')" title="크게">가</button>
         <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('insertUnorderedList')" title="리스트">●</button>
+        <button class="editor-btn" onmousedown="event.preventDefault(); insertTable()" title="표 삽입">▦</button>
         <button class="editor-btn" onmousedown="event.preventDefault(); document.getElementById('imgUploadInput').click()" title="이미지 삽입">🖼️</button>
         <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('removeFormat')" title="초기화">지우기</button>
       </div>
@@ -539,10 +543,23 @@
   const db = getDatabase(app);
   let SERVER_CACHE = {}; 
   
-  // 자체 에디터 명령 실행 함수 (글로벌)
+  // 자체 에디터 명령 실행 함수
   window.execCmd = function(command, value = null) {
     document.execCommand(command, false, value);
-    // document.getElementById('adminNoticeInput').focus(); // 아이패드 키보드 튐 방지
+    // document.getElementById('adminNoticeInput').focus(); 
+  };
+  
+  // 표 삽입 함수
+  window.insertTable = function() {
+    const html = `
+      <table style="width:100%; border-collapse:collapse; margin:8px 0;">
+        <tbody>
+          <tr><td style="border:1px solid #dcdde1; padding:8px;">항목1</td><td style="border:1px solid #dcdde1; padding:8px;">내용1</td></tr>
+          <tr><td style="border:1px solid #dcdde1; padding:8px;">항목2</td><td style="border:1px solid #dcdde1; padding:8px;">내용2</td></tr>
+          <tr><td style="border:1px solid #dcdde1; padding:8px;">항목3</td><td style="border:1px solid #dcdde1; padding:8px;">내용3</td></tr>
+        </tbody>
+      </table><br/>`;
+    document.execCommand('insertHTML', false, html);
   };
 
   // 이미지 업로드 처리 함수
@@ -733,7 +750,7 @@
     const t=getTodayNotice(); if(!t) return true;
     const duration = getTodayNoticeDuration(); // 저장된 시간 불러오기
 
-    // 공지 내용 채우기 + [중요] 스크롤 맨 위로 초기화
+    // [중요 수정] 공지 내용 채우고, 스크롤을 강제로 맨 위로 올림
     const noticeEl = document.getElementById("noticeText");
     noticeEl.innerHTML = t;
     noticeEl.scrollTop = 0; 
