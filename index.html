@@ -10,6 +10,8 @@
   
   <title>탐나는피자 화성남양점</title>
   
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/suneditor/2.45.1/css/suneditor.min.css" rel="stylesheet">
+
   <style>
     :root{
       --bg: #f4f6f9; --panel: #ffffff; --panel2: #f8f9fa;
@@ -119,30 +121,33 @@
     .admCLRow input{ flex: 1 1 auto; }
     .admCLRow .idx{ width: 28px; text-align:center; color: var(--muted); font-weight: 900; font-variant-numeric: tabular-nums; }
     
-    /* [자체 에디터 스타일 수정] */
+    /* [자체 에디터 스타일] */
     .editor-toolbar { display: flex; gap: 6px; padding: 8px; background: #f1f2f6; border-bottom: 1px solid #ced6e0; border-radius: 12px 12px 0 0; flex-wrap:wrap; }
     .editor-btn { 
       padding: 8px 12px; font-weight: 900; background: #fff; border: 1px solid #dcdde1; border-radius: 8px; cursor: pointer; font-size:14px; flex: 0 0 auto; 
-      /* 아이패드 터치감 개선 */
       min-width: 40px; min-height: 40px; display:flex; align-items:center; justify-content:center;
     }
     .editor-btn:active { background: #e2e6ea; transform:scale(0.95); }
     .editor-content { min-height: 250px; max-height: 400px; overflow-y: auto; padding: 12px; border: 1px solid #ced6e0; border-top: none; border-radius: 0 0 12px 12px; outline: none; background: #fff; -webkit-user-select: text; user-select: text; white-space: pre-wrap; line-height: 1.5; font-size:16px; }
     .editor-content:focus { box-shadow: inset 0 0 0 2px rgba(52,152,219,.15); }
-    /* 리스트 스타일 */
     .editor-content ul { padding-left: 20px; margin: 8px 0; }
     .editor-content li { list-style-type: disc; margin-bottom: 4px; }
-    /* 이미지 스타일 */
     .editor-content img { max-width: 100%; height: auto; border-radius: 8px; margin: 4px 0; }
-    /* 표 스타일 */
     .editor-content table { width: 100%; border-collapse: collapse; margin: 8px 0; }
     .editor-content td { border: 1px solid #dcdde1; padding: 8px; vertical-align: top; }
+
+    /* 투두 리스트 스타일 */
+    .todo-row { display:flex; align-items:center; gap:10px; padding:10px; background:#fff; border:1px solid var(--line); border-radius:12px; margin-bottom:8px; }
+    .todo-check { width:24px; height:24px; cursor:pointer; }
+    .todo-text { flex:1; font-size:15px; font-weight:700; color:var(--text); }
+    .todo-text.done { text-decoration: line-through; color:var(--muted); }
 
     #adminMenuOverlay .modal{ padding-bottom: 18px; max-height: 88vh; overflow-y: auto; overscroll-behavior: contain; }
     #adminMenuOverlay .modal::-webkit-scrollbar{ width: 10px; }
     #adminMenuOverlay .modal::-webkit-scrollbar-thumb{ background: #bdc3c7; border-radius: 999px; border: 3px solid rgba(0,0,0,0); background-clip: padding-box; }
     #adminMenuOverlay .modal::-webkit-scrollbar-track{ background: transparent; border-radius: 999px; }
-    #logEditOverlay .modal, #empEditOverlay .modal{ max-width: 640px; }
+    
+    #logEditOverlay .modal, #empEditOverlay .modal, #todoOverlay .modal, #actionLogOverlay .modal { max-width: 640px; }
     #sec-emp .grid{ grid-template-columns: 1fr !important; }
     #sec-emp .card{ border-radius: 22px; }
     #sec-emp h2{ font-size: 22px; }
@@ -456,18 +461,35 @@
   </div>
 </div>
 
-<div class="modalOverlay" id="pinOverlay" role="dialog" aria-modal="true">
+<div class="modalOverlay" id="todoOverlay" role="dialog" aria-modal="true">
   <div class="modal">
-    <h3 id="pinTitle">관리자 PIN</h3>
-    <div class="muted" id="pinDesc">관리자 기능을 사용하려면 PIN을 입력하세요.</div>
+    <h3>매장 할 일 관리 (Todo)</h3>
+    <div class="muted">매장 운영에 필요한 할 일을 관리하세요.</div>
     <div class="hr"></div>
-    <div id="pinUnlockBlock">
-      <label>PIN 입력</label><input id="pinInput" inputmode="numeric" autocomplete="off" placeholder="PIN" maxlength="8" />
-      <div class="note">해제 후 <b>10분</b> 동안 관리자 기능이 열립니다.</div>
+    <div class="row" style="margin-bottom:10px;">
+      <input id="newTodoInput" placeholder="할 일 입력 (예: 재고 파악)" style="flex:1;" />
+      <button class="btn primary" id="btnAddTodo">추가</button>
+    </div>
+    <div id="todoListBody" style="max-height:400px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
+    <div class="modalActions">
+      <button class="btn" id="btnCloseTodo">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div class="modalOverlay" id="actionLogOverlay" role="dialog" aria-modal="true">
+  <div class="modal" style="width: 100%; max-width: 700px;">
+    <h3>시스템 로그 (터치 기록)</h3>
+    <div class="muted">최근 100개의 터치/동작 기록입니다.</div>
+    <div class="hr"></div>
+    <div style="max-height:500px; overflow-y:auto;">
+      <table>
+        <thead><tr><th>시간</th><th>동작</th><th>상세</th></tr></thead>
+        <tbody id="actionLogTable"></tbody>
+      </table>
     </div>
     <div class="modalActions">
-      <button class="btn" id="pinCancel">취소</button>
-      <button class="btn primary" id="pinOk">확인</button>
+      <button class="btn" id="btnCloseActionLog">닫기</button>
     </div>
   </div>
 </div>
@@ -475,13 +497,14 @@
 <div class="modalOverlay" id="adminMenuOverlay" role="dialog" aria-modal="true">
   <div class="modal">
     <h3>관리자 메뉴</h3>
-    <div class="muted" id="adminStateText">-</div>
+    <div class="muted" id="adminStateText">관리자 모드 (PIN 없음)</div>
     <div class="menuGrid">
       <button class="btn primary" id="goEmp">알바생 관리</button>
       <button class="btn primary" id="goLog">근태 조회</button>
+      <button class="btn good" id="btnOpenTodo">매장 할 일 관리</button>
+      <button class="btn" id="btnShowActionLogs">시스템 로그 보기</button>
       <button class="btn warn" id="btnExportCsv2">CSV 내보내기</button>
       <button class="btn bad" id="btnResetAll">전체 초기화</button>
-      <button class="btn" id="btnLockAdmin">관리자 잠금</button>
     </div>
     <div class="hr"></div><div class="hr"></div>
     <div class="muted" style="font-size:13px; font-weight:900;">마감 체크리스트 편집</div>
@@ -543,10 +566,23 @@
   const db = getDatabase(app);
   let SERVER_CACHE = {}; 
   
+  // 글로벌 로그 기록 함수
+  window.recordAction = function(action, detail) {
+    const logs = loadJSON('ACTION_LOGS', []);
+    logs.push({
+      ts: Date.now(),
+      time: fmtTS(Date.now()),
+      action: action,
+      detail: detail
+    });
+    // 최근 200개만 유지
+    if(logs.length > 200) logs.shift();
+    saveJSON('ACTION_LOGS', logs);
+  };
+
   // 자체 에디터 명령 실행 함수
   window.execCmd = function(command, value = null) {
     document.execCommand(command, false, value);
-    // document.getElementById('adminNoticeInput').focus(); 
   };
   
   // 표 삽입 함수
@@ -632,7 +668,6 @@
   function getNoticeMap(){ return loadJSON(LS_KEYS.DAILY_NOTICE, {}); }
   function setNoticeMap(map){ saveJSON(LS_KEYS.DAILY_NOTICE, map); }
   
-  // 공지사항 함수 수정 (시간까지 저장)
   function getTodayNotice(){ return getNoticeMap()[todayKey()]?.text || ""; }
   function getTodayNoticeDuration(){ return getNoticeMap()[todayKey()]?.duration || 5; } // 기본값 5초
 
@@ -652,40 +687,13 @@
   function addCloseCheckLog({code,name,items,extra}){ const list=getCloseCheckLogs(); const id=list.length?(list[list.length-1].id+1):1; list.push({id,date:dateKey(nowTS()),ts:nowTS(),code,name,items:items||[],extra:String(extra||"").trim()}); setCloseCheckLogs(list); }
   function addOutNote({code,name,text}){ const list=getOutNotes(); const id=list.length?(list[list.length-1].id+1):1; list.push({id,date:dateKey(nowTS()),ts:nowTS(),code,name,text:String(text||"").trim()}); setOutNotes(list); }
 
-  function hasPin(){ return true; } 
-  function isAdminUnlocked(){ const u=sessionStorage.getItem(SS_KEYS.UNLOCK_UNTIL); return u && Date.now()<Number(u); }
-  function setAdminUnlocked(m=10){ sessionStorage.setItem(SS_KEYS.UNLOCK_UNTIL, String(Date.now()+m*60*1000)); updateAdminStateText(); }
-  function lockAdmin(){ sessionStorage.removeItem(SS_KEYS.UNLOCK_UNTIL); updateAdminStateText(); }
-  function verifyPin(p){ return p === "0721"; } 
-
-  const pinOverlay=document.getElementById("pinOverlay");
-  let pinResolve=null;
-  function showPinModal(mode,opts={}){
-    document.getElementById("pinTitle").textContent=opts.title||"관리자 PIN";
-    document.getElementById("pinDesc").textContent=opts.desc||"";
-    document.getElementById("pinInput").value="";
-    pinOverlay.classList.add("show"); setTimeout(()=>document.getElementById("pinInput")?.focus(),50);
-    return new Promise(r=>{ pinResolve=r; });
-  }
-  function hidePinModal(res){ pinOverlay.classList.remove("show"); if(pinResolve){ pinResolve(res); pinResolve=null; } }
-  document.getElementById("pinCancel").addEventListener("click",()=>hidePinModal({ok:false}));
-  
-  document.getElementById("pinOk").addEventListener("click",()=>{
-    const p=(document.getElementById("pinInput").value||"").replace(/\D/g,"");
-    if(verifyPin(p)){ setAdminUnlocked(); toast("해제됨"); hidePinModal({ok:true}); } else toast("PIN 오류 (0721)");
-  });
-
-  async function ensureAdmin(r="관리자 기능"){
-    if(isAdminUnlocked()) return true;
-    const res=await showPinModal("unlock",{desc:`${r}을(를) 위해 PIN 입력`}); return !!res.ok && isAdminUnlocked();
-  }
-
   function showSection(id){
     document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
     document.getElementById(id)?.classList.add("active");
     if(id==="sec-att") renderAttendancePanel();
     if(id==="sec-emp") renderEmployees();
     if(id==="sec-log"){ renderLogFilterOptions(); renderLogAll(); }
+    recordAction("화면 이동", id);
   }
   function tickClock(){
     const d=new Date(); document.getElementById("nowTime").textContent=`${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
@@ -694,53 +702,47 @@
   setInterval(tickClock,250); tickClock();
 
   const adminMenuOverlay=document.getElementById("adminMenuOverlay");
-  function updateAdminStateText(){
-    if(!isAdminUnlocked()){ document.getElementById("adminStateText").textContent="상태: 잠금 (PIN 필요)"; return; }
-    const ms=Math.max(0,Number(sessionStorage.getItem(SS_KEYS.UNLOCK_UNTIL)||0)-Date.now());
-    document.getElementById("adminStateText").textContent=`상태: 해제됨 (${Math.floor(ms/60000)}m ${String(Math.floor((ms%60000)/1000)).padStart(2,"0")}s)`;
-  }
-  setInterval(updateAdminStateText,500); updateAdminStateText();
   
   function openAdminMenu(){
+    recordAction("관리자 메뉴", "열기");
     // 자체 에디터에 내용 로드
     document.getElementById("adminNoticeInput").innerHTML = getTodayNotice();
-    // 공지 유지 시간 로드
     document.getElementById("adminNoticeDuration").value = getTodayNoticeDuration();
-    
     renderAdminCloseChecklist();
-    adminMenuOverlay.classList.add("show"); updateAdminStateText();
+    adminMenuOverlay.classList.add("show");
   }
   document.getElementById("adminMenuClose").addEventListener("click",()=>adminMenuOverlay.classList.remove("show"));
-  document.getElementById("btnLockAdmin").addEventListener("click",()=>{ lockAdmin(); toast("잠금 완료"); adminMenuOverlay.classList.remove("show"); showSection("sec-att"); });
-  document.getElementById("goEmp").addEventListener("click",()=>{ if(isAdminUnlocked()){adminMenuOverlay.classList.remove("show"); showSection("sec-emp");}else toast("PIN 필요"); });
-  document.getElementById("goLog").addEventListener("click",()=>{ if(isAdminUnlocked()){adminMenuOverlay.classList.remove("show"); showSection("sec-log");}else toast("PIN 필요"); });
+  document.getElementById("goEmp").addEventListener("click",()=>{ adminMenuOverlay.classList.remove("show"); showSection("sec-emp"); });
+  document.getElementById("goLog").addEventListener("click",()=>{ adminMenuOverlay.classList.remove("show"); showSection("sec-log"); });
   document.getElementById("btnBackFromEmp").addEventListener("click",()=>showSection("sec-att"));
   document.getElementById("btnBackFromLog").addEventListener("click",()=>showSection("sec-att"));
   
-  // 공지 저장 (자체 에디터 innerHTML + 시간)
+  // 공지 저장
   document.getElementById("btnSaveTodayNotice").addEventListener("click",async()=>{ 
-      if(await ensureAdmin("공지 저장")){ 
-          const content = document.getElementById("adminNoticeInput").innerHTML;
-          const duration = document.getElementById("adminNoticeDuration").value;
-          setTodayNotice(content, duration); 
-          toast("저장됨"); 
-      } 
+      const content = document.getElementById("adminNoticeInput").innerHTML;
+      const duration = document.getElementById("adminNoticeDuration").value;
+      setTodayNotice(content, duration); 
+      recordAction("공지 저장", content.slice(0, 10) + "...");
+      toast("저장됨"); 
   });
   
   // 공지 지우기
   document.getElementById("btnClearTodayNotice").addEventListener("click",async()=>{ 
-      if(await ensureAdmin("공지 지우기")){ 
-          clearTodayNotice(); 
-          document.getElementById("adminNoticeInput").innerHTML = "";
-          document.getElementById("adminNoticeDuration").value = 5; // 기본값 리셋
-          toast("지워짐"); 
-      } 
+      clearTodayNotice(); 
+      document.getElementById("adminNoticeInput").innerHTML = "";
+      document.getElementById("adminNoticeDuration").value = 5;
+      recordAction("공지 삭제", "삭제됨");
+      toast("지워짐"); 
   });
   
+  // [5회 터치] 로고 기능
   let logoTap=0, logoT;
   document.getElementById("logoImg").addEventListener("click",async()=>{
     logoTap++; clearTimeout(logoT); logoT=setTimeout(()=>{logoTap=0},1300);
-    if(logoTap>=2){ logoTap=0; if(await ensureAdmin("관리자 메뉴")) openAdminMenu(); }
+    if(logoTap>=5){ 
+        logoTap=0; 
+        openAdminMenu(); // PIN 없이 바로 오픈
+    }
   });
 
   const noticeOverlay=document.getElementById("noticeOverlay");
@@ -748,9 +750,8 @@
   
   async function showNoticeCountdownIfAny(){
     const t=getTodayNotice(); if(!t) return true;
-    const duration = getTodayNoticeDuration(); // 저장된 시간 불러오기
+    const duration = getTodayNoticeDuration();
 
-    // [중요 수정] 공지 내용 채우고, 스크롤을 강제로 맨 위로 올림
     const noticeEl = document.getElementById("noticeText");
     noticeEl.innerHTML = t;
     noticeEl.scrollTop = 0; 
@@ -758,20 +759,28 @@
     document.getElementById("noticeDateText").textContent=`${todayKey()} 공지`;
     const btn=document.getElementById("noticeOk"), num=document.getElementById("noticeNum");
     
-    // 버튼 초기화
     btn.disabled=true; 
     noticeOverlay.classList.add("show"); 
     num.textContent = String(duration); 
     setRingProgress(0);
     
+    recordAction("공지 팝업", "노출됨");
+
     return new Promise(r=>{
       let s=Date.now(), tm=setInterval(()=>{
-        const e=(Date.now()-s)/1000, p=Math.min(1,e/duration); // duration 사용
+        const e=(Date.now()-s)/1000, p=Math.min(1,e/duration); 
         setRingProgress(p);
         num.textContent=String(Math.max(0,duration-Math.floor(e)));
         if(p>=1){ clearInterval(tm); btn.disabled=false; noticeOverlay.querySelector(".countWrap").style.display="none"; }
       },60);
-      const done=()=>{ clearInterval(tm); noticeOverlay.classList.remove("show"); noticeOverlay.querySelector(".countWrap").style.display=""; btn.removeEventListener("click",done); r(true); };
+      const done=()=>{ 
+          clearInterval(tm); 
+          noticeOverlay.classList.remove("show"); 
+          noticeOverlay.querySelector(".countWrap").style.display=""; 
+          btn.removeEventListener("click",done); 
+          recordAction("공지 확인", "숙지완료 버튼 클릭");
+          r(true); 
+      };
       btn.addEventListener("click",done);
     });
   }
@@ -834,8 +843,11 @@
     const c=attCode.value; if(c.length!==4)return toast("알바생을 선택해주세요");
     const e=findEmpByCode(c); if(!e)return toast("미등록 코드");
     if(!canClockIn(c))return toast("이미 출근 상태");
+    recordAction("출근 시도", `${e.name}(${c})`);
     await showNoticeCountdownIfAny();
-    addLog({code:c,name:e.name,type:"IN"}); toast(`${e.name} 출근`); renderAttendancePanel();
+    addLog({code:c,name:e.name,type:"IN"}); toast(`${e.name} 출근`); 
+    recordAction("출근 완료", `${e.name}(${c})`);
+    renderAttendancePanel();
   });
   
   document.getElementById("btnOut").addEventListener("click",async()=>{
@@ -843,6 +855,7 @@
     const e=findEmpByCode(c); if(!e)return toast("미등록 코드");
     if(!canClockOut(c))return toast("출근 기록 없음");
     
+    recordAction("퇴근 시도", `${e.name}(${c})`);
     let manualNote = await askOutNote();
     let checklistLogStr = "";
 
@@ -862,7 +875,9 @@
     else if(checklistLogStr) combinedNote = checklistLogStr;
 
     addLog({code:c, name:e.name, type:"OUT", note:combinedNote}); 
-    toast(`${e.name} 퇴근`); renderAttendancePanel();
+    toast(`${e.name} 퇴근`); 
+    recordAction("퇴근 완료", `${e.name}(${c})`);
+    renderAttendancePanel();
   });
 
   function renderRecent(){
@@ -873,7 +888,11 @@
     if(!emps.length) div.innerHTML=`<span class="muted">관리자 메뉴에서 알바생을 등록하세요.</span>`;
     else{
       div.innerHTML=emps.map(e=>`<button class="btn" data-c="${e.code}">${escapeHtml(e.name)} <span class="muted">${e.code}</span></button>`).join("");
-      div.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{ attCode.value=b.dataset.c; onCodeChanged(); }));
+      div.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{ 
+          attCode.value=b.dataset.c; 
+          onCodeChanged();
+          recordAction("알바생 선택", b.dataset.c); 
+      }));
     }
   }
   function renderAttendancePanel(){ renderRecent(); renderQuickButtons(); onCodeChanged(); }
@@ -887,12 +906,12 @@
   }
   function updateEmployee(code,patch){ const emps=getEmployees(), idx=emps.findIndex(e=>e.code===code); if(idx>=0){ emps[idx]={...emps[idx],...patch}; setEmployees(emps); } }
   document.getElementById("btnAddEmp").addEventListener("click",async()=>{
-    if(!await ensureAdmin("등록"))return toast("PIN 필요");
     try{
       const nm=document.getElementById("empName").value.trim(); if(!nm) throw new Error("이름 입력");
       addEmployee(nm, document.getElementById("empMemo").value, document.getElementById("empWorkStart").value, document.getElementById("empWorkEnd").value, document.getElementById("empShiftType").value, document.getElementById("empWage").value, document.getElementById("empWageWeekend").value);
       document.getElementById("empName").value=""; document.getElementById("empMemo").value=""; document.getElementById("empWage").value=""; document.getElementById("empWageWeekend").value="";
       toast("등록 완료"); renderEmployees(); renderQuickButtons();
+      recordAction("알바생 등록", nm);
     }catch(e){ toast(e.message); }
   });
   document.getElementById("btnRefreshEmp").addEventListener("click",renderEmployees);
@@ -902,34 +921,22 @@
     const q=document.getElementById("empSearch").value.toLowerCase(), emps=getEmployees().filter(e=>e.code.includes(q)||e.name.toLowerCase().includes(q));
     document.getElementById("empTable").innerHTML=emps.length?emps.map(e=>`<tr><td><span class="tag open">${e.code}</span></td><td>${escapeHtml(e.name)}</td><td class="muted typeCell">${e.shiftType==="CLOSE"?"마감":"미들"}</td><td class="muted">${(e.wage||0).toLocaleString()} / ${e.wageWeekend ? e.wageWeekend.toLocaleString() : '-'}</td><td class="muted timeCell">${e.workStart}~${e.workEnd}</td><td style="text-align:right;"><button class="btn small" onclick="window.editEmp('${e.code}')">수정</button> <button class="btn small bad" onclick="window.delEmp('${e.code}')">삭제</button></td></tr>`).join("") : `<tr><td colspan="6" class="muted">없음</td></tr>`;
   }
-  // 알바생 삭제 로직 수정 (2단계 질문)
+  
+  // 알바생 삭제 기능
   window.delEmp=async(c)=>{ 
-    if(!await ensureAdmin("삭제")) return;
-
-    // 1단계: 사람 삭제 여부
     if(!confirm("정말 이 알바생을 삭제하시겠습니까?")) return;
-
-    // 2단계: 기록 삭제 여부
     const delLogs = confirm("이 알바생의 '모든 출퇴근 기록'도 함께 삭제할까요?\n(테스트용이면 [확인], 기록을 남기려면 [취소])");
-    
-    // 알바생 삭제
     const l = getEmployees().filter(e=>e.code!==c); 
     setEmployees(l); 
-    
-    // 기록 삭제 (확인 시)
     if(delLogs) {
         const allLogs = getLogs().filter(log => log.code !== c);
         setLogs(allLogs);
     }
-
-    toast("삭제되었습니다."); 
-    renderEmployees(); 
-    renderQuickButtons();
-    renderAttendancePanel(); 
-    renderLogAll(); 
+    toast("삭제됨"); 
+    recordAction("알바생 삭제", c);
+    renderEmployees(); renderQuickButtons(); renderAttendancePanel(); renderLogAll();
   };
   window.editEmp=async(c)=>{
-    if(!await ensureAdmin("수정"))return;
     const e=findEmpByCode(c); if(!e)return;
     document.getElementById("empEditCode").value=e.code; document.getElementById("empEditName").value=e.name;
     document.getElementById("empEditShiftType").value=e.shiftType||"MID"; document.getElementById("empEditWage").value=e.wage||"";
@@ -948,6 +955,7 @@
       workStart:document.getElementById("empEditWorkStart").value, workEnd:document.getElementById("empEditWorkEnd").value
     });
     document.getElementById("empEditOverlay").classList.remove("show"); toast("수정 완료"); renderEmployees(); renderQuickButtons(); renderLogAll();
+    recordAction("알바생 수정", c);
   });
   document.getElementById("empEditCancel").addEventListener("click",()=>document.getElementById("empEditOverlay").classList.remove("show"));
 
@@ -965,7 +973,6 @@
   }
 
   function getAdjustedWorkTime(emp, inTs, outTs) {
-    // shiftType에 상관없이 workEnd가 있으면 적용
     if (!emp.workEnd) return outTs;
     const d = new Date(inTs);
     const [h, m] = emp.workEnd.split(':').map(Number);
@@ -1158,8 +1165,6 @@
     document.getElementById("logTable").innerHTML=list.slice().reverse().map(l=> {
         let timeDisplay = fmtTS(l.ts);
         const emp = findEmpByCode(l.code);
-        
-        // 출근 시간 보정 표시
         if(l.type === "IN" && emp) {
             const adjInTs = getAdjustedStartTime(emp, l.ts);
             if(adjInTs !== l.ts) {
@@ -1168,8 +1173,6 @@
                 timeDisplay += `<br><span class="tag adj">급여시작: ${adjStr}</span>`;
             }
         }
-        
-        // 퇴근 시간 보정 표시
         if(l.type === "OUT" && emp) {
             const prevIn = list.find(x => x.type === "IN" && x.ts < l.ts && x.code === l.code);
             if(prevIn) {
@@ -1203,8 +1206,6 @@
   document.getElementById("btnExportCsv").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
   document.getElementById("btnExportCsv2").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
   
-  // 백업/복원 이벤트 제거됨
-
   document.getElementById("btnResetAll").addEventListener("click",async()=>{ if(await ensureAdmin() && confirm("전체 초기화?? (복구불가)")){ localStorage.clear(); await set(ref(db, 'tamnaData'), null); location.reload(); } });
 
   function renderAdminCloseChecklist(){ const lst=document.getElementById("adminCloseChecklistList"), items=getCloseChecklist(); lst.innerHTML=items.map((t,i)=>`<div class="admCLRow"><div class="idx">${i+1}</div><input class="admCLInput" value="${escapeHtml(t)}" /><button class="btn small" onclick="delCLItem(${i})">삭제</button></div>`).join(""); }
@@ -1212,6 +1213,66 @@
   document.getElementById("btnAddCloseChecklistItem").addEventListener("click",()=>{ const v=document.getElementById("adminCloseNewItem").value.trim(); if(!v)return; const l=getCloseChecklist(); l.push(v); setCloseChecklist(l); document.getElementById("adminCloseNewItem").value=""; renderAdminCloseChecklist(); });
   document.getElementById("btnSaveCloseChecklist").addEventListener("click",()=>{ const l=Array.from(document.querySelectorAll(".admCLInput")).map(i=>i.value.trim()).filter(Boolean); setCloseChecklist(l); toast("저장됨"); renderAdminCloseChecklist(); });
   document.getElementById("btnResetCloseChecklist").addEventListener("click",()=>{ localStorage.removeItem(LS_KEYS.CLOSE_CHECKLIST); renderAdminCloseChecklist(); });
+
+  /* 투두 관리 기능 */
+  function getTodos() { return loadJSON("ADMIN_TODOS", []); }
+  function setTodos(list) { saveJSON("ADMIN_TODOS", list); }
+  
+  function renderTodos() {
+    const list = getTodos();
+    document.getElementById("todoListBody").innerHTML = list.map((t, i) => `
+      <div class="todo-row">
+        <input type="checkbox" class="todo-check" data-i="${i}" ${t.done ? "checked" : ""} />
+        <div class="todo-text ${t.done ? "done" : ""}">${escapeHtml(t.text)}</div>
+        <button class="btn small bad" onclick="deleteTodo(${i})">삭제</button>
+      </div>
+    `).join("") || '<div class="muted" style="padding:10px; text-align:center;">할 일이 없습니다.</div>';
+    
+    document.querySelectorAll(".todo-check").forEach(c => {
+      c.addEventListener("change", (e) => {
+        const idx = e.target.dataset.i;
+        list[idx].done = e.target.checked;
+        setTodos(list);
+        renderTodos();
+      });
+    });
+  }
+  
+  document.getElementById("btnOpenTodo").addEventListener("click", () => {
+    document.getElementById("todoOverlay").classList.add("show");
+    renderTodos();
+  });
+  document.getElementById("btnCloseTodo").addEventListener("click", () => {
+    document.getElementById("todoOverlay").classList.remove("show");
+  });
+  document.getElementById("btnAddTodo").addEventListener("click", () => {
+    const inp = document.getElementById("newTodoInput");
+    const val = inp.value.trim();
+    if(!val) return toast("내용을 입력하세요");
+    const list = getTodos();
+    list.push({ text: val, done: false, ts: Date.now() });
+    setTodos(list);
+    inp.value = "";
+    renderTodos();
+  });
+  window.deleteTodo = function(idx) {
+    const list = getTodos();
+    list.splice(idx, 1);
+    setTodos(list);
+    renderTodos();
+  };
+
+  /* 액션 로그 보기 기능 */
+  document.getElementById("btnShowActionLogs").addEventListener("click", () => {
+    const logs = loadJSON('ACTION_LOGS', []);
+    document.getElementById("actionLogTable").innerHTML = logs.slice().reverse().map(l => 
+        `<tr><td>${l.time}</td><td>${escapeHtml(l.action)}</td><td>${escapeHtml(l.detail)}</td></tr>`
+    ).join("") || '<tr><td colspan="3" style="text-align:center;">기록 없음</td></tr>';
+    document.getElementById("actionLogOverlay").classList.add("show");
+  });
+  document.getElementById("btnCloseActionLog").addEventListener("click", () => {
+    document.getElementById("actionLogOverlay").classList.remove("show");
+  });
 
   (async()=>{ renderAttendancePanel(); updateAdminStateText(); })();
 </script>
