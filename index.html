@@ -10,8 +10,6 @@
   
   <title>탐나는피자 화성남양점</title>
   
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/suneditor/2.45.1/css/suneditor.min.css" rel="stylesheet">
-
   <style>
     :root{
       --bg: #f4f6f9; --panel: #ffffff; --panel2: #f8f9fa;
@@ -21,13 +19,10 @@
     }
     *{ box-sizing:border-box; }
     body{ 
-      margin:0; 
-      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; 
-      background: var(--bg); 
-      color:var(--text); 
-      min-height:100dvh;
-      -webkit-user-select: none; user-select: none;
-      -webkit-touch-callout: none; touch-action: manipulation;
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; 
+      background: var(--bg); color:var(--text); min-height:100dvh;
+      -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+      padding-bottom: 20px;
     }
     /* 입력창은 선택 가능하게 */
     input, textarea { -webkit-user-select: text; user-select: text; }
@@ -96,8 +91,16 @@
     .toast.show{ display:block; }
     .toast.danger{ background: var(--bad); border-color: var(--bad); color: #fff; }
 
+    /* [중요] 팝업 층수(Z-Index) 정리: 팝업이 뒤로 가는 문제 해결 */
     .modalOverlay{ position: fixed; inset:0; background: rgba(0,0,0,.4); display:none; align-items:center; justify-content:center; z-index: 1000; padding: 18px; backdrop-filter: blur(2px); }
     .modalOverlay.show{ display:flex; }
+    
+    #adminMenuOverlay { z-index: 1000; } /* 기본 관리자 메뉴 */
+    #mateOverlay { z-index: 2000; } /* 투두메이트 */
+    #routineSetOverlay { z-index: 3000; } /* 루틴 설정 */
+    #actionLogOverlay { z-index: 2000; }
+    #noticeOverlay { z-index: 5000; } /* 공지 팝업은 제일 위 */
+
     .modal{ width: min(560px, 100%); border-radius: 18px; border: 1px solid var(--line); background: #fff; box-shadow: var(--shadow); padding: 14px; }
     .modal h3{ margin:0 0 6px; font-size: 16px; letter-spacing:.2px; }
     .modalActions{ display:flex; gap:10px; margin-top: 12px; justify-content:flex-end; flex-wrap:wrap; }
@@ -121,7 +124,7 @@
     .admCLRow input{ flex: 1 1 auto; }
     .admCLRow .idx{ width: 28px; text-align:center; color: var(--muted); font-weight: 900; font-variant-numeric: tabular-nums; }
     
-    /* [자체 에디터 스타일] */
+    /* [자체 에디터 스타일 - 추가됨] */
     .editor-toolbar { display: flex; gap: 6px; padding: 8px; background: #f1f2f6; border-bottom: 1px solid #ced6e0; border-radius: 12px 12px 0 0; flex-wrap:wrap; }
     .editor-btn { 
       padding: 8px 12px; font-weight: 900; background: #fff; border: 1px solid #dcdde1; border-radius: 8px; cursor: pointer; font-size:14px; flex: 0 0 auto; 
@@ -136,18 +139,45 @@
     .editor-content table { width: 100%; border-collapse: collapse; margin: 8px 0; }
     .editor-content td { border: 1px solid #dcdde1; padding: 8px; vertical-align: top; }
 
-    /* 투두 리스트 스타일 */
-    .todo-row { display:flex; align-items:center; gap:10px; padding:10px; background:#fff; border:1px solid var(--line); border-radius:12px; margin-bottom:8px; }
-    .todo-check { width:24px; height:24px; cursor:pointer; }
-    .todo-text { flex:1; font-size:15px; font-weight:700; color:var(--text); }
-    .todo-text.done { text-decoration: line-through; color:var(--muted); }
+    /* [투두메이트 스타일 - 추가됨] */
+    .mate-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+    .mate-title { font-size: 18px; font-weight: 900; }
+    .mate-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 14px; }
+    .mate-day-head { text-align: center; font-size: 12px; color: var(--muted); font-weight: 700; padding-bottom: 4px; }
+    .mate-cell { 
+        aspect-ratio: 1/1.1; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; 
+        border-radius: 10px; padding-top:6px; cursor: pointer; position:relative; border: 1px solid transparent;
+    }
+    .mate-cell.today { background-color: #f0f8ff; border-color: var(--accent); }
+    .mate-cell.selected { background-color: var(--accent); color: #fff; box-shadow: 0 4px 10px rgba(52,152,219,0.3); }
+    .mate-date-num { font-size: 14px; font-weight: 700; z-index:1; }
+    .mate-dots { display:flex; gap:2px; margin-top:4px; flex-wrap:wrap; justify-content:center; max-width:80%; }
+    .mate-dot { width: 5px; height: 5px; border-radius: 50%; background: #e0e0e0; }
+    .mate-dot.done { background: var(--good); } 
+    
+    .mate-list-area { background: #f8f9fa; border-radius: 14px; padding: 14px; min-height: 200px; }
+    .mate-item { display:flex; align-items:center; gap:10px; padding: 12px; background:#fff; border:1px solid var(--line); border-radius:12px; margin-bottom:8px; transition:all 0.2s; }
+    .mate-item.done { opacity: 0.6; }
+    .mate-check { 
+        width: 24px; height: 24px; border-radius: 6px; border: 2px solid var(--line); display:flex; align-items:center; justify-content:center; cursor: pointer; flex: 0 0 auto;
+    }
+    .mate-check.checked { background: var(--good); border-color: var(--good); color: #fff; }
+    .mate-text { flex:1; font-size:15px; font-weight:600; line-height:1.3; }
+    .mate-tag { font-size:10px; padding:2px 6px; border-radius:4px; background:#eee; color:#666; font-weight:700; }
+
+    /* 루틴 설정 */
+    .routine-opt { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px; }
+    .routine-btn { padding: 8px 12px; border:1px solid var(--line); border-radius:8px; background:#fff; font-size:13px; cursor:pointer; }
+    .routine-btn.active { background:var(--accent); color:#fff; border-color:transparent; font-weight:700; }
+    .day-selector { display:flex; gap:4px; margin-top:4px; }
+    .day-btn { width:32px; height:32px; border-radius:50%; border:1px solid var(--line); background:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; cursor:pointer; }
+    .day-btn.active { background:var(--accent); color:#fff; border-color:transparent; }
 
     #adminMenuOverlay .modal{ padding-bottom: 18px; max-height: 88vh; overflow-y: auto; overscroll-behavior: contain; }
     #adminMenuOverlay .modal::-webkit-scrollbar{ width: 10px; }
     #adminMenuOverlay .modal::-webkit-scrollbar-thumb{ background: #bdc3c7; border-radius: 999px; border: 3px solid rgba(0,0,0,0); background-clip: padding-box; }
     #adminMenuOverlay .modal::-webkit-scrollbar-track{ background: transparent; border-radius: 999px; }
-    
-    #logEditOverlay .modal, #empEditOverlay .modal, #todoOverlay .modal, #actionLogOverlay .modal { max-width: 640px; }
+    #logEditOverlay .modal, #empEditOverlay .modal{ max-width: 640px; }
     #sec-emp .grid{ grid-template-columns: 1fr !important; }
     #sec-emp .card{ border-radius: 22px; }
     #sec-emp h2{ font-size: 22px; }
@@ -330,6 +360,146 @@
 
 <div class="toast" id="toast"></div>
 
+<div class="modalOverlay" id="adminMenuOverlay" role="dialog" aria-modal="true" style="z-index: 1000;">
+  <div class="modal">
+    <h3>관리자 모드</h3>
+    <div class="muted" id="adminStateText">관리자 모드 (PIN 없음)</div>
+    <div class="menuGrid">
+      <button class="btn primary" id="goEmp">알바생 관리</button>
+      <button class="btn primary" id="goLog">근태 조회</button>
+      <button class="btn good" id="btnOpenMate">업무/루틴 관리</button>
+      <button class="btn" id="btnShowActionLogs">시스템 로그</button>
+      <button class="btn warn" id="btnExportCsv2">CSV 내보내기</button>
+      <button class="btn bad" id="btnResetAll">전체 초기화</button>
+      <button class="btn" id="btnLockAdmin">관리자 잠금</button>
+    </div>
+    <div class="hr"></div><div class="hr"></div>
+    <div class="muted" style="font-size:13px; font-weight:900;">마감 체크리스트 편집</div>
+    <div class="row" style="margin-top:10px; gap:10px; flex-wrap:wrap;">
+      <div style="flex: 2 1 240px;"><label>항목 추가</label><input id="adminCloseNewItem" placeholder="예) 포스 마감 정산" maxlength="60" /></div>
+      <div style="flex: 0 0 auto; align-self:flex-end; display:flex; gap:8px;">
+        <button class="btn" id="btnAddCloseChecklistItem">추가</button>
+        <button class="btn primary" id="btnSaveCloseChecklist">저장</button>
+        <button class="btn" id="btnResetCloseChecklist">기본값</button>
+      </div>
+    </div>
+    <div id="adminCloseChecklistList" style="margin-top:10px; display:flex; flex-direction:column; gap:8px;"></div>
+    
+    <div class="muted" style="margin-top:10px; font-size:13px; font-weight:900;">오늘의 공지 (자체 에디터)</div>
+    <div class="row" style="margin-top:8px; align-items:center;">
+      <label style="margin:0;">유지 시간(초):</label>
+      <input id="adminNoticeDuration" type="number" value="5" style="width:60px; text-align:center;" />
+    </div>
+
+    <div style="margin-top:8px; border:1px solid #ced6e0; border-radius:12px; overflow:hidden;">
+      <div class="editor-toolbar">
+        <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('bold')" title="굵게"><b>B</b></button>
+        <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('underline')" title="밑줄" style="text-decoration:underline;">U</button>
+        <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('foreColor', '#e74c3c')" title="빨간색" style="color:#e74c3c; font-weight:900;">A</button>
+        <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('fontSize', '5')" title="크게">가</button>
+        <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('insertUnorderedList')" title="리스트">●</button>
+        <button class="editor-btn" onmousedown="event.preventDefault(); insertTable()" title="표 삽입">▦</button>
+        <button class="editor-btn" onmousedown="event.preventDefault(); document.getElementById('imgUploadInput').click()" title="이미지 삽입">🖼️</button>
+        <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('removeFormat')" title="초기화">지우기</button>
+      </div>
+      <div id="adminNoticeInput" class="editor-content" contenteditable="true" inputmode="text"></div>
+      <input type="file" id="imgUploadInput" accept="image/*" style="display:none;" onchange="handleImageUpload(this)">
+    </div>
+
+    <div class="row" style="margin-top:10px;">
+      <button class="btn primary" id="btnSaveTodayNotice">오늘 공지 저장</button>
+      <button class="btn" id="btnClearTodayNotice">오늘 공지 비우기</button>
+    </div>
+    <div class="modalActions"><button class="btn" id="adminMenuClose">닫기</button></div>
+  </div>
+</div>
+
+<div class="modalOverlay" id="mateOverlay" style="z-index: 2000;">
+  <div class="modal" style="max-width:600px; height:90vh; display:flex; flex-direction:column;">
+    <div class="mate-header">
+      <h3 class="mate-title">업무 & 루틴 관리</h3>
+      <button class="btn small" id="btnOpenRoutineSet">루틴 설정 ⚙️</button>
+    </div>
+    
+    <div class="calHeader">
+        <button class="btn small" id="matePrevMonth">◀</button>
+        <span id="mateMonthTitle" style="font-weight:900;">202X. XX</span>
+        <button class="btn small" id="mateNextMonth">▶</button>
+    </div>
+    <div class="mate-grid" id="mateCalendar"></div>
+    
+    <div class="hr"></div>
+    
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span id="mateSelectedDate" class="tag in">오늘의 할 일</span>
+        <button class="btn small" id="btnAddOneTimeTask">+ 1회성 추가</button>
+    </div>
+    <div class="mate-list-area" id="mateListArea" style="flex:1; overflow-y:auto;">
+        </div>
+    
+    <div style="margin-top:10px;">
+        <button class="btn" onclick="document.getElementById('mateOverlay').classList.remove('show')" style="width:100%;">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div class="modalOverlay" id="routineSetOverlay" style="z-index: 3000;">
+  <div class="modal">
+    <h3>루틴 만들기</h3>
+    <div class="muted">반복되는 업무를 설정합니다.</div>
+    <div class="hr"></div>
+    <label>할 일 내용</label>
+    <input id="routineInput" placeholder="예: 오픈 준비, 마감 청소" />
+    
+    <label style="margin-top:10px;">반복 주기</label>
+    <div class="routine-opt" id="routineTypeBox">
+        <div class="routine-btn active" data-type="daily">매일</div>
+        <div class="routine-btn" data-type="weekly">매주 (요일지정)</div>
+        <div class="routine-btn" data-type="monthly">매월 (날짜지정)</div>
+    </div>
+    
+    <div id="weekSelector" class="day-selector" style="display:none;">
+        <div class="day-btn" data-d="0">일</div>
+        <div class="day-btn" data-d="1">월</div>
+        <div class="day-btn" data-d="2">화</div>
+        <div class="day-btn" data-d="3">수</div>
+        <div class="day-btn" data-d="4">목</div>
+        <div class="day-btn" data-d="5">금</div>
+        <div class="day-btn" data-d="6">토</div>
+    </div>
+    
+    <div id="monthSelector" style="display:none; margin-top:4px;">
+        <input type="number" id="routineMonthDay" placeholder="1~31일 입력" style="width:80px;" /> 일 마다
+    </div>
+
+    <div class="split" style="margin-top:20px;">
+        <button class="btn" onclick="document.getElementById('routineSetOverlay').classList.remove('show')">취소</button>
+        <button class="btn primary" id="btnSaveRoutine">저장</button>
+    </div>
+    
+    <div class="hr"></div>
+    <h4>등록된 루틴 목록</h4>
+    <div id="routineListBody" style="max-height:150px; overflow-y:auto; font-size:13px;"></div>
+  </div>
+</div>
+
+<div class="modalOverlay" id="actionLogOverlay" style="z-index: 2000;">
+  <div class="modal" style="width: 100%; max-width: 700px;">
+    <h3>시스템 로그 (터치 기록)</h3>
+    <div class="muted">최근 100개의 터치/동작 기록입니다.</div>
+    <div class="hr"></div>
+    <div style="max-height:500px; overflow-y:auto;">
+      <table style="width:100%;">
+        <thead><tr><th>시간</th><th>동작</th><th>상세</th></tr></thead>
+        <tbody id="actionLogTable"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:10px; text-align:right;">
+      <button class="btn" onclick="document.getElementById('actionLogOverlay').classList.remove('show')">닫기</button>
+    </div>
+  </div>
+</div>
+
 <div class="modalOverlay" id="noticeOverlay" role="dialog" aria-modal="true">
   <div class="modal">
     <h3>오늘의 공지</h3>
@@ -461,89 +631,19 @@
   </div>
 </div>
 
-<div class="modalOverlay" id="todoOverlay" role="dialog" aria-modal="true">
+<div class="modalOverlay" id="pinOverlay" role="dialog" aria-modal="true">
   <div class="modal">
-    <h3>매장 할 일 관리 (Todo)</h3>
-    <div class="muted">매장 운영에 필요한 할 일을 관리하세요.</div>
+    <h3 id="pinTitle">관리자 PIN</h3>
+    <div class="muted" id="pinDesc">관리자 기능을 사용하려면 PIN을 입력하세요.</div>
     <div class="hr"></div>
-    <div class="row" style="margin-bottom:10px;">
-      <input id="newTodoInput" placeholder="할 일 입력 (예: 재고 파악)" style="flex:1;" />
-      <button class="btn primary" id="btnAddTodo">추가</button>
-    </div>
-    <div id="todoListBody" style="max-height:400px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
-    <div class="modalActions">
-      <button class="btn" id="btnCloseTodo">닫기</button>
-    </div>
-  </div>
-</div>
-
-<div class="modalOverlay" id="actionLogOverlay" role="dialog" aria-modal="true">
-  <div class="modal" style="width: 100%; max-width: 700px;">
-    <h3>시스템 로그 (터치 기록)</h3>
-    <div class="muted">최근 100개의 터치/동작 기록입니다.</div>
-    <div class="hr"></div>
-    <div style="max-height:500px; overflow-y:auto;">
-      <table>
-        <thead><tr><th>시간</th><th>동작</th><th>상세</th></tr></thead>
-        <tbody id="actionLogTable"></tbody>
-      </table>
+    <div id="pinUnlockBlock">
+      <label>PIN 입력</label><input id="pinInput" inputmode="numeric" autocomplete="off" placeholder="PIN" maxlength="8" />
+      <div class="note">해제 후 <b>10분</b> 동안 관리자 기능이 열립니다.</div>
     </div>
     <div class="modalActions">
-      <button class="btn" id="btnCloseActionLog">닫기</button>
+      <button class="btn" id="pinCancel">취소</button>
+      <button class="btn primary" id="pinOk">확인</button>
     </div>
-  </div>
-</div>
-
-<div class="modalOverlay" id="adminMenuOverlay" role="dialog" aria-modal="true">
-  <div class="modal">
-    <h3>관리자 메뉴</h3>
-    <div class="muted" id="adminStateText">관리자 모드 (PIN 없음)</div>
-    <div class="menuGrid">
-      <button class="btn primary" id="goEmp">알바생 관리</button>
-      <button class="btn primary" id="goLog">근태 조회</button>
-      <button class="btn good" id="btnOpenTodo">매장 할 일 관리</button>
-      <button class="btn" id="btnShowActionLogs">시스템 로그 보기</button>
-      <button class="btn warn" id="btnExportCsv2">CSV 내보내기</button>
-      <button class="btn bad" id="btnResetAll">전체 초기화</button>
-    </div>
-    <div class="hr"></div><div class="hr"></div>
-    <div class="muted" style="font-size:13px; font-weight:900;">마감 체크리스트 편집</div>
-    <div class="row" style="margin-top:10px; gap:10px; flex-wrap:wrap;">
-      <div style="flex: 2 1 240px;"><label>항목 추가</label><input id="adminCloseNewItem" placeholder="예) 포스 마감 정산" maxlength="60" /></div>
-      <div style="flex: 0 0 auto; align-self:flex-end; display:flex; gap:8px;">
-        <button class="btn" id="btnAddCloseChecklistItem">추가</button>
-        <button class="btn primary" id="btnSaveCloseChecklist">저장</button>
-        <button class="btn" id="btnResetCloseChecklist">기본값</button>
-      </div>
-    </div>
-    <div id="adminCloseChecklistList" style="margin-top:10px; display:flex; flex-direction:column; gap:8px;"></div>
-    
-    <div class="muted" style="margin-top:10px; font-size:13px; font-weight:900;">오늘의 공지 (자체 에디터)</div>
-    <div class="row" style="margin-top:8px; align-items:center;">
-      <label style="margin:0;">유지 시간(초):</label>
-      <input id="adminNoticeDuration" type="number" value="5" style="width:60px; text-align:center;" />
-    </div>
-
-    <div style="margin-top:8px; border:1px solid #ced6e0; border-radius:12px; overflow:hidden;">
-      <div class="editor-toolbar">
-        <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('bold')" title="굵게"><b>B</b></button>
-        <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('underline')" title="밑줄" style="text-decoration:underline;">U</button>
-        <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('foreColor', '#e74c3c')" title="빨간색" style="color:#e74c3c; font-weight:900;">A</button>
-        <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('fontSize', '5')" title="크게">가</button>
-        <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('insertUnorderedList')" title="리스트">●</button>
-        <button class="editor-btn" onmousedown="event.preventDefault(); insertTable()" title="표 삽입">▦</button>
-        <button class="editor-btn" onmousedown="event.preventDefault(); document.getElementById('imgUploadInput').click()" title="이미지 삽입">🖼️</button>
-        <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('removeFormat')" title="초기화">지우기</button>
-      </div>
-      <div id="adminNoticeInput" class="editor-content" contenteditable="true" inputmode="text"></div>
-      <input type="file" id="imgUploadInput" accept="image/*" style="display:none;" onchange="handleImageUpload(this)">
-    </div>
-
-    <div class="row" style="margin-top:10px;">
-      <button class="btn primary" id="btnSaveTodayNotice">오늘 공지 저장</button>
-      <button class="btn" id="btnClearTodayNotice">오늘 공지 비우기</button>
-    </div>
-    <div class="modalActions"><button class="btn" id="adminMenuClose">닫기</button></div>
   </div>
 </div>
 
@@ -566,23 +666,10 @@
   const db = getDatabase(app);
   let SERVER_CACHE = {}; 
   
-  // 글로벌 로그 기록 함수
-  window.recordAction = function(action, detail) {
-    const logs = loadJSON('ACTION_LOGS', []);
-    logs.push({
-      ts: Date.now(),
-      time: fmtTS(Date.now()),
-      action: action,
-      detail: detail
-    });
-    // 최근 200개만 유지
-    if(logs.length > 200) logs.shift();
-    saveJSON('ACTION_LOGS', logs);
-  };
-
-  // 자체 에디터 명령 실행 함수
+  // 자체 에디터 명령 실행 함수 (글로벌)
   window.execCmd = function(command, value = null) {
     document.execCommand(command, false, value);
+    // document.getElementById('adminNoticeInput').focus(); // 아이패드에서는 focus 강제 호출 제거 (키보드 튀어오름 방지)
   };
   
   // 표 삽입 함수
@@ -608,6 +695,20 @@
       reader.readAsDataURL(input.files[0]);
     }
     input.value = ''; 
+  };
+  
+  // 글로벌 로그 기록 함수
+  window.recordAction = function(action, detail) {
+    const logs = loadJSON('ACTION_LOGS', []);
+    logs.push({
+      ts: Date.now(),
+      time: fmtTS(Date.now()),
+      action: action,
+      detail: detail
+    });
+    // 최근 200개만 유지
+    if(logs.length > 200) logs.shift();
+    saveJSON('ACTION_LOGS', logs);
   };
 
   onValue(ref(db, 'tamnaData'), (snapshot) => {
@@ -668,6 +769,7 @@
   function getNoticeMap(){ return loadJSON(LS_KEYS.DAILY_NOTICE, {}); }
   function setNoticeMap(map){ saveJSON(LS_KEYS.DAILY_NOTICE, map); }
   
+  // 공지사항 함수 수정 (시간까지 저장)
   function getTodayNotice(){ return getNoticeMap()[todayKey()]?.text || ""; }
   function getTodayNoticeDuration(){ return getNoticeMap()[todayKey()]?.duration || 5; } // 기본값 5초
 
@@ -687,6 +789,34 @@
   function addCloseCheckLog({code,name,items,extra}){ const list=getCloseCheckLogs(); const id=list.length?(list[list.length-1].id+1):1; list.push({id,date:dateKey(nowTS()),ts:nowTS(),code,name,items:items||[],extra:String(extra||"").trim()}); setCloseCheckLogs(list); }
   function addOutNote({code,name,text}){ const list=getOutNotes(); const id=list.length?(list[list.length-1].id+1):1; list.push({id,date:dateKey(nowTS()),ts:nowTS(),code,name,text:String(text||"").trim()}); setOutNotes(list); }
 
+  function hasPin(){ return true; } 
+  function isAdminUnlocked(){ const u=sessionStorage.getItem(SS_KEYS.UNLOCK_UNTIL); return u && Date.now()<Number(u); }
+  function setAdminUnlocked(m=10){ sessionStorage.setItem(SS_KEYS.UNLOCK_UNTIL, String(Date.now()+m*60*1000)); updateAdminStateText(); }
+  function lockAdmin(){ sessionStorage.removeItem(SS_KEYS.UNLOCK_UNTIL); updateAdminStateText(); }
+  function verifyPin(p){ return p === "0721"; } 
+
+  const pinOverlay=document.getElementById("pinOverlay");
+  let pinResolve=null;
+  function showPinModal(mode,opts={}){
+    document.getElementById("pinTitle").textContent=opts.title||"관리자 PIN";
+    document.getElementById("pinDesc").textContent=opts.desc||"";
+    document.getElementById("pinInput").value="";
+    pinOverlay.classList.add("show"); setTimeout(()=>document.getElementById("pinInput")?.focus(),50);
+    return new Promise(r=>{ pinResolve=r; });
+  }
+  function hidePinModal(res){ pinOverlay.classList.remove("show"); if(pinResolve){ pinResolve(res); pinResolve=null; } }
+  document.getElementById("pinCancel").addEventListener("click",()=>hidePinModal({ok:false}));
+  
+  document.getElementById("pinOk").addEventListener("click",()=>{
+    const p=(document.getElementById("pinInput").value||"").replace(/\D/g,"");
+    if(verifyPin(p)){ setAdminUnlocked(); toast("해제됨"); hidePinModal({ok:true}); } else toast("PIN 오류 (0721)");
+  });
+
+  async function ensureAdmin(r="관리자 기능"){
+    if(isAdminUnlocked()) return true;
+    const res=await showPinModal("unlock",{desc:`${r}을(를) 위해 PIN 입력`}); return !!res.ok && isAdminUnlocked();
+  }
+
   function showSection(id){
     document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
     document.getElementById(id)?.classList.add("active");
@@ -702,40 +832,51 @@
   setInterval(tickClock,250); tickClock();
 
   const adminMenuOverlay=document.getElementById("adminMenuOverlay");
+  function updateAdminStateText(){
+    if(!isAdminUnlocked()){ document.getElementById("adminStateText").textContent="상태: 잠금 (PIN 필요)"; return; }
+    const ms=Math.max(0,Number(sessionStorage.getItem(SS_KEYS.UNLOCK_UNTIL)||0)-Date.now());
+    document.getElementById("adminStateText").textContent=`상태: 해제됨 (${Math.floor(ms/60000)}m ${String(Math.floor((ms%60000)/1000)).padStart(2,"0")}s)`;
+  }
+  setInterval(updateAdminStateText,500); updateAdminStateText();
   
   function openAdminMenu(){
-    recordAction("관리자 메뉴", "열기");
     // 자체 에디터에 내용 로드
     document.getElementById("adminNoticeInput").innerHTML = getTodayNotice();
+    // 공지 유지 시간 로드
     document.getElementById("adminNoticeDuration").value = getTodayNoticeDuration();
+    
     renderAdminCloseChecklist();
-    adminMenuOverlay.classList.add("show");
+    adminMenuOverlay.classList.add("show"); updateAdminStateText();
   }
   document.getElementById("adminMenuClose").addEventListener("click",()=>adminMenuOverlay.classList.remove("show"));
-  document.getElementById("goEmp").addEventListener("click",()=>{ adminMenuOverlay.classList.remove("show"); showSection("sec-emp"); });
-  document.getElementById("goLog").addEventListener("click",()=>{ adminMenuOverlay.classList.remove("show"); showSection("sec-log"); });
+  document.getElementById("btnLockAdmin").addEventListener("click",()=>{ lockAdmin(); toast("잠금 완료"); adminMenuOverlay.classList.remove("show"); showSection("sec-att"); });
+  document.getElementById("goEmp").addEventListener("click",()=>{ if(isAdminUnlocked()){adminMenuOverlay.classList.remove("show"); showSection("sec-emp");}else toast("PIN 필요"); });
+  document.getElementById("goLog").addEventListener("click",()=>{ if(isAdminUnlocked()){adminMenuOverlay.classList.remove("show"); showSection("sec-log");}else toast("PIN 필요"); });
   document.getElementById("btnBackFromEmp").addEventListener("click",()=>showSection("sec-att"));
   document.getElementById("btnBackFromLog").addEventListener("click",()=>showSection("sec-att"));
   
-  // 공지 저장
+  // 공지 저장 (자체 에디터 innerHTML + 시간)
   document.getElementById("btnSaveTodayNotice").addEventListener("click",async()=>{ 
-      const content = document.getElementById("adminNoticeInput").innerHTML;
-      const duration = document.getElementById("adminNoticeDuration").value;
-      setTodayNotice(content, duration); 
-      recordAction("공지 저장", content.slice(0, 10) + "...");
-      toast("저장됨"); 
+      if(await ensureAdmin("공지 저장")){ 
+          const content = document.getElementById("adminNoticeInput").innerHTML;
+          const duration = document.getElementById("adminNoticeDuration").value;
+          setTodayNotice(content, duration); 
+          recordAction("공지 저장", content.slice(0,10));
+          toast("저장됨"); 
+      } 
   });
   
   // 공지 지우기
   document.getElementById("btnClearTodayNotice").addEventListener("click",async()=>{ 
-      clearTodayNotice(); 
-      document.getElementById("adminNoticeInput").innerHTML = "";
-      document.getElementById("adminNoticeDuration").value = 5;
-      recordAction("공지 삭제", "삭제됨");
-      toast("지워짐"); 
+      if(await ensureAdmin("공지 지우기")){ 
+          clearTodayNotice(); 
+          document.getElementById("adminNoticeInput").innerHTML = "";
+          document.getElementById("adminNoticeDuration").value = 5; // 기본값 리셋
+          recordAction("공지 삭제", "삭제됨");
+          toast("지워짐"); 
+      } 
   });
   
-  // [5회 터치] 로고 기능
   let logoTap=0, logoT;
   document.getElementById("logoImg").addEventListener("click",async()=>{
     logoTap++; clearTimeout(logoT); logoT=setTimeout(()=>{logoTap=0},1300);
@@ -750,8 +891,9 @@
   
   async function showNoticeCountdownIfAny(){
     const t=getTodayNotice(); if(!t) return true;
-    const duration = getTodayNoticeDuration();
+    const duration = getTodayNoticeDuration(); // 저장된 시간 불러오기
 
+    // [중요 수정] 공지 내용 채우고, 스크롤을 강제로 맨 위로 올림
     const noticeEl = document.getElementById("noticeText");
     noticeEl.innerHTML = t;
     noticeEl.scrollTop = 0; 
@@ -759,6 +901,7 @@
     document.getElementById("noticeDateText").textContent=`${todayKey()} 공지`;
     const btn=document.getElementById("noticeOk"), num=document.getElementById("noticeNum");
     
+    // 버튼 초기화
     btn.disabled=true; 
     noticeOverlay.classList.add("show"); 
     num.textContent = String(duration); 
@@ -768,19 +911,12 @@
 
     return new Promise(r=>{
       let s=Date.now(), tm=setInterval(()=>{
-        const e=(Date.now()-s)/1000, p=Math.min(1,e/duration); 
+        const e=(Date.now()-s)/1000, p=Math.min(1,e/duration); // duration 사용
         setRingProgress(p);
         num.textContent=String(Math.max(0,duration-Math.floor(e)));
         if(p>=1){ clearInterval(tm); btn.disabled=false; noticeOverlay.querySelector(".countWrap").style.display="none"; }
       },60);
-      const done=()=>{ 
-          clearInterval(tm); 
-          noticeOverlay.classList.remove("show"); 
-          noticeOverlay.querySelector(".countWrap").style.display=""; 
-          btn.removeEventListener("click",done); 
-          recordAction("공지 확인", "숙지완료 버튼 클릭");
-          r(true); 
-      };
+      const done=()=>{ clearInterval(tm); noticeOverlay.classList.remove("show"); noticeOverlay.querySelector(".countWrap").style.display=""; btn.removeEventListener("click",done); r(true); };
       btn.addEventListener("click",done);
     });
   }
@@ -921,22 +1057,34 @@
     const q=document.getElementById("empSearch").value.toLowerCase(), emps=getEmployees().filter(e=>e.code.includes(q)||e.name.toLowerCase().includes(q));
     document.getElementById("empTable").innerHTML=emps.length?emps.map(e=>`<tr><td><span class="tag open">${e.code}</span></td><td>${escapeHtml(e.name)}</td><td class="muted typeCell">${e.shiftType==="CLOSE"?"마감":"미들"}</td><td class="muted">${(e.wage||0).toLocaleString()} / ${e.wageWeekend ? e.wageWeekend.toLocaleString() : '-'}</td><td class="muted timeCell">${e.workStart}~${e.workEnd}</td><td style="text-align:right;"><button class="btn small" onclick="window.editEmp('${e.code}')">수정</button> <button class="btn small bad" onclick="window.delEmp('${e.code}')">삭제</button></td></tr>`).join("") : `<tr><td colspan="6" class="muted">없음</td></tr>`;
   }
-  
-  // 알바생 삭제 기능
+  // 알바생 삭제 로직 수정 (2단계 질문)
   window.delEmp=async(c)=>{ 
+    if(!await ensureAdmin("삭제")) return;
+
+    // 1단계: 사람 삭제 여부
     if(!confirm("정말 이 알바생을 삭제하시겠습니까?")) return;
+
+    // 2단계: 기록 삭제 여부
     const delLogs = confirm("이 알바생의 '모든 출퇴근 기록'도 함께 삭제할까요?\n(테스트용이면 [확인], 기록을 남기려면 [취소])");
+    
+    // 알바생 삭제
     const l = getEmployees().filter(e=>e.code!==c); 
     setEmployees(l); 
+    
+    // 기록 삭제 (확인 시)
     if(delLogs) {
         const allLogs = getLogs().filter(log => log.code !== c);
         setLogs(allLogs);
     }
-    toast("삭제됨"); 
-    recordAction("알바생 삭제", c);
-    renderEmployees(); renderQuickButtons(); renderAttendancePanel(); renderLogAll();
+
+    toast("삭제되었습니다."); 
+    renderEmployees(); 
+    renderQuickButtons();
+    renderAttendancePanel(); 
+    renderLogAll(); 
   };
   window.editEmp=async(c)=>{
+    if(!await ensureAdmin("수정"))return;
     const e=findEmpByCode(c); if(!e)return;
     document.getElementById("empEditCode").value=e.code; document.getElementById("empEditName").value=e.name;
     document.getElementById("empEditShiftType").value=e.shiftType||"MID"; document.getElementById("empEditWage").value=e.wage||"";
@@ -973,6 +1121,7 @@
   }
 
   function getAdjustedWorkTime(emp, inTs, outTs) {
+    // shiftType에 상관없이 workEnd가 있으면 적용
     if (!emp.workEnd) return outTs;
     const d = new Date(inTs);
     const [h, m] = emp.workEnd.split(':').map(Number);
@@ -1165,6 +1314,8 @@
     document.getElementById("logTable").innerHTML=list.slice().reverse().map(l=> {
         let timeDisplay = fmtTS(l.ts);
         const emp = findEmpByCode(l.code);
+        
+        // 출근 시간 보정 표시
         if(l.type === "IN" && emp) {
             const adjInTs = getAdjustedStartTime(emp, l.ts);
             if(adjInTs !== l.ts) {
@@ -1173,6 +1324,8 @@
                 timeDisplay += `<br><span class="tag adj">급여시작: ${adjStr}</span>`;
             }
         }
+        
+        // 퇴근 시간 보정 표시
         if(l.type === "OUT" && emp) {
             const prevIn = list.find(x => x.type === "IN" && x.ts < l.ts && x.code === l.code);
             if(prevIn) {
@@ -1206,6 +1359,8 @@
   document.getElementById("btnExportCsv").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
   document.getElementById("btnExportCsv2").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
   
+  // 백업/복원 이벤트 제거됨
+
   document.getElementById("btnResetAll").addEventListener("click",async()=>{ if(await ensureAdmin() && confirm("전체 초기화?? (복구불가)")){ localStorage.clear(); await set(ref(db, 'tamnaData'), null); location.reload(); } });
 
   function renderAdminCloseChecklist(){ const lst=document.getElementById("adminCloseChecklistList"), items=getCloseChecklist(); lst.innerHTML=items.map((t,i)=>`<div class="admCLRow"><div class="idx">${i+1}</div><input class="admCLInput" value="${escapeHtml(t)}" /><button class="btn small" onclick="delCLItem(${i})">삭제</button></div>`).join(""); }
@@ -1214,63 +1369,224 @@
   document.getElementById("btnSaveCloseChecklist").addEventListener("click",()=>{ const l=Array.from(document.querySelectorAll(".admCLInput")).map(i=>i.value.trim()).filter(Boolean); setCloseChecklist(l); toast("저장됨"); renderAdminCloseChecklist(); });
   document.getElementById("btnResetCloseChecklist").addEventListener("click",()=>{ localStorage.removeItem(LS_KEYS.CLOSE_CHECKLIST); renderAdminCloseChecklist(); });
 
-  /* 투두 관리 기능 */
-  function getTodos() { return loadJSON("ADMIN_TODOS", []); }
-  function setTodos(list) { saveJSON("ADMIN_TODOS", list); }
-  
-  function renderTodos() {
-    const list = getTodos();
-    document.getElementById("todoListBody").innerHTML = list.map((t, i) => `
-      <div class="todo-row">
-        <input type="checkbox" class="todo-check" data-i="${i}" ${t.done ? "checked" : ""} />
-        <div class="todo-text ${t.done ? "done" : ""}">${escapeHtml(t.text)}</div>
-        <button class="btn small bad" onclick="deleteTodo(${i})">삭제</button>
-      </div>
-    `).join("") || '<div class="muted" style="padding:10px; text-align:center;">할 일이 없습니다.</div>';
+  // ----- 투두메이트 로직 -----
+  let mateYear = new Date().getFullYear();
+  let mateMonth = new Date().getMonth() + 1;
+  let selectedDate = getToday();
+
+  function renderMateCalendar() {
+    const title = document.getElementById('mateMonthTitle');
+    title.textContent = `${mateYear}. ${pad(mateMonth)}`;
     
-    document.querySelectorAll(".todo-check").forEach(c => {
-      c.addEventListener("change", (e) => {
-        const idx = e.target.dataset.i;
-        list[idx].done = e.target.checked;
-        setTodos(list);
-        renderTodos();
-      });
-    });
+    const grid = document.getElementById('mateCalendar');
+    grid.innerHTML = '<div class="mate-day-head">일</div><div class="mate-day-head">월</div><div class="mate-day-head">화</div><div class="mate-day-head">수</div><div class="mate-day-head">목</div><div class="mate-day-head">금</div><div class="mate-day-head">토</div>';
+
+    const firstDay = new Date(mateYear, mateMonth-1, 1).getDay();
+    const lastDate = new Date(mateYear, mateMonth, 0).getDate();
+    
+    for(let i=0; i<firstDay; i++) grid.innerHTML += `<div></div>`;
+    
+    const routines = load('ROUTINES', []);
+    const history = load('ROUTINE_HISTORY', {});
+
+    for(let d=1; d<=lastDate; d++) {
+        const dateKey = `${mateYear}-${pad(mateMonth)}-${pad(d)}`;
+        const dayOfWeek = new Date(mateYear, mateMonth-1, d).getDay();
+        
+        let todoCount = 0;
+        let doneCount = 0;
+        
+        routines.forEach(r => {
+            if(isRoutineForDate(r, dateKey, dayOfWeek)) {
+                todoCount++;
+                if(history[dateKey] && history[dateKey][r.id]) doneCount++;
+            }
+        });
+        
+        let dotsHtml = '';
+        if(todoCount > 0) {
+            for(let k=0; k<doneCount && k<4; k++) dotsHtml += `<div class="mate-dot done"></div>`;
+            for(let k=0; k<(todoCount-doneCount) && (k+doneCount)<4; k++) dotsHtml += `<div class="mate-dot"></div>`;
+        }
+
+        const isToday = (dateKey === getToday());
+        const isSel = (dateKey === selectedDate);
+        
+        const cell = document.createElement('div');
+        cell.className = `mate-cell ${isToday?'today':''} ${isSel?'selected':''}`;
+        cell.onclick = () => { selectedDate = dateKey; renderMateCalendar(); renderMateList(); };
+        cell.innerHTML = `<span class="mate-date-num">${d}</span><div class="mate-dots">${dotsHtml}</div>`;
+        grid.appendChild(cell);
+    }
+  }
+
+  function renderMateList() {
+    const listArea = document.getElementById('mateListArea');
+    document.getElementById('mateSelectedDate').textContent = `${selectedDate} 할 일`;
+    
+    const routines = load('ROUTINES', []);
+    const history = load('ROUTINE_HISTORY', {});
+    const dayHistory = history[selectedDate] || {};
+    
+    const dayOfWeek = new Date(selectedDate).getDay();
+    const todaysTasks = routines.filter(r => isRoutineForDate(r, selectedDate, dayOfWeek));
+
+    if(todaysTasks.length === 0) {
+        listArea.innerHTML = '<div class="muted" style="text-align:center; padding:20px;">할 일이 없습니다.</div>';
+        return;
+    }
+
+    listArea.innerHTML = todaysTasks.map(t => {
+        const isDone = !!dayHistory[t.id];
+        return `
+        <div class="mate-item ${isDone?'done':''}">
+            <div class="mate-check ${isDone?'checked':''}" onclick="toggleTask('${t.id}')">✔</div>
+            <div class="mate-text">${t.text} <span class="mate-tag">${getRoutineLabel(t)}</span></div>
+            ${t.type==='onetime' ? `<button class="btn small bad" onclick="delRoutine('${t.id}')">삭제</button>` : ''}
+        </div>`;
+    }).join("");
+  }
+
+  function isRoutineForDate(r, dateKey, dayOfWeek) {
+    if(r.type === 'daily') return true;
+    if(r.type === 'weekly') return r.days.includes(dayOfWeek);
+    if(r.type === 'monthly') return r.date === parseInt(dateKey.split('-')[2]);
+    if(r.type === 'onetime') return r.targetDate === dateKey;
+    return false;
   }
   
-  document.getElementById("btnOpenTodo").addEventListener("click", () => {
-    document.getElementById("todoOverlay").classList.add("show");
-    renderTodos();
-  });
-  document.getElementById("btnCloseTodo").addEventListener("click", () => {
-    document.getElementById("todoOverlay").classList.remove("show");
-  });
-  document.getElementById("btnAddTodo").addEventListener("click", () => {
-    const inp = document.getElementById("newTodoInput");
-    const val = inp.value.trim();
-    if(!val) return toast("내용을 입력하세요");
-    const list = getTodos();
-    list.push({ text: val, done: false, ts: Date.now() });
-    setTodos(list);
-    inp.value = "";
-    renderTodos();
-  });
-  window.deleteTodo = function(idx) {
-    const list = getTodos();
-    list.splice(idx, 1);
-    setTodos(list);
-    renderTodos();
+  function getRoutineLabel(r) {
+    if(r.type==='daily') return '매일';
+    if(r.type==='weekly') return '매주';
+    if(r.type==='monthly') return '매월';
+    return '1회성';
+  }
+
+  window.toggleTask = (rid) => {
+    const history = load('ROUTINE_HISTORY', {});
+    if(!history[selectedDate]) history[selectedDate] = {};
+    history[selectedDate][rid] = !history[selectedDate][rid];
+    save('ROUTINE_HISTORY', history).then(() => {
+        renderMateCalendar();
+        renderMateList();
+    });
   };
 
-  /* 액션 로그 보기 기능 */
-  document.getElementById("btnShowActionLogs").addEventListener("click", () => {
-    const logs = loadJSON('ACTION_LOGS', []);
-    document.getElementById("actionLogTable").innerHTML = logs.slice().reverse().map(l => 
-        `<tr><td>${l.time}</td><td>${escapeHtml(l.action)}</td><td>${escapeHtml(l.detail)}</td></tr>`
-    ).join("") || '<tr><td colspan="3" style="text-align:center;">기록 없음</td></tr>';
-    document.getElementById("actionLogOverlay").classList.add("show");
+  let curRoutineType = 'daily';
+  let curWeekDays = [];
+
+  document.querySelectorAll('.routine-btn').forEach(b => {
+    b.addEventListener('click', () => {
+        document.querySelectorAll('.routine-btn').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active');
+        curRoutineType = b.dataset.type;
+        document.getElementById('weekSelector').style.display = (curRoutineType === 'weekly') ? 'flex' : 'none';
+        document.getElementById('monthSelector').style.display = (curRoutineType === 'monthly') ? 'block' : 'none';
+    });
   });
-  document.getElementById("btnCloseActionLog").addEventListener("click", () => {
+
+  document.querySelectorAll('.day-btn').forEach(b => {
+    b.addEventListener('click', () => {
+        const d = parseInt(b.dataset.d);
+        if(curWeekDays.includes(d)) {
+            curWeekDays = curWeekDays.filter(x => x!==d);
+            b.classList.remove('active');
+        } else {
+            curWeekDays.push(d);
+            b.classList.add('active');
+        }
+    });
+  });
+
+  document.getElementById('btnSaveRoutine').addEventListener('click', () => {
+    const txt = document.getElementById('routineInput').value.trim();
+    if(!txt) return toast("내용을 입력하세요");
+
+    const newRoutine = {
+        id: 'r_' + Date.now(),
+        text: txt,
+        type: curRoutineType,
+        days: curWeekDays,
+        date: parseInt(document.getElementById('routineMonthDay').value) || 1,
+        created: Date.now()
+    };
+
+    const list = load('ROUTINES', []);
+    list.push(newRoutine);
+    save('ROUTINES', list);
+    
+    document.getElementById('routineInput').value = '';
+    toast("루틴 추가됨");
+    renderRoutineList(); 
+    renderMateCalendar(); 
+    renderMateList();
+  });
+
+  function renderRoutineList() {
+    const list = load('ROUTINES', []);
+    document.getElementById('routineListBody').innerHTML = list.map(r => `
+        <div style="display:flex; justify-content:space-between; padding:6px; border-bottom:1px solid #eee;">
+            <span>${r.text} <small>(${getRoutineLabel(r)})</small></span>
+            <button onclick="delRoutine('${r.id}')" style="font-size:11px; color:red; border:none; background:none;">삭제</button>
+        </div>
+    `).join("");
+  }
+  
+  window.delRoutine = (rid) => {
+    if(!confirm("삭제하시겠습니까?")) return;
+    const list = load('ROUTINES', []).filter(r => r.id !== rid);
+    save('ROUTINES', list);
+    renderRoutineList();
+    renderMateCalendar();
+    renderMateList();
+  };
+
+  document.getElementById('matePrevMonth').onclick = () => {
+      mateMonth--; if(mateMonth<1){mateMonth=12; mateYear--;}
+      renderMateCalendar();
+  };
+  document.getElementById('mateNextMonth').onclick = () => {
+      mateMonth++; if(mateMonth>12){mateMonth=1; mateYear++;}
+      renderMateCalendar();
+  };
+
+  document.getElementById('btnAddOneTimeTask').onclick = () => {
+    const txt = prompt("오늘만 할 일을 입력하세요:");
+    if(txt) {
+        const list = load('ROUTINES', []);
+        list.push({
+            id: 'ot_' + Date.now(),
+            text: txt,
+            type: 'onetime',
+            targetDate: selectedDate
+        });
+        save('ROUTINES', list);
+        renderMateList();
+        renderMateCalendar();
+    }
+  };
+
+  // ----- UI 이벤트 연결 -----
+  document.getElementById('btnOpenMate').onclick = () => {
+      document.getElementById('mateOverlay').classList.add('show');
+      renderMateCalendar();
+      renderMateList();
+      recordAction('투두 관리', '열기');
+  };
+  document.getElementById('btnOpenRoutineSet').onclick = () => {
+      document.getElementById('routineSetOverlay').classList.add('show');
+      renderRoutineList();
+  };
+
+  // 액션 로그 보기
+  document.getElementById('btnShowActionLogs').onclick = () => {
+      const logs = load('ACTION_LOGS', []);
+      document.getElementById('actionLogTable').innerHTML = logs.slice().reverse().map(l => 
+        `<tr><td>${l.time}</td><td>${l.action}</td><td>${l.detail}</td></tr>`
+      ).join("") || '<tr><td colspan="3" style="text-align:center;">기록 없음</td></tr>';
+      document.getElementById('actionLogOverlay').classList.add('show');
+  };
+  document.getElementById('btnCloseActionLog').addEventListener("click", () => {
     document.getElementById("actionLogOverlay").classList.remove("show");
   });
 
