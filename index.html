@@ -10,8 +10,6 @@
   
   <title>탐나는피자 화성남양점</title>
   
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/suneditor/2.45.1/css/suneditor.min.css" rel="stylesheet">
-
   <style>
     :root{
       --bg: #f4f6f9; --panel: #ffffff; --panel2: #f8f9fa;
@@ -26,10 +24,11 @@
       -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
       padding-bottom: 20px;
     }
+    /* 입력창은 선택 가능하게 */
     input, textarea { -webkit-user-select: text; user-select: text; }
 
-    header{ padding: 14px 18px 10px; position: sticky; top:0; background: rgba(255,255,255,.95); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); z-index:100; }
-    .topbar{ display:flex; align-items:center; justify-content:space-between; max-width:1100px; margin:0 auto; }
+    header{ padding: 14px 18px 10px; position: sticky; top:0; background: rgba(255,255,255,.90); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); z-index:100; }
+    .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; max-width:1100px; margin:0 auto; }
     .brand{ display:flex; align-items:center; gap:12px; }
     .logoWrap{ display:flex; flex-direction:column; gap:4px; }
     .logo{ height: 34px; width: auto; display:block; object-fit: contain; cursor: pointer; }
@@ -38,70 +37,107 @@
     .clockBlock .time{ font-size:16px; font-weight:800; color: #2c3e50; }
     .clockBlock .date{ font-size:12px; color:var(--muted); margin-top:2px; }
 
-    main{ max-width:1100px; margin:0 auto; padding: 14px 18px; display:grid; gap:14px; }
+    main{ max-width:1100px; margin:0 auto; padding: 14px 18px 30px; display:grid; gap:14px; }
     .grid{ display:grid; grid-template-columns: 1.15fr .85fr; gap:14px; }
-    @media (max-width: 980px){ .grid{ grid-template-columns: 1fr; } }
+    @media (max-width: 980px){ .grid{ grid-template-columns: 1fr; } .logo{ height: 30px; } }
 
-    .card{ background: var(--panel); border:1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; }
-    .card h2{ margin:0 0 12px; font-size: 17px; font-weight:800; display:flex; align-items:center; justify-content:space-between; }
-    .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-    .spacer{ flex:1; }
+    .card{ background: var(--panel); border:1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px; }
+    .card h2{ margin:0 0 10px; font-size: 16px; letter-spacing:.2px; }
+    .muted{ color:var(--muted); }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .spacer{ flex:1 1 auto !important; }
+
+    label{ font-size: 13px; color:var(--muted); display:block; margin: 4px 0 6px; }
+    input, select{ width:100%; background: #fff; border: 1px solid #ced6e0; color: var(--text); border-radius: 12px; padding: 12px 12px; font-size: 16px; outline:none; }
+    input::placeholder{ color: #b2bec3; }
+    input:focus, select:focus{ border-color: var(--accent); box-shadow: 0 0 0 3px rgba(52,152,219,.15); }
+    textarea{ width:100%; min-height: 120px; resize: vertical; background: #fff; border: 1px solid #ced6e0; color: var(--text); border-radius: 12px; padding: 12px 12px; font-size: 15px; outline:none; }
+    textarea:focus{ border-color: var(--accent); box-shadow: 0 0 0 3px rgba(52,152,219,.15); }
+
+    .btn{ border:1px solid var(--line); background: #f1f2f6; color: var(--text); padding: 12px 14px; border-radius: 14px; font-size: 15px; font-weight: 800; cursor:pointer; user-select:none; transition: transform .05s ease; }
+    .btn:active{ transform: scale(.98); }
+    .btn.primary{ border-color: transparent; background: var(--accent); color: #fff; }
+    .btn.good{ border-color: transparent; background: var(--good); color: #fff; }
+    .btn.bad{ border-color: transparent; background: var(--bad); color: #fff; }
+    .btn.warn{ border-color: transparent; background: var(--warn); color: #fff; }
+    .btn.small{ padding: 8px 10px; border-radius: 12px; font-size: 13px; font-weight: 900; }
+
     .split{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
-    
-    input, select{ width:100%; background: #fff; border: 1px solid #ced6e0; border-radius: 10px; padding: 10px; font-size: 16px; }
-    textarea{ width:100%; min-height: 100px; border: 1px solid #ced6e0; border-radius: 10px; padding: 10px; resize:vertical; }
-    
-    .btn{ border:1px solid var(--line); background: #f1f2f6; color: var(--text); padding: 10px 14px; border-radius: 12px; font-size: 15px; font-weight: 700; cursor:pointer; transition: transform .05s; }
-    .btn:active{ transform: scale(.96); }
-    .btn.primary{ background: var(--accent); color: #fff; border-color:transparent; }
-    .btn.good{ background: var(--good); color: #fff; border-color:transparent; }
-    .btn.bad{ background: var(--bad); color: #fff; border-color:transparent; }
-    .btn.warn{ background: var(--warn); color: #fff; border-color:transparent; }
-    .btn.small{ padding: 6px 10px; font-size: 13px; border-radius: 8px; }
+    @media (max-width: 520px){ .split{ grid-template-columns: 1fr; } }
+    .big-actions{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px; }
+    .big-actions .btn{ padding: 18px 14px; font-size: 18px; border-radius: 16px; }
+    .pill{ display:inline-flex; align-items:center; gap:8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 999px; background: #f8f9fa; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .pill strong{ color:var(--text); }
 
-    .tag{ padding: 4px 8px; border-radius: 99px; font-size: 12px; font-weight: 800; }
-    .tag.in{ background: var(--good); color: #fff; }
-    .tag.out{ background: var(--bad); color: #fff; }
+    table{ width:100%; border-collapse: collapse; overflow:hidden; border-radius: 14px; border: 1px solid var(--line); background: #fff; }
+    th, td{ padding: 10px 10px; border-bottom: 1px solid var(--line); text-align:left; font-size: 14px; vertical-align: middle; }
+    th{ color: var(--muted); font-weight: 900; background: #f1f2f6; }
+    tr:last-child td{ border-bottom: none; }
 
-    .section{ display:none; animation: fadeIn 0.2s ease; }
+    .tag{ display:inline-flex; align-items:center; justify-content:center; padding: 4px 8px; border-radius: 999px; font-size: 12px; font-weight: 900; border: 1px solid var(--line); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .tag.in{ border-color: transparent; color: #fff; background: var(--good); }
+    .tag.out{ border-color: transparent; color: #fff; background: var(--bad); }
+    .tag.open{ border-color: transparent; color: #fff; background: var(--warn); }
+    .tag.juhyu { border-color: transparent; color: #d35400; background: rgba(230, 126, 34, 0.15); margin-top: 2px; width: 100%; }
+    .tag.adj { border-color: var(--accent); color: var(--accent); background: rgba(52,152,219,0.1); margin-left:6px; font-size:11px; }
+
+    .section{ display:none; }
     .section.active{ display:block; }
-    @keyframes fadeIn { from{opacity:0; transform:translateY(5px);} to{opacity:1; transform:translateY(0);} }
 
-    .modalOverlay{ position: fixed; inset:0; background: rgba(0,0,0,0.5); display:none; align-items:center; justify-content:center; backdrop-filter: blur(3px); z-index:1000; }
+    .note{ margin-top:10px; color: var(--muted); font-size: 13px; line-height: 1.35; }
+    .hr{ height:1px; background: var(--line); margin: 12px 0; }
+
+    .toast{ position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #2f3640; border: 1px solid #2f3640; border-radius: 14px; padding: 14px 18px; box-shadow: var(--shadow); font-size: 16px; color: #fff; display:none; z-index: 5000; max-width: 92vw; white-space: normal; overflow: hidden; text-overflow: clip; }
+    .toast.show{ display:block; }
+    .toast.danger{ background: var(--bad); border-color: var(--bad); color: #fff; }
+
+    .modalOverlay{ position: fixed; inset:0; background: rgba(0,0,0,.4); display:none; align-items:center; justify-content:center; z-index: 1000; padding: 18px; backdrop-filter: blur(2px); }
     .modalOverlay.show{ display:flex; }
-    .modal{ 
-        width: 90%; max-width: 500px; background: #fff; border-radius: 20px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); 
-        max-height: 85dvh; 
-        overflow-y: auto; 
-        padding-bottom: 40px;
-    }
+    /* [수정] 아이폰에서 버튼 잘림 방지를 위해 padding-bottom 추가 */
+    .modal{ width: min(560px, 100%); border-radius: 18px; border: 1px solid var(--line); background: #fff; box-shadow: var(--shadow); padding: 14px; max-height: 85vh; overflow-y:auto; padding-bottom: 50px; }
+    .modal h3{ margin:0 0 6px; font-size: 16px; letter-spacing:.2px; }
+    .modalActions{ display:flex; gap:10px; margin-top: 12px; justify-content:flex-end; flex-wrap:wrap; }
+    .menuGrid{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top: 12px; }
+    @media (max-width: 520px){ .menuGrid{ grid-template-columns: 1fr; } }
+
+    .countWrap{ display:flex; align-items:center; gap:14px; margin-top:12px; }
+    .ring{ width:62px; height:62px; position:relative; flex:0 0 auto; }
+    .ring svg{ width:62px; height:62px; display:block; }
+    .ring .num{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:18px; }
+    .ring .bg{ stroke: #f1f2f6; stroke-width: 8; fill: none; }
+    .ring .fg{ stroke: var(--accent); stroke-width: 8; fill: none; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset 0.15s linear; }
+    .btn.cat-active{ border-color: transparent; background: var(--warn); color:#fff; }
+    td.nameCell, th.nameCell { white-space: nowrap; word-break: keep-all; }
     
-    .toast{ position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 12px 20px; border-radius: 30px; font-size: 14px; z-index: 9999; opacity:0; transition: opacity 0.3s; pointer-events: none; }
-    .toast.show{ opacity: 1; }
-
-    .menuGrid{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
-    .menuGrid button{ padding: 20px 10px; font-size: 16px; border-radius: 16px; }
-
-    .editor-toolbar { display: flex; gap: 4px; padding: 8px; background: #f1f2f6; border-bottom: 1px solid #ced6e0; border-radius: 12px 12px 0 0; flex-wrap:wrap; }
-    .editor-btn { min-width: 36px; height: 36px; font-weight: 700; background: #fff; border: 1px solid #dcdde1; border-radius: 8px; cursor: pointer; font-size:14px; display:flex; align-items:center; justify-content:center; }
-    .editor-btn:active { background: #e2e6ea; }
-    .editor-content { min-height: 200px; max-height: 350px; overflow-y: auto; padding: 12px; border: 1px solid #ced6e0; border-top: none; border-radius: 0 0 12px 12px; outline: none; background: #fff; -webkit-user-select: text; user-select: text; line-height: 1.5; font-size:15px; }
-    .editor-content img { max-width: 100%; border-radius:8px; }
+    .checkList{ display:flex; flex-direction:column; gap:10px; margin-top: 10px; }
+    .checkItem{ display:flex; align-items:flex-start; gap:10px; padding: 10px 10px; border: 1px solid var(--line); border-radius: 14px; background: #f8f9fa; }
+    .checkItem input{ width:auto; margin-top:3px; }
+    .checkItem .t{ font-weight: 900; font-size: 14px; }
+    .admCLRow{ display:flex; gap:8px; align-items:center; padding: 8px; border: 1px solid var(--line); border-radius: 14px; background: #f8f9fa; }
+    .admCLRow input{ flex: 1 1 auto; }
+    .admCLRow .idx{ width: 28px; text-align:center; color: var(--muted); font-weight: 900; font-variant-numeric: tabular-nums; }
+    
+    /* [자체 에디터 스타일] */
+    .editor-toolbar { display: flex; gap: 6px; padding: 8px; background: #f1f2f6; border-bottom: 1px solid #ced6e0; border-radius: 12px 12px 0 0; flex-wrap:wrap; }
+    .editor-btn { 
+      padding: 6px 12px; font-weight: 900; background: #fff; border: 1px solid #dcdde1; border-radius: 6px; cursor: pointer; font-size:14px; flex: 0 0 auto; 
+      min-width: 40px; min-height: 40px; display:flex; align-items:center; justify-content:center;
+    }
+    .editor-btn:active { background: #e2e6ea; transform:scale(0.95); }
+    .editor-content { min-height: 250px; max-height: 400px; overflow-y: auto; padding: 12px; border: 1px solid #ced6e0; border-top: none; border-radius: 0 0 12px 12px; outline: none; background: #fff; -webkit-user-select: text; user-select: text; white-space: pre-wrap; line-height: 1.5; font-size:16px; }
+    .editor-content:focus { box-shadow: inset 0 0 0 2px rgba(52,152,219,.15); }
+    
     .editor-content ul { padding-left: 20px; margin: 8px 0; }
-    .editor-content li { list-style: disc; margin-bottom: 4px; }
+    .editor-content li { list-style-type: disc; margin-bottom: 4px; }
+    .editor-content img { max-width: 100%; height: auto; border-radius: 8px; margin: 4px 0; }
     .editor-content table { width: 100%; border-collapse: collapse; margin: 8px 0; }
     .editor-content td { border: 1px solid #dcdde1; padding: 8px; vertical-align: top; }
 
-    .todo-row { display:flex; align-items:center; gap:10px; padding:10px; background:#fff; border:1px solid var(--line); border-radius:12px; margin-bottom:8px; }
-    .todo-check { width:24px; height:24px; cursor:pointer; }
-    .todo-text { flex:1; font-size:15px; font-weight:700; color:var(--text); }
-    .todo-text.done { text-decoration: line-through; color:var(--muted); }
-
-    #adminMenuOverlay { z-index: 1000; }
-    #mateOverlay, #actionLogOverlay, #empEditOverlay, #logEditOverlay, #logAddOverlay, #todoOverlay { z-index: 2000; }
-    #routineSetOverlay { z-index: 3000; }
-    #noticeOverlay, #closeCheckOverlay, #outNoteOverlay, .toast { z-index: 5000; }
-
+    #adminMenuOverlay .modal{ padding-bottom: 18px; max-height: 88vh; overflow-y: auto; overscroll-behavior: contain; }
+    #adminMenuOverlay .modal::-webkit-scrollbar{ width: 10px; }
+    #adminMenuOverlay .modal::-webkit-scrollbar-thumb{ background: #bdc3c7; border-radius: 999px; border: 3px solid rgba(0,0,0,0); background-clip: padding-box; }
+    #adminMenuOverlay .modal::-webkit-scrollbar-track{ background: transparent; border-radius: 999px; }
+    
     #sec-emp .grid{ grid-template-columns: 1fr !important; }
     #sec-emp .card{ border-radius: 22px; }
     #sec-emp h2{ font-size: 22px; }
@@ -119,23 +155,18 @@
     .calPay{ font-size: 11px; color: var(--good); font-weight: 700; display:block; margin-top:2px; }
     .calDay:hover{ background: #f8f9fa !important; }
 
-    .totalWageBox { background: var(--panel2); border: 2px solid var(--accent); border-radius: 14px; padding: 16px; text-align:center; margin-bottom: 14px; }
+    .totalWageBox { background: var(--panel2); border: 2px solid var(--accent); border-radius: 14px; padding: 16px; text-align:center; margin-bottom: 14px; display:flex; flex-direction:column; align-items:center; gap:4px; }
     .totalWageLabel { color: var(--muted); font-size: 13px; font-weight: 800; }
     .totalWageValue { color: var(--text); font-size: 20px; font-weight: 900; }
     .totalWageDetail { color: var(--good); font-size: 13px; font-weight: 700; }
     
-    #syncStatus { position:fixed; top:5px; right:5px; font-size:10px; color:#fff; background:rgba(0,0,0,0.5); padding:2px 6px; border-radius:4px; z-index:9000; }
+    #syncStatus { position:fixed; top:5px; right:5px; font-size:10px; color:#fff; background:rgba(0,0,0,0.5); padding:2px 8px; border-radius:10px; z-index:9999; }
+    
     #quickButtons { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
     #quickButtons .btn { height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 16px; }
     #quickButtons .btn .muted { font-size: 12px; font-weight: normal; }
     
-    .countWrap{ display:flex; align-items:center; gap:14px; margin-top:12px; }
-    .ring{ width:62px; height:62px; position:relative; flex:0 0 auto; }
-    .ring svg{ width:62px; height:62px; display:block; }
-    .ring .num{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:18px; }
-    .ring .bg{ stroke: #f1f2f6; stroke-width: 8; fill: none; }
-    .ring .fg{ stroke: var(--accent); stroke-width: 8; fill: none; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset 0.15s linear; }
-
+    /* [투두메이트 스타일] */
     .mate-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
     .mate-title { font-size: 18px; font-weight: 900; }
     .mate-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 14px; }
@@ -159,22 +190,20 @@
     .mate-text { flex:1; font-size:15px; font-weight:600; line-height:1.3; }
     .mate-tag { font-size:10px; padding:2px 6px; border-radius:4px; background:#eee; color:#666; font-weight:700; }
 
+    /* [루틴 설정 스타일] */
     .routine-opt { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px; }
     .routine-btn { padding: 8px 12px; border:1px solid var(--line); border-radius:8px; background:#fff; font-size:13px; cursor:pointer; }
     .routine-btn.active { background:var(--accent); color:#fff; border-color:transparent; font-weight:700; }
     .day-selector { display:flex; gap:4px; margin-top:4px; }
     .day-btn { width:32px; height:32px; border-radius:50%; border:1px solid var(--line); background:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; cursor:pointer; }
     .day-btn.active { background:var(--accent); color:#fff; border-color:transparent; }
-    
-    /* [신규 스타일] 날짜 선택 태그 */
-    .date-pill {
-        display: inline-flex; align-items: center; gap: 6px;
-        padding: 4px 10px; background: #e3f2fd; color: var(--accent);
-        border-radius: 20px; font-size: 13px; font-weight: 700; margin: 2px;
-    }
-    .date-pill button {
-        background: none; border: none; color: var(--accent); font-weight: 900; font-size: 12px; cursor: pointer; padding: 0;
-    }
+
+    /* [Z-Index 정리 - 팝업 순서 해결] */
+    #adminMenuOverlay { z-index: 1000 !important; }
+    #mateOverlay, #actionLogOverlay, #empEditOverlay, #logEditOverlay, #logAddOverlay, #todoOverlay { z-index: 2000 !important; }
+    #routineSetOverlay { z-index: 3000 !important; }
+    #noticeOverlay, #closeCheckOverlay, #outNoteOverlay, .toast { z-index: 5000 !important; }
+    #pinOverlay { z-index: 9999 !important; }
   </style>
 </head>
 
@@ -182,8 +211,12 @@
 <div id="syncStatus">서버 연결 중...</div>
 <header>
   <div class="topbar">
-    <div class="brand"><img id="logoImg" class="logo" src="tamnayo.png" alt="탐나는피자" /></div>
-    <div class="clockBlock"><div class="time" id="nowTime">00:00</div><div class="date" id="nowDate">----.--.--</div></div>
+    <div class="brand">
+      <div class="logoWrap"><img id="logoImg" class="logo" alt="가게 로고" src="tamnayo.png" /></div>
+    </div>
+    <div class="right">
+      <div class="clockBlock"><div class="time" id="nowTime">--:--:--</div><div class="date" id="nowDate">----</div></div>
+    </div>
   </div>
 </header>
 
@@ -191,63 +224,77 @@
   <section class="section active" id="sec-att">
     <div class="grid">
       <div class="card">
-        <h2>출근 / 퇴근</h2>
+        <h2>출근 / 퇴근 찍기</h2>
         <div class="split">
-          <div><label>코드</label><input id="attCode" inputmode="numeric" placeholder="터치" readonly /></div>
-          <div><label>이름</label><input id="attName" disabled placeholder="-" /></div>
+          <div><label>알바 코드 (자동 입력)</label><input id="attCode" inputmode="numeric" autocomplete="off" placeholder="버튼을 누르세요" maxlength="4" readonly /></div>
+          <div><label>이름 (자동 표시)</label><input id="attName" disabled placeholder="-" /></div>
         </div>
-        <div class="split" style="margin-top:10px;">
-          <button class="btn good" id="btnIn" style="padding:15px; font-size:18px;">출근</button>
-          <button class="btn bad" id="btnOut" style="padding:15px; font-size:18px;">퇴근</button>
-        </div>
+        <div class="big-actions"><button class="btn good" id="btnIn">출근</button><button class="btn bad" id="btnOut">퇴근</button></div>
         <div class="row" style="margin-top:10px;">
-          <span class="pill" id="attStatus" style="background:#eee; padding:5px 10px; border-radius:10px; font-size:13px;">대기중</span>
-          <div class="spacer"></div>
+          <span class="pill">상태: <strong id="attStatus">-</strong></span>
+          <span class="pill">마지막 기록: <strong id="attLast">-</strong></span>
+          <span class="spacer"></span>
           <button class="btn small" id="btnClearCode">지우기</button>
         </div>
-        <div style="margin-top:15px; border-top:1px solid #eee; padding-top:10px;">
-          <label>빠른 선택</label>
-          <div id="quickButtons" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(80px, 1fr)); gap:8px; margin-top:5px;"></div>
+        <div class="hr"></div>
+        <div class="row" style="gap:12px;">
+          <div style="flex:1 1 100%;">
+            <div class="muted" style="font-size:13px; font-weight:900;">빠른 선택 (알바생 버튼)</div>
+            <div id="quickButtons" style="margin-top:8px;"></div>
+            <div class="note">
+              • 알바생 버튼을 누르면 코드가 자동 입력됩니다.<br/>
+              • 출퇴근 누락 시 <b>사장님께 말씀해주세요.</b>
+            </div>
+          </div>
         </div>
       </div>
-      
       <div class="card">
-        <h2>최근 기록 (10건)</h2>
-        <div style="overflow-y:auto; max-height:400px;">
-          <table style="width:100%;">
-            <thead><tr style="background:#f8f9fa;"><th>상태</th><th>이름</th><th>시간</th></tr></thead>
+        <h2>최근 기록 (최신 15개)</h2>
+        <div style="overflow:auto; max-height: 520px;">
+          <table>
+            <thead><tr><th style="width:90px;">유형</th><th style="width:90px;">코드</th><th class="nameCell">이름</th><th style="width:200px;">시간</th></tr></thead>
             <tbody id="recentTable"></tbody>
           </table>
         </div>
+        <div class="note">최근 기록은 누락 방지를 위한 참고용입니다.</div>
       </div>
     </div>
   </section>
 
   <section class="section" id="sec-emp">
     <div class="card">
-      <div class="row"><h2>직원 관리</h2><div class="spacer"></div><button class="btn small" onclick="showSection('sec-att')">닫기</button></div>
-      <div class="split" style="margin-top:15px;">
-        <div class="card" style="box-shadow:none; border:1px solid #eee;">
-          <h3>등록</h3>
-          <label>이름</label><input id="empName" placeholder="이름" />
-          <div class="split" style="margin-top:8px;">
-             <div><label>평일시급</label><input id="empWage" type="number" placeholder="10030" /></div>
-             <div><label>주말시급</label><input id="empWageWeekend" type="number" placeholder="선택" /></div>
+      <div class="row"><h2 style="margin:0;">알바생 관리 (관리자)</h2><div class="spacer"></div><button class="btn small" id="btnBackFromEmp">← 출근/퇴근</button></div>
+      <div class="hr"></div>
+      <div class="grid">
+        <div class="card" style="box-shadow:none;">
+          <h2>알바생 등록</h2>
+          <div class="split">
+            <div><label>이름</label><input id="empName" placeholder="예) 홍길동" maxlength="30" /></div>
+            <div><label>메모 (선택)</label><input id="empMemo" placeholder="예) 주말만" maxlength="60" /></div>
           </div>
-          <div class="split" style="margin-top:8px;">
-             <div><label>구분</label><select id="empShiftType"><option value="MID">미들</option><option value="CLOSE">마감</option></select></div>
-             <div><label>메모</label><input id="empMemo" placeholder="예) 주말만" /></div>
+          <div class="split" style="margin-top:10px;">
+            <div><label>근무 구분</label><select id="empShiftType"><option value="MID">미들</option><option value="CLOSE">마감</option></select></div>
+            <div><label>평일 시급</label><input id="empWage" type="number" placeholder="예) 10030" inputmode="numeric" /></div>
           </div>
-          <div class="split" style="margin-top:8px;">
-             <input id="empWorkStart" type="time" value="17:00" /><input id="empWorkEnd" type="time" value="23:30" />
+          <div class="split" style="margin-top:10px;">
+            <div><label style="color:var(--warn)">주말 시급 (토,일)</label><input id="empWageWeekend" type="number" placeholder="선택 (비워두면 평일동일)" inputmode="numeric" /></div>
+            <div></div>
           </div>
-          <button class="btn primary" id="btnAddEmp" style="width:100%; margin-top:10px;">등록하기</button>
+          <div class="split" style="margin-top:10px;">
+            <div><label>근무 시작 시간</label><input id="empWorkStart" type="time" value="17:00" /></div>
+            <div><label>근무 종료 시간</label><input id="empWorkEnd" type="time" value="23:30" /></div>
+          </div>
+          <div class="row" style="margin-top:10px;"><button class="btn primary" id="btnAddEmp">등록</button><span class="muted" id="nextCodeHint"></span></div>
         </div>
-        <div class="card" style="box-shadow:none; border:1px solid #eee;">
-          <h3>목록</h3>
-          <div style="overflow-y:auto; max-height:400px;">
-            <table style="width:100%;">
-              <thead><tr><th>코드</th><th>이름</th><th>삭제</th></tr></thead>
+        <div class="card" style="box-shadow:none;">
+          <h2>알바생 조회 / 삭제</h2>
+          <div class="row" style="margin-bottom:10px;">
+            <div style="flex:1 1 260px;"><label>검색</label><input id="empSearch" placeholder="예) 0002 또는 길동" /></div>
+            <div class="spacer"></div><button class="btn small" id="btnRefreshEmp">새로고침</button>
+          </div>
+          <div style="overflow:auto; max-height: 520px;">
+            <table>
+              <thead><tr><th style="width:90px;">코드</th><th class="nameCell" style="width:160px;">이름</th><th style="width:90px;">구분</th><th>시급(평/주)</th><th>근무시간</th><th style="width:110px;">삭제</th></tr></thead>
               <tbody id="empTable"></tbody>
             </table>
           </div>
@@ -258,39 +305,63 @@
 
   <section class="section" id="sec-log">
     <div class="card">
-      <div class="row"><h2>근태 조회</h2><div class="spacer"></div><button class="btn small" onclick="showSection('sec-att')">닫기</button></div>
-      <div class="row" style="margin:10px 0;">
-        <select id="logFilterEmp" style="width:auto;"><option value="">전체보기</option></select>
+      <div class="row"><h2 style="margin:0;">근태 조회 (관리자)</h2><div class="spacer"></div><button class="btn small" id="btnBackFromLog">← 출근/퇴근</button></div>
+      <div class="hr"></div>
+      <div class="row" style="margin-bottom:10px; gap:10px; flex-wrap:wrap;">
+        <span class="pill">전체 기록: <strong id="logTotal">0</strong>건</span>
+        <label class="muted" style="display:flex; align-items:center; gap:8px;">알바생 필터<select id="logFilterEmp" style="min-width:180px;"></select></label>
         <div class="spacer"></div>
-        <button class="btn small" id="btnExportCsv">엑셀저장</button>
+        <button class="btn small" id="btnAddShift">근무 추가</button>
+        <button class="btn small warn" id="btnExportCsv">CSV 내보내기</button>
       </div>
+      <div class="hr"></div>
       
       <div class="totalWageBox">
-         <div class="totalWageLabel" id="wageTitle">이번 달 예상 급여</div>
-         <div class="totalWageValue" id="wageValue">0원</div>
-         <div class="totalWageDetail" id="wageDetail">기본 0 + 주휴 0</div>
+        <div class="totalWageLabel" id="totalWageTitle">--월 예상 급여</div>
+        <div class="totalWageValue" id="totalWageAmount">0원</div>
+        <div class="totalWageDetail" id="totalWageDetail">(기본 0 + 주휴 0)</div>
       </div>
 
-      <div class="calHeader" style="margin-top:15px;">
-        <button class="btn small" id="calPrevBtn">◀</button>
-        <span id="calTitle" style="font-weight:900; font-size:16px;">202X. XX</span>
-        <button class="btn small" id="calNextBtn">▶</button>
+      <div class="calHeader">
+        <button class="btn small" id="calPrevBtn">◀ 이전달</button>
+        <h3 id="calTitle" style="margin:0; font-size:18px;">202X. XX</h3>
+        <button class="btn small" id="calNextBtn">다음달 ▶</button>
       </div>
       <div class="calGrid" id="calendarView"></div>
       
-      <div style="overflow-y:auto; max-height:400px; margin-top:15px;">
-        <table style="width:100%;">
-          <thead><tr><th>상태</th><th>이름</th><th>시간</th><th>비고</th><th>수정</th></tr></thead>
+      <div class="note" style="margin:14px 0;">• 일요일에 해당 주의 주휴수당(15시간↑)이 표시됩니다.</div>
+      
+      <div style="overflow:auto; max-height: 540px;">
+        <table>
+          <thead><tr><th style="width:110px;">유형</th><th style="width:90px;">코드</th><th class="nameCell" style="width:160px;">이름</th><th style="width:220px;">시간</th><th>비고</th><th style="width:90px;">수정</th></tr></thead>
           <tbody id="logTable"></tbody>
+        </table>
+      </div>
+      <div class="hr"></div>
+      <div class="muted" style="font-size:13px; font-weight:900; margin-bottom:8px;">퇴근 특이사항 (체크리스트 제외)</div>
+      <div style="overflow:auto; max-height: 360px;">
+        <table>
+          <thead><tr><th style="width:70px;">순번</th><th style="width:110px;">날짜</th><th style="width:90px;">코드</th><th style="width:140px;">작성자</th><th style="width:180px;">시간</th><th>내용</th></tr></thead>
+          <tbody id="outNoteTable"></tbody>
+        </table>
+      </div>
+      <div class="hr"></div>
+      <div class="muted" style="font-size:13px; font-weight:900; margin-bottom:8px;">마감 체크리스트 기록</div>
+      <div style="overflow:auto; max-height: 280px;">
+        <table>
+          <thead><tr><th style="width:70px;">순번</th><th style="width:110px;">날짜</th><th style="width:90px;">코드</th><th style="width:140px;">작성자</th><th style="width:180px;">시간</th><th>체크</th></tr></thead>
+          <tbody id="closeCheckTable"></tbody>
         </table>
       </div>
     </div>
   </section>
 </main>
 
+<div class="toast" id="toast"></div>
+
 <div class="modalOverlay" id="adminMenuOverlay" role="dialog" aria-modal="true" style="z-index: 1000;">
   <div class="modal">
-    <h3>관리자 모드</h3>
+    <h3>관리자 메뉴</h3>
     <div class="muted" id="adminStateText">관리자 모드 (PIN 없음)</div>
     <div class="hr"></div>
     <div class="menuGrid">
@@ -349,18 +420,23 @@
       <h3 class="mate-title">업무 & 루틴 관리</h3>
       <button class="btn small" id="btnOpenRoutineSet">루틴 설정 ⚙️</button>
     </div>
+    
     <div class="calHeader">
         <button class="btn small" id="matePrevMonth">◀</button>
         <span id="mateMonthTitle" style="font-weight:900;">202X. XX</span>
         <button class="btn small" id="mateNextMonth">▶</button>
     </div>
     <div class="mate-grid" id="mateCalendar"></div>
+    
     <div class="hr"></div>
+    
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
         <span id="mateSelectedDate" class="tag in">오늘의 할 일</span>
         <button class="btn small" id="btnAddOneTimeTask">+ 1회성 추가</button>
     </div>
-    <div class="mate-list-area" id="mateListArea" style="flex:1; overflow-y:auto;"></div>
+    <div class="mate-list-area" id="mateListArea" style="flex:1; overflow-y:auto;">
+        </div>
+    
     <div style="margin-top:10px;">
         <button class="btn" onclick="document.getElementById('mateOverlay').classList.remove('show')" style="width:100%;">닫기</button>
     </div>
@@ -374,12 +450,14 @@
     <div class="hr"></div>
     <label>할 일 내용</label>
     <input id="routineInput" placeholder="예: 오픈 준비, 마감 청소" />
+    
     <label style="margin-top:10px;">반복 주기</label>
     <div class="routine-opt" id="routineTypeBox">
         <div class="routine-btn active" data-type="daily">매일</div>
         <div class="routine-btn" data-type="weekly">매주 (요일지정)</div>
         <div class="routine-btn" data-type="monthly">매월 (날짜지정)</div>
     </div>
+    
     <div id="weekSelector" class="day-selector" style="display:none;">
         <div class="day-btn" data-d="0">일</div>
         <div class="day-btn" data-d="1">월</div>
@@ -389,13 +467,16 @@
         <div class="day-btn" data-d="5">금</div>
         <div class="day-btn" data-d="6">토</div>
     </div>
+    
     <div id="monthSelector" style="display:none; margin-top:4px;">
         <input type="number" id="routineMonthDay" placeholder="1~31일 입력" style="width:80px;" /> 일 마다
     </div>
+
     <div class="split" style="margin-top:20px;">
         <button class="btn" onclick="document.getElementById('routineSetOverlay').classList.remove('show')">취소</button>
         <button class="btn primary" id="btnSaveRoutine">저장</button>
     </div>
+    
     <div class="hr"></div>
     <h4>등록된 루틴 목록</h4>
     <div id="routineListBody" style="max-height:150px; overflow-y:auto; font-size:13px;"></div>
@@ -414,7 +495,7 @@
       </table>
     </div>
     <div style="margin-top:10px; text-align:right;">
-      <button class="btn" onclick="document.getElementById('actionLogOverlay').classList.remove('show')">닫기</button>
+      <button class="btn" id="btnCloseActionLog">닫기</button>
     </div>
   </div>
 </div>
@@ -578,22 +659,6 @@
   </div>
 </div>
 
-<div class="modalOverlay" id="todoOverlay" role="dialog" aria-modal="true" style="z-index: 2000;">
-  <div class="modal">
-    <h3>매장 할 일 관리 (Todo)</h3>
-    <div class="muted">매장 운영에 필요한 할 일을 관리하세요.</div>
-    <div class="hr"></div>
-    <div class="row" style="margin-bottom:10px;">
-      <input id="newTodoInput" placeholder="할 일 입력 (예: 재고 파악)" style="flex:1;" />
-      <button class="btn primary" id="btnAddTodo">추가</button>
-    </div>
-    <div id="todoListBody" style="max-height:400px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
-    <div class="modalActions">
-      <button class="btn" id="btnCloseTodo">닫기</button>
-    </div>
-  </div>
-</div>
-
 <input id="restoreInput" type="file" accept="application/json" style="display:none;" />
 
 <script type="module">
@@ -617,7 +682,7 @@
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
   let SERVER_CACHE = {}; 
-  let logAddDates = []; // 다중 날짜 선택용
+  let logAddDates = []; 
 
   window.execCmd = function(command, value = null) {
     document.execCommand(command, false, value);
@@ -716,7 +781,7 @@
   function setNoticeMap(map){ saveJSON(LS_KEYS.DAILY_NOTICE, map); }
   
   function getTodayNotice(){ return getNoticeMap()[todayKey()]?.text || ""; }
-  function getTodayNoticeDuration(){ return getNoticeMap()[todayKey()]?.duration || 5; }
+  function getTodayNoticeDuration(){ return getNoticeMap()[todayKey()]?.duration || 5; } // 기본값 5초
 
   function setTodayNotice(text, duration=5){ 
     const m=getNoticeMap(); 
@@ -1486,7 +1551,7 @@
     saveJSON('ROUTINE_HISTORY', history).then(() => {
         renderMateCalendar();
         renderMateList();
-        recordAction("할일 체크", rid);
+        recordAction("할일 체크", rid); // 로그 추가됨
     });
   };
 
@@ -1538,7 +1603,7 @@
     renderRoutineList(); 
     renderMateCalendar(); 
     renderMateList();
-    recordAction("루틴 추가", txt);
+    recordAction("루틴 추가", txt); // 로그 추가됨
   });
 
   function renderRoutineList() {
@@ -1558,7 +1623,7 @@
     renderRoutineList();
     renderMateCalendar();
     renderMateList();
-    recordAction("루틴 삭제", rid);
+    recordAction("루틴 삭제", rid); // 로그 추가됨
   };
 
   document.getElementById('matePrevMonth').onclick = () => {
@@ -1583,7 +1648,7 @@
         saveJSON('ROUTINES', list);
         renderMateList();
         renderMateCalendar();
-        recordAction("1회성 할일", txt);
+        recordAction("1회성 할일", txt); // 로그 추가됨
     }
   };
 
