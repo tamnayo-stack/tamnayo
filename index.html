@@ -11,10 +11,6 @@
   <title>탐나는피자 화성남양점</title>
   
   <style>
-    /* ================================================================
-       [사장님 원본 디자인 100% 유지] 
-       ================================================================
-    */
     :root{
       --bg: #f4f6f9; --panel: #ffffff; --panel2: #f8f9fa;
       --text: #2c3e50; --muted: #8395a7; --line: #dcdde1;
@@ -23,16 +19,11 @@
     }
     *{ box-sizing:border-box; }
     body{ 
-      margin:0; 
-      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; 
-      background: var(--bg); 
-      color:var(--text); 
-      min-height:100dvh;
-      -webkit-user-select: none; user-select: none;
-      -webkit-touch-callout: none; touch-action: manipulation;
+      margin:0; font-family: -apple-system, BlinkMacSystemFont, "San Francisco", "Helvetica Neue", sans-serif; 
+      background: var(--bg); color:var(--text); min-height:100dvh;
+      -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
       padding-bottom: 20px;
     }
-    /* 입력창은 선택 가능하게 */
     input, textarea { -webkit-user-select: text; user-select: text; }
 
     header{ padding: 14px 18px 10px; position: sticky; top:0; background: rgba(255,255,255,.90); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); z-index:100; }
@@ -101,6 +92,7 @@
 
     .modalOverlay{ position: fixed; inset:0; background: rgba(0,0,0,.4); display:none; align-items:center; justify-content:center; z-index: 1000; padding: 18px; backdrop-filter: blur(2px); }
     .modalOverlay.show{ display:flex; }
+    /* 아이폰 잘림 방지용 padding-bottom */
     .modal{ width: min(560px, 100%); border-radius: 18px; border: 1px solid var(--line); background: #fff; box-shadow: var(--shadow); padding: 14px; max-height: 85dvh; overflow-y:auto; padding-bottom: 50px; }
     .modal h3{ margin:0 0 6px; font-size: 16px; letter-spacing:.2px; }
     .modalActions{ display:flex; gap:10px; margin-top: 12px; justify-content:flex-end; flex-wrap:wrap; }
@@ -145,17 +137,12 @@
     .todo-text { flex:1; font-size:15px; font-weight:700; color:var(--text); }
     .todo-text.done { text-decoration: line-through; color:var(--muted); }
 
-    /* Z-Index 및 팝업 설정 */
+    /* Z-Index 정리 */
     #adminMenuOverlay { z-index: 1000 !important; }
     #mateOverlay, #actionLogOverlay, #empEditOverlay, #logEditOverlay, #logAddOverlay, #todoOverlay { z-index: 2000 !important; }
     #routineSetOverlay { z-index: 3000 !important; }
     #noticeOverlay, #closeCheckOverlay, #outNoteOverlay, .toast { z-index: 5000 !important; }
     #pinOverlay { z-index: 9999 !important; }
-
-    #adminMenuOverlay .modal{ padding-bottom: 18px; max-height: 88vh; overflow-y: auto; overscroll-behavior: contain; }
-    #adminMenuOverlay .modal::-webkit-scrollbar{ width: 10px; }
-    #adminMenuOverlay .modal::-webkit-scrollbar-thumb{ background: #bdc3c7; border-radius: 999px; border: 3px solid rgba(0,0,0,0); background-clip: padding-box; }
-    #adminMenuOverlay .modal::-webkit-scrollbar-track{ background: transparent; border-radius: 999px; }
     
     #sec-emp .grid{ grid-template-columns: 1fr !important; }
     #sec-emp .card{ border-radius: 22px; }
@@ -1219,29 +1206,17 @@
     if (scheduledEnd < inTs) { scheduledEnd += 24 * 60 * 60 * 1000; }
     
     // 조기 퇴근인 경우 (그대로)
-    if (outTs < scheduledEnd) {
+    if (outTs <= scheduledEnd) { // [수정] 같으면 조기퇴근 아님. 그대로.
       return outTs;
     } else {
       // 연장 근무인 경우 (5분 단위 올림)
-      // 예: 23:31 -> 23:35, 23:35 -> 23:40
+      // 예: 23:31 -> 23:35, 23:35 -> 23:40 (요청사항 반영)
       const diff = outTs - scheduledEnd;
       const bonusUnit = 5 * 60 * 1000; // 5분
-      const bonusBlocks = Math.ceil(diff / bonusUnit);
       
-      // 정확히 5분 단위(예: 23:35:00)면 올림 안 함? 
-      // 사용자는 23:35에 찍으면 23:40으로 쳐달라고 했음 -> 항상 올림이 아니라 구간 점프
-      // 31분(1분 초과) -> 1블록(5분) 추가
-      // 35분(5분 초과) -> 2블록(10분) 추가? 아니면 35분은 35분?
-      // "23:35분에 찍었드면... 23:40퇴근한거로 쳐주고" -> 35분도 40분으로?
-      // 그러면 Math.floor(diff / unit) + 1 ?
-      
-      // 로직: 1ms라도 넘어가면 다음 5분 단위로.
-      // 30분 01초 -> 35분
-      // 35분 00초 -> 40분 (사용자 요청 반영)
-      // 35분 01초 -> 40분
-      
-      // 사용자 요청 "23:35에 찍었으면 23:40"을 반영하려면 >= 로 처리해야 함
-      const blocks = Math.floor(diff / bonusUnit) + 1;
+      // 0초 초과 ~ 5분 이하 -> 1블록(5분) 추가
+      // 5분 초과 ~ 10분 이하 -> 2블록(10분) 추가
+      const blocks = Math.floor((diff - 1) / bonusUnit) + 1;
       return scheduledEnd + (blocks * bonusUnit);
     }
   }
@@ -1666,7 +1641,7 @@
     saveJSON('ROUTINE_HISTORY', history).then(() => {
         renderMateCalendar();
         renderMateList();
-        recordAction("할일 체크", rid);
+        recordAction("할일 체크", rid); // 로그 추가됨
     });
   };
 
@@ -1718,7 +1693,7 @@
     renderRoutineList(); 
     renderMateCalendar(); 
     renderMateList();
-    recordAction("루틴 추가", txt);
+    recordAction("루틴 추가", txt); // 로그 추가됨
   });
 
   function renderRoutineList() {
@@ -1738,7 +1713,7 @@
     renderRoutineList();
     renderMateCalendar();
     renderMateList();
-    recordAction("루틴 삭제", rid);
+    recordAction("루틴 삭제", rid); // 로그 추가됨
   };
 
   document.getElementById('matePrevMonth').onclick = () => {
@@ -1763,7 +1738,7 @@
         saveJSON('ROUTINES', list);
         renderMateList();
         renderMateCalendar();
-        recordAction("1회성 할일", txt);
+        recordAction("1회성 할일", txt); // 로그 추가됨
     }
   };
 
