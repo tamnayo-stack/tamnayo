@@ -11,10 +11,6 @@
   <title>탐나는피자 화성남양점</title>
   
   <style>
-    /* ================================================================
-       [사장님 원본 디자인 100% 유지] 
-       ================================================================
-    */
     :root{
       --bg: #f4f6f9; --panel: #ffffff; --panel2: #f8f9fa;
       --text: #2c3e50; --muted: #8395a7; --line: #dcdde1;
@@ -23,19 +19,14 @@
     }
     *{ box-sizing:border-box; }
     body{ 
-      margin:0; 
-      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; 
-      background: var(--bg); 
-      color:var(--text); 
-      min-height:100dvh;
-      -webkit-user-select: none; user-select: none;
-      -webkit-touch-callout: none; touch-action: manipulation;
+      margin:0; font-family: -apple-system, BlinkMacSystemFont, "San Francisco", "Helvetica Neue", sans-serif; 
+      background: var(--bg); color:var(--text); min-height:100dvh;
+      -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
       padding-bottom: 20px;
     }
-    /* 입력창은 선택 가능하게 */
     input, textarea { -webkit-user-select: text; user-select: text; }
 
-    header{ padding: 14px 18px 10px; position: sticky; top:0; background: rgba(255,255,255,.90); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); z-index:10; }
+    header{ padding: 14px 18px 10px; position: sticky; top:0; background: rgba(255,255,255,.90); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); z-index:100; }
     .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; max-width:1100px; margin:0 auto; }
     .brand{ display:flex; align-items:center; gap:12px; }
     .logoWrap{ display:flex; flex-direction:column; gap:4px; }
@@ -145,6 +136,13 @@
     .todo-text { flex:1; font-size:15px; font-weight:700; color:var(--text); }
     .todo-text.done { text-decoration: line-through; color:var(--muted); }
 
+    /* Z-Index 및 팝업 설정 */
+    #adminMenuOverlay { z-index: 1000 !important; }
+    #mateOverlay, #actionLogOverlay, #empEditOverlay, #logEditOverlay, #logAddOverlay, #todoOverlay { z-index: 2000 !important; }
+    #routineSetOverlay { z-index: 3000 !important; }
+    #noticeOverlay, #closeCheckOverlay, #outNoteOverlay, .toast { z-index: 5000 !important; }
+    #pinOverlay { z-index: 9999 !important; }
+
     #adminMenuOverlay .modal{ padding-bottom: 18px; max-height: 88vh; overflow-y: auto; overscroll-behavior: contain; }
     #adminMenuOverlay .modal::-webkit-scrollbar{ width: 10px; }
     #adminMenuOverlay .modal::-webkit-scrollbar-thumb{ background: #bdc3c7; border-radius: 999px; border: 3px solid rgba(0,0,0,0); background-clip: padding-box; }
@@ -173,12 +171,11 @@
     .totalWageDetail { color: var(--good); font-size: 13px; font-weight: 700; }
     
     #syncStatus { position:fixed; top:5px; right:5px; font-size:10px; color:#fff; background:rgba(0,0,0,0.5); padding:2px 8px; border-radius:10px; z-index:9999; }
-    
     #quickButtons { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
     #quickButtons .btn { height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 16px; }
     #quickButtons .btn .muted { font-size: 12px; font-weight: normal; }
-
-    /* [투두메이트 스타일] */
+    
+    /* 투두메이트 스타일 */
     .mate-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
     .mate-title { font-size: 18px; font-weight: 900; }
     .mate-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 14px; }
@@ -202,7 +199,7 @@
     .mate-text { flex:1; font-size:15px; font-weight:600; line-height:1.3; }
     .mate-tag { font-size:10px; padding:2px 6px; border-radius:4px; background:#eee; color:#666; font-weight:700; }
 
-    /* 루틴 설정 */
+    /* 루틴 설정 스타일 */
     .routine-opt { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px; }
     .routine-btn { padding: 8px 12px; border:1px solid var(--line); border-radius:8px; background:#fff; font-size:13px; cursor:pointer; }
     .routine-btn.active { background:var(--accent); color:#fff; border-color:transparent; font-weight:700; }
@@ -212,13 +209,6 @@
     
     .date-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #e3f2fd; color: var(--accent); border-radius: 20px; font-size: 13px; font-weight: 700; margin: 2px; }
     .date-pill button { background: none; border: none; color: var(--accent); font-weight: 900; font-size: 12px; cursor: pointer; padding: 0; }
-
-    /* [중요] 팝업 층수(Z-Index) 강제 고정 */
-    #adminMenuOverlay { z-index: 1000 !important; }
-    #mateOverlay, #actionLogOverlay, #empEditOverlay, #logEditOverlay, #logAddOverlay, #todoOverlay { z-index: 2000 !important; }
-    #routineSetOverlay { z-index: 3000 !important; }
-    #noticeOverlay, #closeCheckOverlay, #outNoteOverlay, .toast { z-index: 5000 !important; }
-    #pinOverlay { z-index: 9999 !important; }
   </style>
 </head>
 
@@ -226,12 +216,8 @@
 <div id="syncStatus">서버 연결 중...</div>
 <header>
   <div class="topbar">
-    <div class="brand">
-      <div class="logoWrap"><img id="logoImg" class="logo" alt="가게 로고" src="tamnayo.png" /></div>
-    </div>
-    <div class="right">
-      <div class="clockBlock"><div class="time" id="nowTime">--:--:--</div><div class="date" id="nowDate">----</div></div>
-    </div>
+    <div class="brand"><img id="logoImg" class="logo" alt="가게 로고" src="tamnayo.png" /></div>
+    <div class="clockBlock"><div class="time" id="nowTime">00:00</div><div class="date" id="nowDate">----.--.--</div></div>
   </div>
 </header>
 
@@ -241,7 +227,7 @@
       <div class="card">
         <h2>출근 / 퇴근 찍기</h2>
         <div class="split">
-          <div><label>알바 코드 (자동 입력)</label><input id="attCode" inputmode="numeric" autocomplete="off" placeholder="버튼을 누르세요" maxlength="4" readonly /></div>
+          <div><label>알바 코드 (자동 입력)</label><input id="attCode" inputmode="numeric" placeholder="터치" readonly /></div>
           <div><label>이름 (자동 표시)</label><input id="attName" disabled placeholder="-" /></div>
         </div>
         <div class="big-actions"><button class="btn good" id="btnIn">출근</button><button class="btn bad" id="btnOut">퇴근</button></div>
@@ -411,6 +397,7 @@
         <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('bold')" title="굵게"><b>B</b></button>
         <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('underline')" title="밑줄" style="text-decoration:underline;">U</button>
         <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('foreColor', '#e74c3c')" title="빨간색" style="color:#e74c3c; font-weight:900;">A</button>
+        <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('foreColor', '#000000')" title="검정색" style="color:#000000; font-weight:900;">A</button>
         <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('fontSize', '5')" title="크게">가</button>
         <button class="editor-btn" onmousedown="event.preventDefault(); execCmd('insertUnorderedList')" title="리스트">●</button>
         <button class="editor-btn" onmousedown="event.preventDefault(); insertTable()" title="표 삽입">▦</button>
@@ -420,7 +407,7 @@
       <div id="adminNoticeInput" class="editor-content" contenteditable="true" inputmode="text"></div>
       <input type="file" id="imgUploadInput" accept="image/*" style="display:none;" onchange="handleImageUpload(this)">
     </div>
-
+    
     <div style="margin-top:10px; padding:10px; background:#f8f9fa; border-radius:10px; border:1px solid var(--line);">
         <div class="row" style="margin-bottom:6px;">
             <span class="muted" style="font-size:12px; font-weight:700;">자주 쓰는 문구 보관함</span>
@@ -1050,8 +1037,18 @@
     const e=findEmpByCode(c); if(!e)return toast("미등록 코드");
     if(!canClockIn(c))return toast("이미 출근 상태");
     recordAction("출근 시도", `${e.name}(${c})`);
+    
+    // [수정] 지각 체크 로직 (1초라도 늦으면 10분 뒤로 밀림)
+    const now = Date.now();
+    const adjStart = getAdjustedStartTime(e, now);
+    if(adjStart > now + 1000) { // 1초 이상 차이나면 지각으로 간주
+        toast("지각! 10분 단위로 차감됩니다.", "danger");
+    }
+
     await showNoticeCountdownIfAny();
-    addLog({code:c,name:e.name,type:"IN"}); toast(`${e.name} 출근`); 
+    addLog({code:c,name:e.name,type:"IN"}); 
+    if(adjStart <= now + 1000) toast(`${e.name} 출근`); 
+    
     recordAction("출근 완료", `${e.name}(${c})`);
     renderAttendancePanel();
   });
@@ -1181,32 +1178,58 @@
   let calYear=new Date().getFullYear(), calMonth=new Date().getMonth()+1;
   function getDayKey(y,m,d){ return `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`; }
   
+  // [수정] 출근 시간 계산 (1초라도 늦으면 10분 단위 올림)
   function getAdjustedStartTime(emp, inTs) {
     if (!emp.workStart) return inTs;
     const d = new Date(inTs);
     const [h, m] = emp.workStart.split(':').map(Number);
     const scheduledStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
-    if (inTs < scheduledStart) return scheduledStart; 
-    return inTs;
+    
+    // 지각인 경우 (1ms라도 늦으면)
+    if (inTs > scheduledStart) {
+        // 10분 단위로 올림 (예: 18:00:01 -> 18:10:00)
+        const diff = inTs - scheduledStart;
+        const penaltyUnit = 10 * 60 * 1000; // 10분
+        const penaltyBlocks = Math.ceil(diff / penaltyUnit);
+        return scheduledStart + (penaltyBlocks * penaltyUnit);
+    }
+    
+    return inTs; // 일찍 온 건 그대로 (어차피 근무시간은 스케줄 기준)
   }
 
+  // [수정] 퇴근 시간 계산 (1분이라도 더 일하면 5분 단위 올림)
   function getAdjustedWorkTime(emp, inTs, outTs) {
-    // shiftType에 상관없이 workEnd가 있으면 적용
     if (!emp.workEnd) return outTs;
     const d = new Date(inTs);
     const [h, m] = emp.workEnd.split(':').map(Number);
     let scheduledEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
     if (scheduledEnd < inTs) { scheduledEnd += 24 * 60 * 60 * 1000; }
     
-    const safetyMs = 60 * 60 * 1000; 
+    // 조기 퇴근인 경우 (그대로)
     if (outTs < scheduledEnd) {
-      if (scheduledEnd - outTs > safetyMs) return outTs;
-      return scheduledEnd;
+      return outTs;
     } else {
+      // 연장 근무인 경우 (5분 단위 올림)
+      // 예: 23:31 -> 23:35, 23:35 -> 23:40
       const diff = outTs - scheduledEnd;
-      const tenMins = 10 * 60 * 1000;
-      const extra = Math.floor(diff / tenMins) * tenMins;
-      return scheduledEnd + extra;
+      const bonusUnit = 5 * 60 * 1000; // 5분
+      const bonusBlocks = Math.ceil(diff / bonusUnit);
+      
+      // 정확히 5분 단위(예: 23:35:00)면 올림 안 함? 
+      // 사용자는 23:35에 찍으면 23:40으로 쳐달라고 했음 -> 항상 올림이 아니라 구간 점프
+      // 31분(1분 초과) -> 1블록(5분) 추가
+      // 35분(5분 초과) -> 2블록(10분) 추가? 아니면 35분은 35분?
+      // "23:35분에 찍었드면... 23:40퇴근한거로 쳐주고" -> 35분도 40분으로?
+      // 그러면 Math.floor(diff / unit) + 1 ?
+      
+      // 로직: 1ms라도 넘어가면 다음 5분 단위로.
+      // 30분 01초 -> 35분
+      // 35분 00초 -> 40분 (사용자 요청 반영)
+      // 35분 01초 -> 40분
+      
+      // 사용자 요청 "23:35에 찍었으면 23:40"을 반영하려면 >= 로 처리해야 함
+      const blocks = Math.floor(diff / bonusUnit) + 1;
+      return scheduledEnd + (blocks * bonusUnit);
     }
   }
 
@@ -1227,6 +1250,8 @@
         else if(ev.type==="OUT" && inTs){
           const adjInTs = getAdjustedStartTime(e, inTs);
           const adjOutTs = getAdjustedWorkTime(e, inTs, ev.ts);
+          
+          // 출근시간보다 퇴근시간이 뒤일 때만 계산 (마이너스 방지)
           if(adjOutTs > adjInTs) {
              const d=adjOutTs-adjInTs; ms+=d;
              pay+=Math.floor((d/3600000)*wage);
@@ -1391,10 +1416,10 @@
         // 출근 시간 보정 표시
         if(l.type === "IN" && emp) {
             const adjInTs = getAdjustedStartTime(emp, l.ts);
-            if(adjInTs !== l.ts) {
+            if(adjInTs > l.ts) {
                 const d = new Date(adjInTs);
                 const adjStr = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
-                timeDisplay += `<br><span class="tag adj">급여시작: ${adjStr}</span>`;
+                timeDisplay += `<br><span class="tag out" style="font-size:10px;">지각(인정:${adjStr})</span>`;
             }
         }
         
@@ -1403,10 +1428,10 @@
             const prevIn = list.find(x => x.type === "IN" && x.ts < l.ts && x.code === l.code);
             if(prevIn) {
                 const adjOutTs = getAdjustedWorkTime(emp, prevIn.ts, l.ts);
-                if(adjOutTs !== l.ts) {
+                if(adjOutTs > l.ts) {
                     const d = new Date(adjOutTs);
                     const adjStr = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
-                    timeDisplay += `<br><span class="tag adj">급여종료: ${adjStr}</span>`;
+                    timeDisplay += `<br><span class="tag good" style="font-size:10px;">연장(인정:${adjStr})</span>`;
                 }
             }
         }
@@ -1622,7 +1647,7 @@
     saveJSON('ROUTINE_HISTORY', history).then(() => {
         renderMateCalendar();
         renderMateList();
-        recordAction("할일 체크", rid); // 로그 추가됨
+        recordAction("할일 체크", rid);
     });
   };
 
@@ -1674,7 +1699,7 @@
     renderRoutineList(); 
     renderMateCalendar(); 
     renderMateList();
-    recordAction("루틴 추가", txt); // 로그 추가됨
+    recordAction("루틴 추가", txt);
   });
 
   function renderRoutineList() {
@@ -1694,7 +1719,7 @@
     renderRoutineList();
     renderMateCalendar();
     renderMateList();
-    recordAction("루틴 삭제", rid); // 로그 추가됨
+    recordAction("루틴 삭제", rid);
   };
 
   document.getElementById('matePrevMonth').onclick = () => {
@@ -1719,7 +1744,7 @@
         saveJSON('ROUTINES', list);
         renderMateList();
         renderMateCalendar();
-        recordAction("1회성 할일", txt); // 로그 추가됨
+        recordAction("1회성 할일", txt);
     }
   };
 
