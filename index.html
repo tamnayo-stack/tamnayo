@@ -11,6 +11,10 @@
   <title>탐나는피자 화성남양점</title>
   
   <style>
+    /* ================================================================
+       [사장님 원본 디자인 100% 유지] 
+       ================================================================
+    */
     :root{
       --bg: #f4f6f9; --panel: #ffffff; --panel2: #f8f9fa;
       --text: #2c3e50; --muted: #8395a7; --line: #dcdde1;
@@ -19,11 +23,16 @@
     }
     *{ box-sizing:border-box; }
     body{ 
-      margin:0; font-family: -apple-system, BlinkMacSystemFont, "San Francisco", "Helvetica Neue", sans-serif; 
-      background: var(--bg); color:var(--text); min-height:100dvh;
-      -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+      margin:0; 
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; 
+      background: var(--bg); 
+      color:var(--text); 
+      min-height:100dvh;
+      -webkit-user-select: none; user-select: none;
+      -webkit-touch-callout: none; touch-action: manipulation;
       padding-bottom: 20px;
     }
+    /* 입력창은 선택 가능하게 */
     input, textarea { -webkit-user-select: text; user-select: text; }
 
     header{ padding: 14px 18px 10px; position: sticky; top:0; background: rgba(255,255,255,.90); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); z-index:100; }
@@ -216,8 +225,12 @@
 <div id="syncStatus">서버 연결 중...</div>
 <header>
   <div class="topbar">
-    <div class="brand"><img id="logoImg" class="logo" alt="가게 로고" src="tamnayo.png" /></div>
-    <div class="clockBlock"><div class="time" id="nowTime">00:00</div><div class="date" id="nowDate">----.--.--</div></div>
+    <div class="brand">
+      <div class="logoWrap"><img id="logoImg" class="logo" alt="가게 로고" src="tamnayo.png" /></div>
+    </div>
+    <div class="right">
+      <div class="clockBlock"><div class="time" id="nowTime">--:--:--</div><div class="date" id="nowDate">----</div></div>
+    </div>
   </div>
 </header>
 
@@ -227,7 +240,7 @@
       <div class="card">
         <h2>출근 / 퇴근 찍기</h2>
         <div class="split">
-          <div><label>알바 코드 (자동 입력)</label><input id="attCode" inputmode="numeric" placeholder="터치" readonly /></div>
+          <div><label>알바 코드 (자동 입력)</label><input id="attCode" inputmode="numeric" autocomplete="off" placeholder="버튼을 누르세요" maxlength="4" readonly /></div>
           <div><label>이름 (자동 표시)</label><input id="attName" disabled placeholder="-" /></div>
         </div>
         <div class="big-actions"><button class="btn good" id="btnIn">출근</button><button class="btn bad" id="btnOut">퇴근</button></div>
@@ -240,10 +253,10 @@
         <div class="hr"></div>
         <div class="row" style="gap:12px;">
           <div style="flex:1 1 100%;">
-            <div class="muted" style="font-size:13px; font-weight:900;">빠른 선택 (알바생 버튼)</div>
+            <div class="muted" style="font-size:13px; font-weight:900;">빠른 선택</div>
             <div id="quickButtons" style="margin-top:8px;"></div>
             <div class="note">
-              • 알바생 버튼을 누르면 코드가 자동 입력됩니다.<br/>
+              • 본인 이름 버튼을 누르면 코드가 자동 입력됩니다.<br/>
               • 출퇴근 누락 시 <b>사장님께 말씀해주세요.</b>
             </div>
           </div>
@@ -630,7 +643,7 @@
     </div>
     <div class="split" style="margin-top:10px;">
       <div><label>유형</label><select id="logEditType"><option value="IN">출근</option><option value="OUT">퇴근</option></select></div>
-      <div><label>시간</label><input id="logEditTs" type="datetime-local" /></div>
+      <div><label>시간 (초 단위 가능)</label><input id="logEditTs" type="datetime-local" step="1" /></div>
     </div>
     <label style="margin-top:10px;">비고</label>
     <textarea id="logEditNote" placeholder="예) 조퇴 / 병원 / 특이사항"></textarea>
@@ -1445,7 +1458,13 @@
     renderCalendar();
   }
 
-  window.editLog=async(id)=>{ if(!await ensureAdmin("수정"))return; const l=getLogs().find(x=>x.id===id); if(!l)return; document.getElementById("logEditCode").value=l.code; document.getElementById("logEditName").value=l.name||""; document.getElementById("logEditType").value=l.type; const d=new Date(l.ts); document.getElementById("logEditTs").value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}T${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; document.getElementById("logEditNote").value=l.note||""; document.getElementById("logEditSave").onclick=()=>{ const ts=new Date(document.getElementById("logEditTs").value).getTime(); if(!ts)return toast("시간 확인"); const logs=getLogs(), idx=logs.findIndex(x=>x.id===id); if(idx>=0){ logs[idx]={...logs[idx], type:document.getElementById("logEditType").value, ts, note:document.getElementById("logEditNote").value}; setLogs(logs); } document.getElementById("logEditOverlay").classList.remove("show"); toast("수정됨"); renderLogAll(); renderAttendancePanel(); }; document.getElementById("logEditDelete").onclick=()=>{ if(confirm("삭제?")){ setLogs(getLogs().filter(x=>x.id!==id)); document.getElementById("logEditOverlay").classList.remove("show"); toast("삭제됨"); renderLogAll(); renderAttendancePanel(); } }; document.getElementById("logEditOverlay").classList.add("show"); };
+  window.editLog=async(id)=>{ if(!await ensureAdmin("수정"))return; const l=getLogs().find(x=>x.id===id); if(!l)return; document.getElementById("logEditCode").value=l.code; document.getElementById("logEditName").value=l.name||""; document.getElementById("logEditType").value=l.type; 
+  // [수정] 수정 모달 열 때 초 단위까지 표시
+  const d = new Date(l.ts);
+  const timeStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+  document.getElementById("logEditTs").value = timeStr;
+  
+  document.getElementById("logEditNote").value=l.note||""; document.getElementById("logEditSave").onclick=()=>{ const ts=new Date(document.getElementById("logEditTs").value).getTime(); if(!ts)return toast("시간 확인"); const logs=getLogs(), idx=logs.findIndex(x=>x.id===id); if(idx>=0){ logs[idx]={...logs[idx], type:document.getElementById("logEditType").value, ts, note:document.getElementById("logEditNote").value}; setLogs(logs); } document.getElementById("logEditOverlay").classList.remove("show"); toast("수정됨"); renderLogAll(); renderAttendancePanel(); }; document.getElementById("logEditDelete").onclick=()=>{ if(confirm("삭제?")){ setLogs(getLogs().filter(x=>x.id!==id)); document.getElementById("logEditOverlay").classList.remove("show"); toast("삭제됨"); renderLogAll(); renderAttendancePanel(); } }; document.getElementById("logEditOverlay").classList.add("show"); };
   document.getElementById("logEditCancel").addEventListener("click",()=>document.getElementById("logEditOverlay").classList.remove("show"));
 
   document.getElementById("btnAddShift").addEventListener("click",async()=>{ if(!await ensureAdmin("추가"))return; const emps=getEmployees(); if(!emps.length)return toast("알바생 없음"); document.getElementById("logAddEmp").innerHTML=emps.map(e=>`<option value="${e.code}">${e.code} ${e.name}</option>`).join(""); const t=new Date(); document.getElementById("logAddDate").value=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`; 
