@@ -12,7 +12,7 @@
   
   <style>
     /* ================================================================
-       [사장님 원본 디자인 100% 유지] 
+       [디자인 100% 원본 유지] 
        ================================================================
     */
     :root{
@@ -32,7 +32,6 @@
       -webkit-touch-callout: none; touch-action: manipulation;
       padding-bottom: 20px;
     }
-    /* 입력창은 선택 가능하게 */
     input, textarea { -webkit-user-select: text; user-select: text; }
 
     header{ padding: 14px 18px 10px; position: sticky; top:0; background: rgba(255,255,255,.90); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); z-index:100; }
@@ -338,7 +337,7 @@
       </div>
       <div class="calGrid" id="calendarView"></div>
       
-      <div class="note" style="margin:14px 0;">• 일요일에 해당 주의 주휴수당(15시간↑)이 표시됩니다.</div>
+      <div class="note" style="margin:14px 0;">• 일요일에 해당 주의 주휴수당(15시간↑)이 표시됩니다.<br/>• 평일 공휴일은 1.5배 시급이 자동 적용됩니다.</div>
       
       <div style="overflow:auto; max-height: 540px;">
         <table>
@@ -668,7 +667,7 @@
     <div class="muted" id="pinDesc">관리자 기능을 사용하려면 PIN을 입력하세요.</div>
     <div class="hr"></div>
     <div id="pinUnlockBlock">
-      <label>PIN 입력</label><input id="pinInput" inputmode="numeric" autocomplete="off" placeholder="PIN" maxlength="8" />
+      <label>PIN 입력</label><input id="pinInput" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN" maxlength="8" />
       <div class="note">해제 후 <b>10분</b> 동안 관리자 기능이 열립니다.</div>
     </div>
     <div class="modalActions">
@@ -703,6 +702,14 @@
   const db = getDatabase(app);
   let SERVER_CACHE = {}; 
   let logAddDates = []; 
+
+  // [신규] 2024-2026 공휴일 데이터
+  const HOLIDAYS = [
+    "2024-01-01","2024-02-09","2024-02-10","2024-02-11","2024-02-12","2024-03-01","2024-04-10","2024-05-05","2024-05-06","2024-05-15","2024-06-06","2024-08-15","2024-09-16","2024-09-17","2024-09-18","2024-10-03","2024-10-09","2024-12-25",
+    "2025-01-01","2025-01-28","2025-01-29","2025-01-30","2025-03-01","2025-05-05","2025-05-06","2025-06-06","2025-08-15","2025-10-03","2025-10-05","2025-10-06","2025-10-07","2025-10-08","2025-10-09","2025-12-25",
+    "2026-01-01","2026-02-17","2026-02-18","2026-02-19","2026-03-01","2026-05-05","2026-05-24","2026-05-25","2026-06-06","2026-08-15","2026-09-24","2026-09-25","2026-09-26","2026-10-03","2026-10-09","2026-12-25"
+  ];
+  function isHoliday(dateStr) { return HOLIDAYS.includes(dateStr); }
 
   // 자체 에디터 명령 실행 함수 (글로벌)
   window.execCmd = function(command, value = null) {
@@ -764,9 +771,11 @@
         if(!status) {
           status = document.createElement('div');
           status.id = 'syncStatus';
-          status.textContent = "● 서버 동기화됨";
           document.body.appendChild(status);
         }
+        // [수정] 서버 연결됨 표시 확실하게
+        status.textContent = "● 서버 동기화됨";
+        status.style.background = "rgba(39, 174, 96, 0.8)";
       } catch(e) {}
     }
   });
@@ -885,7 +894,7 @@
   });
 
   async function ensureAdmin(r="관리자 기능"){
-    return true;
+    if(!isAdminUnlocked()){ const res=await showPinModal(null,{title:r}); if(!res.ok)return false; } return true;
   }
 
   function showSection(id){
@@ -949,7 +958,7 @@
     logoTap++; clearTimeout(logoT); logoT=setTimeout(()=>{logoTap=0},1300);
     if(logoTap>=5){ 
         logoTap=0; 
-        openAdminMenu(); 
+        if(await ensureAdmin("관리자 접속")) openAdminMenu(); 
     }
   });
 
@@ -1242,7 +1251,20 @@
       const evts=codeMap[c];
       const dateObj = new Date(dk);
       const isWeekend = (dateObj.getDay() === 0 || dateObj.getDay() === 6);
-      const wage = (e && isWeekend && e.wageWeekend) ? e.wageWeekend : (e ? e.wage : 0);
+      const isHol = isHoliday(dk);
+
+      // [수정] 시급 계산 (공휴일 1.5배 로직)
+      let wage;
+      if (isHol && !isWeekend) {
+         // 평일 공휴일: 1.5배
+         wage = (e ? e.wage : 0) * 1.5;
+      } else if (isWeekend && e && e.wageWeekend) {
+         // 주말: 주말 시급
+         wage = e.wageWeekend;
+      } else {
+         // 평일: 기본 시급
+         wage = e ? e.wage : 0;
+      }
 
       evts.forEach(ev=>{
         if(ev.type==="IN") inTs=ev.ts;
@@ -1289,8 +1311,15 @@
                  
                  // [수정] 해당 요일의 시급 적용하여 총 급여 누적 (가중평균용)
                  const workDate = new Date(prevIn.ts);
+                 const dk = dateKey(prevIn.ts);
                  const isWeekend = (workDate.getDay() === 0 || workDate.getDay() === 6);
-                 const currentWage = (isWeekend && emp.wageWeekend) ? emp.wageWeekend : emp.wage;
+                 const isHol = isHoliday(dk);
+
+                 let currentWage;
+                 if (isHol && !isWeekend) currentWage = emp.wage * 1.5;
+                 else if (isWeekend && emp.wageWeekend) currentWage = emp.wageWeekend;
+                 else currentWage = emp.wage;
+
                  weeklyPay += (durationMs / 3600000) * currentWage;
              }
              prevIn._used = true; 
@@ -1324,8 +1353,12 @@
       const div=document.createElement("div"); div.className="calDay";
       const dateObj = new Date(calYear, calMonth-1, d);
       const k=getDayKey(calYear,calMonth,d); if(k===todayKey())div.classList.add("today");
+      
+      // 공휴일 표시
+      const isHol = isHoliday(k);
+      
       const st=calcDayStats(k, tFilter);
-      let inner = `<div class="calNum">${d}</div>`;
+      let inner = `<div class="calNum" style="${isHol?'color:var(--bad);':''}">${d}${isHol?'(휴)':''}</div>`;
       if(dateObj.getDay() === 0) { 
          const juhyu = getWeeklyJuhyuSum(dateObj, tFilter);
          if(juhyu > 0) inner += `<span class="tag juhyu">주휴💰 +${juhyu.toLocaleString()}</span>`;
@@ -1362,8 +1395,15 @@
              if(adjOutTs > adjInTs) {
                const ms = adjOutTs - adjInTs;
                const dt = new Date(l.ts);
+               const dk = dateKey(l.ts);
                const isWeekend = dt.getDay() === 0 || dt.getDay() === 6;
-               const wage = (isWeekend && emp.wageWeekend) ? emp.wageWeekend : emp.wage;
+               const isHol = isHoliday(dk);
+
+               let wage;
+               if (isHol && !isWeekend) wage = emp.wage * 1.5;
+               else if (isWeekend && emp.wageWeekend) wage = emp.wageWeekend;
+               else wage = emp.wage;
+
                totalBase += Math.floor((ms / 3600000) * wage);
              }
              prevIn._usedBase = true; 
