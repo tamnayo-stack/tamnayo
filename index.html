@@ -11,6 +11,10 @@
   <title>탐나는피자 화성남양점</title>
   
   <style>
+    /* ================================================================
+       [사장님 원본 디자인 100% 유지] 
+       ================================================================
+    */
     :root{
       --bg: #f4f6f9; --panel: #ffffff; --panel2: #f8f9fa;
       --text: #2c3e50; --muted: #8395a7; --line: #dcdde1;
@@ -19,11 +23,16 @@
     }
     *{ box-sizing:border-box; }
     body{ 
-      margin:0; font-family: -apple-system, BlinkMacSystemFont, "San Francisco", "Helvetica Neue", sans-serif; 
-      background: var(--bg); color:var(--text); min-height:100dvh;
-      -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+      margin:0; 
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; 
+      background: var(--bg); 
+      color:var(--text); 
+      min-height:100dvh;
+      -webkit-user-select: none; user-select: none;
+      -webkit-touch-callout: none; touch-action: manipulation;
       padding-bottom: 20px;
     }
+    /* 입력창은 선택 가능하게 */
     input, textarea { -webkit-user-select: text; user-select: text; }
 
     header{ padding: 14px 18px 10px; position: sticky; top:0; background: rgba(255,255,255,.90); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); z-index:100; }
@@ -92,7 +101,6 @@
 
     .modalOverlay{ position: fixed; inset:0; background: rgba(0,0,0,.4); display:none; align-items:center; justify-content:center; z-index: 1000; padding: 18px; backdrop-filter: blur(2px); }
     .modalOverlay.show{ display:flex; }
-    /* 아이폰 잘림 방지용 padding-bottom */
     .modal{ width: min(560px, 100%); border-radius: 18px; border: 1px solid var(--line); background: #fff; box-shadow: var(--shadow); padding: 14px; max-height: 85dvh; overflow-y:auto; padding-bottom: 50px; }
     .modal h3{ margin:0 0 6px; font-size: 16px; letter-spacing:.2px; }
     .modalActions{ display:flex; gap:10px; margin-top: 12px; justify-content:flex-end; flex-wrap:wrap; }
@@ -137,7 +145,7 @@
     .todo-text { flex:1; font-size:15px; font-weight:700; color:var(--text); }
     .todo-text.done { text-decoration: line-through; color:var(--muted); }
 
-    /* Z-Index 정리 */
+    /* Z-Index 및 팝업 설정 */
     #adminMenuOverlay { z-index: 1000 !important; }
     #mateOverlay, #actionLogOverlay, #empEditOverlay, #logEditOverlay, #logAddOverlay, #todoOverlay { z-index: 2000 !important; }
     #routineSetOverlay { z-index: 3000 !important; }
@@ -1197,7 +1205,7 @@
     return inTs; // 일찍 온 건 그대로 (어차피 근무시간은 스케줄 기준)
   }
 
-  // [수정] 퇴근 시간 계산 (1분이라도 더 일하면 5분 단위 올림)
+  // [수정] 퇴근 시간 계산 (가중 평균 시급 반영을 위해 시간만 계산)
   function getAdjustedWorkTime(emp, inTs, outTs) {
     if (!emp.workEnd) return outTs;
     const d = new Date(inTs);
@@ -1206,17 +1214,20 @@
     if (scheduledEnd < inTs) { scheduledEnd += 24 * 60 * 60 * 1000; }
     
     // 조기 퇴근인 경우 (그대로)
-    if (outTs <= scheduledEnd) { // [수정] 같으면 조기퇴근 아님. 그대로.
+    if (outTs <= scheduledEnd) {
       return outTs;
     } else {
       // 연장 근무인 경우 (5분 단위 올림)
-      // 예: 23:31 -> 23:35, 23:35 -> 23:40 (요청사항 반영)
+      // 0초 초과 시 다음 5분 단위로 이동
       const diff = outTs - scheduledEnd;
       const bonusUnit = 5 * 60 * 1000; // 5분
       
-      // 0초 초과 ~ 5분 이하 -> 1블록(5분) 추가
-      // 5분 초과 ~ 10분 이하 -> 2블록(10분) 추가
-      const blocks = Math.floor((diff - 1) / bonusUnit) + 1;
+      // diff가 0이면 0블록
+      // diff가 1ms ~ 5분이면 1블록
+      // diff가 5분 1ms ~ 10분이면 2블록
+      if(diff <= 0) return scheduledEnd;
+
+      const blocks = Math.ceil(diff / bonusUnit);
       return scheduledEnd + (blocks * bonusUnit);
     }
   }
@@ -1258,9 +1269,12 @@
      const allLogs = getLogs();
      const employees = getEmployees().filter(e => !filterCode || e.code === filterCode);
      let totalJuhyu = 0;
+     
      employees.forEach(emp => {
        const logs = allLogs.filter(l => l.code === emp.code && l.ts >= startTs && l.ts <= endTs).sort((a,b)=>a.ts-b.ts);
-       let ms = 0;
+       let weeklyMs = 0;
+       let weeklyPay = 0;
+
        logs.forEach(l => {
          if(l.type==='IN') l._tIn = l.ts;
          else if(l.type==='OUT') {
@@ -1268,16 +1282,30 @@
            if(prevIn) { 
              const adjInTs = getAdjustedStartTime(emp, prevIn.ts);
              const adjOutTs = getAdjustedWorkTime(emp, prevIn.ts, l.ts);
-             if(adjOutTs > adjInTs) ms += (adjOutTs - adjInTs); 
+             
+             if(adjOutTs > adjInTs) {
+                 const durationMs = adjOutTs - adjInTs;
+                 weeklyMs += durationMs;
+                 
+                 // [수정] 해당 요일의 시급 적용하여 총 급여 누적 (가중평균용)
+                 const workDate = new Date(prevIn.ts);
+                 const isWeekend = (workDate.getDay() === 0 || workDate.getDay() === 6);
+                 const currentWage = (isWeekend && emp.wageWeekend) ? emp.wageWeekend : emp.wage;
+                 weeklyPay += (durationMs / 3600000) * currentWage;
+             }
              prevIn._used = true; 
            }
          }
        });
        logs.forEach(l => delete l._used);
-       const hours = ms / 3600000;
-       if(hours >= 15) {
-          const juhyuHours = (Math.min(hours, 40) / 40) * 8;
-          totalJuhyu += Math.floor(juhyuHours * emp.wage);
+       
+       const weeklyHours = weeklyMs / 3600000;
+       
+       if(weeklyHours >= 15) {
+          // [수정] 가중 평균 시급 계산
+          const avgWage = weeklyPay / weeklyHours;
+          const juhyuHours = (Math.min(weeklyHours, 40) / 40) * 8;
+          totalJuhyu += Math.floor(juhyuHours * avgWage);
        }
      });
      return totalJuhyu;
@@ -1320,9 +1348,10 @@
     const employees = getEmployees().filter(e => !tEmp || e.code === tEmp);
     let totalBase = 0;
     let totalJuhyu = 0;
+    
     employees.forEach(emp => {
+      // 1. 기본급 계산
       const empLogs = currentMonthLogs.filter(l => l.code === emp.code).sort((a,b)=>a.ts-b.ts);
-      let empBaseMs = 0;
       empLogs.forEach(l => {
         if(l.type === 'IN') l._tempIn = l.ts;
         else if(l.type === 'OUT') {
@@ -1342,37 +1371,22 @@
         }
       });
       empLogs.forEach(l => delete l._usedBase);
-      const allEmpLogs = allLogs.filter(l => l.code === emp.code).sort((a,b)=>a.ts-b.ts);
-      const weeks = {};
-      allEmpLogs.forEach(l => {
-        const d = new Date(l.ts);
-        const day = d.getDay(); 
-        const dist = day === 0 ? 0 : 7 - day;
-        const sundayDate = new Date(d.getFullYear(), d.getMonth(), d.getDate() + dist);
-        const sundayKey = `${sundayDate.getFullYear()}-${String(sundayDate.getMonth()+1).padStart(2,"0")}-${String(sundayDate.getDate()).padStart(2,"0")}`;
-        if (!weeks[sundayKey]) weeks[sundayKey] = { ms: 0 };
-        if(l.type === 'IN') l._tempIn = l.ts;
-        else if(l.type === 'OUT') {
-           const prevIn = allEmpLogs.find(xx => xx.type === 'IN' && xx.ts < l.ts && !xx._usedJuhyu);
-           if(prevIn) { 
-             const adjInTs = getAdjustedStartTime(emp, prevIn.ts);
-             const adjOutTs = getAdjustedWorkTime(emp, prevIn.ts, l.ts);
-             if(adjOutTs > adjInTs) weeks[sundayKey].ms += (adjOutTs - adjInTs); 
-             prevIn._usedJuhyu = true; 
-           }
-        }
-      });
-      allEmpLogs.forEach(l => delete l._usedJuhyu);
-      Object.keys(weeks).forEach(sundayKey => {
-        if (sundayKey.startsWith(targetPrefix)) {
-          const hours = weeks[sundayKey].ms / 3600000;
-          if(hours >= 15) {
-            const juhyu = Math.floor( ((Math.min(hours, 40)/40)*8) * emp.wage );
-            totalJuhyu += juhyu;
-          }
-        }
+
+      // 2. 주휴수당 계산 (가중평균 적용)
+      // 해당 월에 포함된 모든 "일요일"을 찾아서 그 주의 주휴를 계산
+      // 주의: getWeeklyJuhyuSum은 이미 가중평균 로직이 적용됨
+      const sundaysInMonth = [];
+      const d = new Date(calYear, calMonth-1, 1);
+      while(d.getMonth() === calMonth-1) {
+          if(d.getDay() === 0) sundaysInMonth.push(new Date(d));
+          d.setDate(d.getDate() + 1);
+      }
+      
+      sundaysInMonth.forEach(sunday => {
+          totalJuhyu += getWeeklyJuhyuSum(sunday, emp.code);
       });
     });
+
     document.getElementById("totalWageAmount").textContent = (totalBase + totalJuhyu).toLocaleString() + "원";
     document.getElementById("totalWageDetail").textContent = `(기본 ${totalBase.toLocaleString()} + 주휴 ${totalJuhyu.toLocaleString()})`;
   }
@@ -1413,14 +1427,12 @@
         
         // 퇴근 시간 보정 표시
         if(l.type === "OUT" && emp) {
-            const prevIn = list.find(x => x.type === "IN" && x.ts < l.ts && x.code === l.code);
-            if(prevIn) {
-                const adjOutTs = getAdjustedWorkTime(emp, prevIn.ts, l.ts);
-                if(adjOutTs > l.ts) {
-                    const d = new Date(adjOutTs);
-                    const adjStr = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
-                    timeDisplay += `<br><span class="tag good" style="font-size:10px;">연장(인정:${adjStr})</span>`;
-                }
+            const adjOutTs = getAdjustedWorkTime(emp, 0, l.ts); // 0 is dummy start
+            // 원본 시간과 보정 시간이 다르면 표시
+            if(adjOutTs !== l.ts) {
+                const d = new Date(adjOutTs);
+                const adjStr = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+                timeDisplay += `<br><span class="tag good" style="font-size:10px;">연장(인정:${adjStr})</span>`;
             }
         }
         return `<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name||"")}</td><td>${timeDisplay}</td><td>${makeNoteTag(l.note)}</td><td><button class="btn small" onclick="window.editLog(${l.id})">수정</button></td></tr>`;
