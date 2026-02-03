@@ -379,7 +379,7 @@
       <button class="btn" id="btnShowActionLogs">시스템 로그 보기</button>
       <button class="btn warn" id="btnExportCsv2">CSV 내보내기</button>
       <button class="btn bad" id="btnResetAll">전체 초기화</button>
-      <button class="btn" id="btnLockAdmin">관리자 잠금</button>
+      <button class="btn" id="btnLockAdmin">관리자 메뉴 닫기</button>
     </div>
     <div class="hr"></div><div class="hr"></div>
     <div class="muted" style="font-size:13px; font-weight:900;">마감 체크리스트 편집</div>
@@ -661,22 +661,6 @@
   </div>
 </div>
 
-<div class="modalOverlay" id="pinOverlay" role="dialog" aria-modal="true" style="z-index: 9999;">
-  <div class="modal">
-    <h3 id="pinTitle">관리자 PIN</h3>
-    <div class="muted" id="pinDesc">관리자 기능을 사용하려면 PIN을 입력하세요.</div>
-    <div class="hr"></div>
-    <div id="pinUnlockBlock">
-      <label>PIN 입력</label><input id="pinInput" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN" maxlength="8" />
-      <div class="note">해제 후 <b>10분</b> 동안 관리자 기능이 열립니다.</div>
-    </div>
-    <div class="modalActions">
-      <button class="btn" id="pinCancel">취소</button>
-      <button class="btn primary" id="pinOk">확인</button>
-    </div>
-  </div>
-</div>
-
 <input id="restoreInput" type="file" accept="application/json" style="display:none;" />
 
 <script type="module">
@@ -703,7 +687,7 @@
   let SERVER_CACHE = {}; 
   let logAddDates = []; 
 
-  // [신규] 2024-2026 공휴일 데이터
+  // [답변] 공휴일 데이터: 여기에 직접 입력해뒀습니다 (외부 API 아님)
   const HOLIDAYS = [
     "2024-01-01","2024-02-09","2024-02-10","2024-02-11","2024-02-12","2024-03-01","2024-04-10","2024-05-05","2024-05-06","2024-05-15","2024-06-06","2024-08-15","2024-09-16","2024-09-17","2024-09-18","2024-10-03","2024-10-09","2024-12-25",
     "2025-01-01","2025-01-28","2025-01-29","2025-01-30","2025-03-01","2025-05-05","2025-05-06","2025-06-06","2025-08-15","2025-10-03","2025-10-05","2025-10-06","2025-10-07","2025-10-08","2025-10-09","2025-12-25",
@@ -773,7 +757,6 @@
           status.id = 'syncStatus';
           document.body.appendChild(status);
         }
-        // [수정] 서버 연결됨 표시 확실하게
         status.textContent = "● 서버 동기화됨";
         status.style.background = "rgba(39, 174, 96, 0.8)";
       } catch(e) {}
@@ -871,30 +854,14 @@
   function addOutNote({code,name,text}){ const list=getOutNotes(); const id=list.length?(list[list.length-1].id+1):1; list.push({id,date:dateKey(nowTS()),ts:nowTS(),code,name,text:String(text||"").trim()}); setOutNotes(list); }
 
   function hasPin(){ return true; } 
-  function isAdminUnlocked(){ const u=sessionStorage.getItem(SS_KEYS.UNLOCK_UNTIL); return u && Date.now()<Number(u); }
-  function setAdminUnlocked(m=10){ sessionStorage.setItem(SS_KEYS.UNLOCK_UNTIL, String(Date.now()+m*60*1000)); updateAdminStateText(); }
-  function lockAdmin(){ sessionStorage.removeItem(SS_KEYS.UNLOCK_UNTIL); updateAdminStateText(); }
-  function verifyPin(p){ return p === "0721"; } 
-
-  const pinOverlay=document.getElementById("pinOverlay");
-  let pinResolve=null;
-  function showPinModal(mode,opts={}){
-    document.getElementById("pinTitle").textContent=opts.title||"관리자 PIN";
-    document.getElementById("pinDesc").textContent=opts.desc||"";
-    document.getElementById("pinInput").value="";
-    pinOverlay.classList.add("show"); setTimeout(()=>document.getElementById("pinInput")?.focus(),50);
-    return new Promise(r=>{ pinResolve=r; });
-  }
-  function hidePinModal(res){ pinOverlay.classList.remove("show"); if(pinResolve){ pinResolve(res); pinResolve=null; } }
-  document.getElementById("pinCancel").addEventListener("click",()=>hidePinModal({ok:false}));
-  
-  document.getElementById("pinOk").addEventListener("click",()=>{
-    const p=(document.getElementById("pinInput").value||"").replace(/\D/g,"");
-    if(verifyPin(p)){ setAdminUnlocked(); toast("해제됨"); hidePinModal({ok:true}); } else toast("PIN 오류 (0721)");
-  });
+  // [수정] 관리자 잠금해제 여부 체크 (PIN 삭제로 인해 항상 true 반환 가능하게 변경 또는 로고 클릭시 바로 진입)
+  function isAdminUnlocked(){ return true; } 
+  function setAdminUnlocked(m=10){ }
+  function lockAdmin(){ document.getElementById("adminMenuOverlay").classList.remove("show"); }
 
   async function ensureAdmin(r="관리자 기능"){
-    if(!isAdminUnlocked()){ const res=await showPinModal(null,{title:r}); if(!res.ok)return false; } return true;
+    // PIN 기능 삭제됨 - 무조건 통과
+    return true;
   }
 
   function showSection(id){
@@ -914,7 +881,7 @@
   const adminMenuOverlay=document.getElementById("adminMenuOverlay");
   function updateAdminStateText(){
     if(document.getElementById("adminStateText")) {
-       document.getElementById("adminStateText").textContent="관리자 모드 (접속 중)";
+       document.getElementById("adminStateText").textContent="관리자 모드 (PIN 없음)";
     }
   }
   setInterval(updateAdminStateText,500); updateAdminStateText();
@@ -927,7 +894,7 @@
     adminMenuOverlay.classList.add("show"); updateAdminStateText();
   }
   document.getElementById("adminMenuClose").addEventListener("click",()=>adminMenuOverlay.classList.remove("show"));
-  document.getElementById("btnLockAdmin").addEventListener("click",()=>{ lockAdmin(); toast("잠금 완료"); adminMenuOverlay.classList.remove("show"); showSection("sec-att"); });
+  document.getElementById("btnLockAdmin").addEventListener("click",()=>{ lockAdmin(); });
   document.getElementById("goEmp").addEventListener("click",()=>{ adminMenuOverlay.classList.remove("show"); showSection("sec-emp"); });
   document.getElementById("goLog").addEventListener("click",()=>{ adminMenuOverlay.classList.remove("show"); showSection("sec-log"); });
   document.getElementById("btnBackFromEmp").addEventListener("click",()=>showSection("sec-att"));
@@ -958,7 +925,8 @@
     logoTap++; clearTimeout(logoT); logoT=setTimeout(()=>{logoTap=0},1300);
     if(logoTap>=5){ 
         logoTap=0; 
-        if(await ensureAdmin("관리자 접속")) openAdminMenu(); 
+        // [수정] 5번 클릭 시 PIN 확인 없이 바로 메뉴 오픈
+        openAdminMenu(); 
     }
   });
 
@@ -1055,16 +1023,19 @@
     if(!canClockIn(c))return toast("이미 출근 상태");
     recordAction("출근 시도", `${e.name}(${c})`);
     
-    // [수정] 지각 체크 로직 (1초라도 늦으면 10분 뒤로 밀림)
     const now = Date.now();
+    
+    // [수정] 출근 시간 로직 개선: 일찍 오면 정시 인정 / 늦으면 10분 차감
     const adjStart = getAdjustedStartTime(e, now);
-    if(adjStart > now + 1000) { // 1초 이상 차이나면 지각으로 간주
-        toast("지각! 10분 단위로 차감됩니다.", "danger");
-    }
-
+    
     await showNoticeCountdownIfAny();
     addLog({code:c,name:e.name,type:"IN"}); 
-    if(adjStart <= now + 1000) toast(`${e.name} 출근`); 
+    
+    if(adjStart > now + 1000) { // 1초 이상 차이나면 지각으로 간주
+        toast("지각으로 인한 10분 페널티가 적용됩니다.", "danger");
+    } else {
+        toast(`${e.name} 출근 완료`);
+    }
     
     recordAction("출근 완료", `${e.name}(${c})`);
     renderAttendancePanel();
@@ -1195,14 +1166,19 @@
   let calYear=new Date().getFullYear(), calMonth=new Date().getMonth()+1;
   function getDayKey(y,m,d){ return `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`; }
   
-  // [수정] 출근 시간 계산 (1초라도 늦으면 10분 단위 올림)
+  // [수정] 출근 시간 계산 (일찍오면 정시, 늦으면 10분 차감)
   function getAdjustedStartTime(emp, inTs) {
     if (!emp.workStart) return inTs;
     const d = new Date(inTs);
     const [h, m] = emp.workStart.split(':').map(Number);
     const scheduledStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
     
-    // 지각인 경우 (1ms라도 늦으면)
+    // 1. 일찍 온 경우: 스케줄 시간으로 인정 (급여 포함 X)
+    if (inTs < scheduledStart) {
+        return scheduledStart;
+    }
+
+    // 2. 지각인 경우 (1ms라도 늦으면 10분 단위 차감)
     if (inTs > scheduledStart) {
         // 10분 단위로 올림 (예: 18:00:01 -> 18:10:00)
         const diff = inTs - scheduledStart;
@@ -1211,7 +1187,7 @@
         return scheduledStart + (penaltyBlocks * penaltyUnit);
     }
     
-    return inTs; // 일찍 온 건 그대로 (어차피 근무시간은 스케줄 기준)
+    return inTs; 
   }
 
   // [수정] 퇴근 시간 계산 (가중 평균 시급 반영을 위해 시간만 계산)
@@ -1462,6 +1438,8 @@
                 const d = new Date(adjInTs);
                 const adjStr = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
                 timeDisplay += `<br><span class="tag out" style="font-size:10px;">지각(인정:${adjStr})</span>`;
+            } else if (adjInTs < l.ts) { // 일찍 온 경우
+                timeDisplay += `<br><span class="tag good" style="font-size:10px;">정시인정</span>`;
             }
         }
         
