@@ -381,7 +381,17 @@
       <button class="btn bad" id="btnResetAll">전체 초기화</button>
       <button class="btn" id="btnLockAdmin">관리자 메뉴 닫기</button>
     </div>
-    <div class="hr"></div><div class="hr"></div>
+    
+    <div class="hr"></div>
+    <div class="muted" style="font-size:13px; font-weight:900;">텔레그램 연동 설정</div>
+    <div class="row" style="margin-top:8px;">
+        <input id="adminTgChatId" placeholder="Chat ID (숫자)" style="flex:1;" />
+        <button class="btn small primary" id="btnSaveTgId">저장</button>
+        <button class="btn small good" id="btnAutoTgId">내 ID 자동찾기</button>
+    </div>
+    <div class="note" style="margin-top:4px;">* 자동찾기: 봇에게 먼저 아무 말이나 보내고 누르세요.</div>
+    
+    <div class="hr"></div>
     <div class="muted" style="font-size:13px; font-weight:900;">마감 체크리스트 편집</div>
     <div class="row" style="margin-top:10px; gap:10px; flex-wrap:wrap;">
       <div style="flex: 2 1 240px;"><label>항목 추가</label><input id="adminCloseNewItem" placeholder="예) 포스 마감 정산" maxlength="60" /></div>
@@ -393,6 +403,7 @@
     </div>
     <div id="adminCloseChecklistList" style="margin-top:10px; display:flex; flex-direction:column; gap:8px;"></div>
     
+    <div class="hr"></div>
     <div class="muted" style="margin-top:10px; font-size:13px; font-weight:900;">오늘의 공지 (자체 에디터)</div>
     <div class="row" style="margin-top:8px; align-items:center;">
       <label style="margin:0;">유지 시간(초):</label>
@@ -670,6 +681,66 @@
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   };
 
+  // -------------------------------------------------------------
+  // [NEW] 텔레그램 연동 코드 추가
+  // -------------------------------------------------------------
+  const TG_TOKEN = "7735983028:AAGgXPT18XIeBHC4C_sjKrSKSbNqQsT0ZN0";
+  const LS_TG_CHAT_ID = "ALBA_TG_CHAT_ID";
+
+  async function sendTelegramAlert(text) {
+      const chatId = localStorage.getItem(LS_TG_CHAT_ID);
+      if(!chatId) {
+          console.log("텔레그램 Chat ID가 설정되지 않아 알림을 보내지 못했습니다.");
+          return;
+      }
+      try {
+          // 웹 브라우저에서 직접 텔레그램 API 호출
+          const url = `https://api.telegram.org/bot${TG_TOKEN}/sendMessage`;
+          const response = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  chat_id: chatId,
+                  text: text
+              })
+          });
+          const res = await response.json();
+          if(!res.ok) console.error("텔레그램 전송 실패:", res);
+      } catch(e) {
+          console.error("텔레그램 네트워크 오류:", e);
+      }
+  }
+
+  // 관리자 메뉴에서 ID 저장
+  document.getElementById("btnSaveTgId").addEventListener("click", () => {
+      const v = document.getElementById("adminTgChatId").value.trim();
+      if(!v) return alert("ID를 입력하세요.");
+      localStorage.setItem(LS_TG_CHAT_ID, v);
+      alert("저장되었습니다. 이제 출퇴근 알림이 옵니다.");
+  });
+
+  // 내 ID 자동찾기 (GetUpdates 이용)
+  document.getElementById("btnAutoTgId").addEventListener("click", async () => {
+      try {
+          const url = `https://api.telegram.org/bot${TG_TOKEN}/getUpdates`;
+          const res = await fetch(url);
+          const data = await res.json();
+          if(data.ok && data.result.length > 0) {
+              // 가장 최근 메시지에서 ID 추출
+              const lastMsg = data.result[data.result.length - 1];
+              const myId = lastMsg.message.chat.id;
+              document.getElementById("adminTgChatId").value = myId;
+              localStorage.setItem(LS_TG_CHAT_ID, myId);
+              alert(`찾았습니다! ID: ${myId}\n자동 저장되었습니다.`);
+          } else {
+              alert("메시지를 찾을 수 없습니다. 봇에게 먼저 아무 말이나 보내고 다시 눌러주세요.");
+          }
+      } catch(e) {
+          alert("오류 발생: " + e.message);
+      }
+  });
+  // -------------------------------------------------------------
+
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
@@ -891,6 +962,8 @@
     document.getElementById("adminNoticeDuration").value = getTodayNoticeDuration();
     renderAdminCloseChecklist();
     renderTemplates(); // 템플릿 로드
+    // [텔레그램] 저장된 ID 불러오기
+    document.getElementById("adminTgChatId").value = localStorage.getItem(LS_TG_CHAT_ID) || "";
     adminMenuOverlay.classList.add("show"); updateAdminStateText();
   }
   document.getElementById("adminMenuClose").addEventListener("click",()=>adminMenuOverlay.classList.remove("show"));
@@ -1038,6 +1111,12 @@
     }
     
     recordAction("출근 완료", `${e.name}(${c})`);
+    
+    // [텔레그램] 출근 알림
+    const d = new Date();
+    const tStr = `${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+    sendTelegramAlert(`[출근] ${e.name}님이 ${tStr}에 출근했습니다.`);
+
     renderAttendancePanel();
   });
   
@@ -1068,6 +1147,14 @@
     addLog({code:c, name:e.name, type:"OUT", note:combinedNote}); 
     toast(`${e.name} 퇴근`); 
     recordAction("퇴근 완료", `${e.name}(${c})`);
+
+    // [텔레그램] 퇴근 알림
+    const d = new Date();
+    const tStr = `${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+    let msg = `[퇴근] ${e.name}님이 ${tStr}에 퇴근했습니다.`;
+    if(manualNote) msg += `\n📝 특이사항: ${manualNote}`;
+    sendTelegramAlert(msg);
+
     renderAttendancePanel();
   });
 
