@@ -790,6 +790,12 @@
   function pad4(n){ return String(n).length>=4?String(n):("0000"+n).slice(-4); }
   function nowTS(){ return Date.now(); }
   function dateKey(ts){ const d=new Date(ts); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+  
+  // [중요 - 복구됨] 누락되었던 getDayKey 함수 추가
+  function getDayKey(y, m, d) {
+      return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  }
+
   function todayKey(){ return dateKey(Date.now()); }
   function fmtTS(ts){ const d=new Date(ts); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`; }
   function toast(msg,type){ const el=document.getElementById("toast"); el.textContent=msg; el.className="toast show "+(type==="danger"?"danger":""); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove("show"),2200); }
@@ -810,7 +816,7 @@
   function setNoticeMap(map){ saveJSON(LS_KEYS.DAILY_NOTICE, map); }
   
   function getTodayNotice(){ return getNoticeMap()[todayKey()]?.text || ""; }
-  function getTodayNoticeDuration(){ return getNoticeMap()[todayKey()]?.duration || 5; }
+  function getTodayNoticeDuration(){ return getNoticeMap()[todayKey()]?.duration || 5; } // 기본값 5초
 
   function setTodayNotice(text, duration=5){ 
     const m=getNoticeMap(); 
@@ -1550,7 +1556,7 @@
     document.getElementById("actionLogOverlay").classList.remove("show");
   });
 
-  // [수정] renderAttendancePanel 함수 정의
+  // [수정] renderAttendancePanel 함수 정의 (전역 등록)
   function renderAttendancePanel(){ 
       const div = document.getElementById("recentTable");
       if(div) {
