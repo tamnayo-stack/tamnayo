@@ -100,6 +100,7 @@
 
     .modalOverlay{ position: fixed; inset:0; background: rgba(0,0,0,.4); display:none; align-items:center; justify-content:center; z-index: 1000; padding: 18px; backdrop-filter: blur(2px); }
     .modalOverlay.show{ display:flex; }
+    /* 아이폰 잘림 방지용 padding-bottom */
     .modal{ width: min(560px, 100%); border-radius: 18px; border: 1px solid var(--line); background: #fff; box-shadow: var(--shadow); padding: 14px; max-height: 85dvh; overflow-y:auto; padding-bottom: 50px; }
     .modal h3{ margin:0 0 6px; font-size: 16px; letter-spacing:.2px; }
     .modalActions{ display:flex; gap:10px; margin-top: 12px; justify-content:flex-end; flex-wrap:wrap; }
@@ -665,8 +666,7 @@
 <input id="restoreInput" type="file" accept="application/json" style="display:none;" />
 
 <script type="module">
-  // [중요] 화면 그리는 함수들을 최상단으로 올려서 'ReferenceError' 방지 (매우 중요)
-  
+  // [중요] getToday 함수를 가장 먼저 정의해서 에러 방지 (ReferenceError 해결)
   window.getToday = function() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -675,7 +675,6 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-  // [복구됨] Firebase 설정 코드 (삭제되었던 부분)
   const firebaseConfig = {
     apiKey: "AIzaSyAbdEqVxEOcA3qFEcYEH9yuvNRx_CTMxhE",
     authDomain: "tamna-hr.firebaseapp.com",
@@ -691,76 +690,17 @@
   let logAddDates = []; 
   let isHolidayMode = false;
 
-  // [중요] 핵심 렌더링 함수들을 먼저 정의합니다. (순서 중요)
-  
-  function renderRecent(){
-    document.getElementById("recentTable").innerHTML=getLogs().slice(-15).reverse().map(l=>`<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name)}</td><td>${fmtTS(l.ts)}</td></tr>`).join("")||`<tr><td colspan="4" class="muted">기록 없음</td></tr>`;
-  }
-
-  function renderQuickButtons(){
-    const div=document.getElementById("quickButtons"), emps=getEmployees();
-    if(!emps.length) div.innerHTML=`<span class="muted">관리자 메뉴에서 알바생을 등록하세요.</span>`;
-    else{
-      div.innerHTML=emps.map(e=>`<button class="btn" data-c="${e.code}">${escapeHtml(e.name)} <span class="muted">${e.code}</span></button>`).join("");
-      div.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{ 
-          attCode.value=b.dataset.c; 
-          onCodeChanged();
-          recordAction("알바생 선택", b.dataset.c); 
-      }));
-    }
-  }
-
-  // [수정] 지각/조기출근/연장근무 표시 로직 개선
-  function renderAttendancePanel(){ 
-      renderRecent(); 
-      renderQuickButtons(); 
-      onCodeChanged(); 
-  }
-
-  const TG_TOKEN = "7735983028:AAGgXPT18XIeBHC4C_sjKrSKSbNqQsT0ZN0";
-  const LS_TG_CHAT_ID = "ALBA_TG_CHAT_ID";
-
-  async function sendTelegramAlert(text) {
-      const chatId = localStorage.getItem(LS_TG_CHAT_ID);
-      if(!chatId) return;
-      try {
-          await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ chat_id: chatId, text: text })
-          });
-      } catch(e) {}
-  }
-
-  document.getElementById("btnSaveTgId").addEventListener("click", () => {
-      const v = document.getElementById("adminTgChatId").value.trim();
-      if(!v) return alert("ID 입력");
-      localStorage.setItem(LS_TG_CHAT_ID, v);
-      alert("저장됨");
-  });
-
-  document.getElementById("btnAutoTgId").addEventListener("click", async () => {
-      try {
-          const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/getUpdates`);
-          const data = await res.json();
-          if(data.ok && data.result.length > 0) {
-              const myId = data.result[data.result.length - 1].message.chat.id;
-              document.getElementById("adminTgChatId").value = myId;
-              localStorage.setItem(LS_TG_CHAT_ID, myId);
-              alert("ID 찾음: " + myId);
-          } else { alert("메시지 없음. 봇에게 말 걸고 다시 시도."); }
-      } catch(e) { alert("오류"); }
-  });
-
+  // 자체 에디터 명령 실행 함수 (글로벌)
   window.execCmd = function(command, value = null) {
     if(command === 'removeFormat') {
       document.execCommand('removeFormat', false, null);
-      document.execCommand('outdent', false, null);
+      document.execCommand('outdent', false, null); // 리스트 제거 강화
     } else {
       document.execCommand(command, false, value);
     }
   };
   
+  // 표 삽입 함수
   window.insertTable = function() {
     const html = `
       <table style="width:100%; border-collapse:collapse; margin:8px 0;">
@@ -773,6 +713,7 @@
     document.execCommand('insertHTML', false, html);
   };
 
+  // 이미지 업로드 처리 함수
   window.handleImageUpload = function(input) {
     if (input.files && input.files[0]) {
       const reader = new FileReader();
@@ -784,6 +725,7 @@
     input.value = ''; 
   };
   
+  // 글로벌 로그 기록 함수
   window.recordAction = function(action, detail) {
     const logs = loadJSON('ACTION_LOGS', []);
     logs.push({
@@ -792,11 +734,49 @@
       action: action,
       detail: detail
     });
+    // 최근 200개만 유지
     if(logs.length > 200) logs.shift();
     saveJSON('ACTION_LOGS', logs);
   };
 
-  // [중요] Firebase 연결부 - 데이터 받으면 render 함수 호출
+  // [중요] Firebase 연결 시 renderAttendancePanel 함수가 호출되므로 먼저 정의되어 있어야 함
+  // 하지만 모듈 스코프 때문에 아래에 정의된 함수가 먼저 로드되지 않을 수 있어, onValue 콜백 내에서 실행
+  
+  function renderRecent(){
+    const logs = getLogs();
+    const tableBody = document.getElementById("recentTable");
+    if(tableBody) {
+        tableBody.innerHTML=logs.slice(-15).reverse().map(l=>`<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name)}</td><td>${fmtTS(l.ts)}</td></tr>`).join("")||`<tr><td colspan="4" class="muted">기록 없음</td></tr>`;
+    }
+  }
+
+  function renderQuickButtons(){
+    const div=document.getElementById("quickButtons");
+    if(div) {
+        const emps=getEmployees();
+        if(!emps.length) div.innerHTML=`<span class="muted">관리자 메뉴에서 알바생을 등록하세요.</span>`;
+        else{
+          div.innerHTML=emps.map(e=>`<button class="btn" data-c="${e.code}">${escapeHtml(e.name)} <span class="muted">${e.code}</span></button>`).join("");
+          div.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{ 
+              const codeInput = document.getElementById("attCode");
+              if(codeInput) {
+                  codeInput.value=b.dataset.c; 
+                  onCodeChanged();
+                  recordAction("알바생 선택", b.dataset.c); 
+              }
+          }));
+        }
+    }
+  }
+
+  // [수정] renderAttendancePanel 함수를 전역에서 접근 가능하도록 window 객체에 할당하거나 
+  // 모듈 내에서 순서를 조정. 여기서는 모듈 내 함수로 정의하고 호출 순서 보장.
+  function renderAttendancePanel(){ 
+      renderRecent(); 
+      renderQuickButtons(); 
+      onCodeChanged(); 
+  }
+
   onValue(ref(db, 'tamnaData'), (snapshot) => {
     const data = snapshot.val();
     if (data) {
@@ -804,8 +784,8 @@
       try {
         // 데이터가 로드되면 즉시 화면 갱신
         renderAttendancePanel();
-        renderLogFilterOptions();
-        renderLogAll();
+        if(typeof renderLogFilterOptions === 'function') renderLogFilterOptions();
+        if(typeof renderLogAll === 'function') renderLogAll();
         if(typeof renderEmployees === 'function') renderEmployees();
         
         let status = document.getElementById('syncStatus');
@@ -1056,7 +1036,6 @@
     let scheduledEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
     if (scheduledEnd < inTs) { scheduledEnd += 24 * 60 * 60 * 1000; }
     
-    // 조기 퇴근은 그대로
     if (outTs <= scheduledEnd) {
       return outTs;
     } else {
@@ -1069,7 +1048,6 @@
     }
   }
 
-  // [수정] 공휴일 반영 급여 계산
   function getWageForDay(emp, dateObj) {
       const k = getDayKey(dateObj.getFullYear(), dateObj.getMonth()+1, dateObj.getDate());
       if(isHoliday(k)) {
