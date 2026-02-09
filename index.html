@@ -100,7 +100,6 @@
 
     .modalOverlay{ position: fixed; inset:0; background: rgba(0,0,0,.4); display:none; align-items:center; justify-content:center; z-index: 1000; padding: 18px; backdrop-filter: blur(2px); }
     .modalOverlay.show{ display:flex; }
-    /* 아이폰 잘림 방지용 padding-bottom */
     .modal{ width: min(560px, 100%); border-radius: 18px; border: 1px solid var(--line); background: #fff; box-shadow: var(--shadow); padding: 14px; max-height: 85dvh; overflow-y:auto; padding-bottom: 50px; }
     .modal h3{ margin:0 0 6px; font-size: 16px; letter-spacing:.2px; }
     .modalActions{ display:flex; gap:10px; margin-top: 12px; justify-content:flex-end; flex-wrap:wrap; }
@@ -666,6 +665,8 @@
 <input id="restoreInput" type="file" accept="application/json" style="display:none;" />
 
 <script type="module">
+  // [중요] 화면 그리는 함수들을 최상단으로 올려서 'ReferenceError' 방지 (매우 중요)
+  
   window.getToday = function() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -674,6 +675,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
+  // [복구됨] Firebase 설정 코드 (삭제되었던 부분)
   const firebaseConfig = {
     apiKey: "AIzaSyAbdEqVxEOcA3qFEcYEH9yuvNRx_CTMxhE",
     authDomain: "tamna-hr.firebaseapp.com",
@@ -687,9 +689,33 @@
   const db = getDatabase(app);
   let SERVER_CACHE = {}; 
   let logAddDates = []; 
-  let isHolidayMode = false; // 공휴일 선택 모드 플래그
+  let isHolidayMode = false;
 
-  // [중요] SunEditor 관련 코드 삭제됨
+  // [중요] 핵심 렌더링 함수들을 먼저 정의합니다. (순서 중요)
+  
+  function renderRecent(){
+    document.getElementById("recentTable").innerHTML=getLogs().slice(-15).reverse().map(l=>`<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name)}</td><td>${fmtTS(l.ts)}</td></tr>`).join("")||`<tr><td colspan="4" class="muted">기록 없음</td></tr>`;
+  }
+
+  function renderQuickButtons(){
+    const div=document.getElementById("quickButtons"), emps=getEmployees();
+    if(!emps.length) div.innerHTML=`<span class="muted">관리자 메뉴에서 알바생을 등록하세요.</span>`;
+    else{
+      div.innerHTML=emps.map(e=>`<button class="btn" data-c="${e.code}">${escapeHtml(e.name)} <span class="muted">${e.code}</span></button>`).join("");
+      div.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{ 
+          attCode.value=b.dataset.c; 
+          onCodeChanged();
+          recordAction("알바생 선택", b.dataset.c); 
+      }));
+    }
+  }
+
+  // [수정] 지각/조기출근/연장근무 표시 로직 개선
+  function renderAttendancePanel(){ 
+      renderRecent(); 
+      renderQuickButtons(); 
+      onCodeChanged(); 
+  }
 
   const TG_TOKEN = "7735983028:AAGgXPT18XIeBHC4C_sjKrSKSbNqQsT0ZN0";
   const LS_TG_CHAT_ID = "ALBA_TG_CHAT_ID";
@@ -729,7 +755,7 @@
   window.execCmd = function(command, value = null) {
     if(command === 'removeFormat') {
       document.execCommand('removeFormat', false, null);
-      document.execCommand('outdent', false, null); // 리스트 제거 강화
+      document.execCommand('outdent', false, null);
     } else {
       document.execCommand(command, false, value);
     }
@@ -766,33 +792,32 @@
       action: action,
       detail: detail
     });
-    // 최근 200개만 유지
     if(logs.length > 200) logs.shift();
     saveJSON('ACTION_LOGS', logs);
   };
 
+  // [중요] Firebase 연결부 - 데이터 받으면 render 함수 호출
   onValue(ref(db, 'tamnaData'), (snapshot) => {
     const data = snapshot.val();
     if (data) {
       SERVER_CACHE = data;
       try {
-        if(typeof renderAttendancePanel === 'function') renderAttendancePanel();
-        if(typeof renderLogAll === 'function') {
-          renderLogFilterOptions();
-          renderLogAll();
-        }
+        // 데이터가 로드되면 즉시 화면 갱신
+        renderAttendancePanel();
+        renderLogFilterOptions();
+        renderLogAll();
         if(typeof renderEmployees === 'function') renderEmployees();
         
         let status = document.getElementById('syncStatus');
         if(!status) {
           status = document.createElement('div');
           status.id = 'syncStatus';
-          status.textContent = "● 서버 동기화됨";
           document.body.appendChild(status);
-        } else {
-            status.textContent = "● 서버 동기화됨";
         }
-      } catch(e) {}
+        status.textContent = "● 서버 동기화됨";
+      } catch(e) {
+          console.error("Rendering Error:", e);
+      }
     }
   });
 
@@ -840,7 +865,6 @@
   }
   function clearTodayNotice(){ const m=getNoticeMap(); delete m[todayKey()]; setNoticeMap(m); }
 
-  // [신규] 공휴일 관리 함수
   function getHolidays() { return loadJSON(LS_KEYS.HOLIDAYS, []); }
   function setHolidays(list) { saveJSON(LS_KEYS.HOLIDAYS, list); }
   function toggleHoliday(dateStr) {
@@ -853,7 +877,6 @@
       return getHolidays().includes(dateStr);
   }
 
-  // 문구 템플릿
   function getTemplates() { return loadJSON(LS_KEYS.NOTICE_TEMPLATES, []); }
   function renderTemplates() {
     const list = getTemplates();
@@ -1016,14 +1039,13 @@
     const [h, m] = emp.workStart.split(':').map(Number);
     const scheduledStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
     
-    // [수정] 지각 로직: 1ms라도 늦으면 10분 지각 (올림)
+    // 지각 로직: 1초라도 늦으면 10분 패널티
     if (inTs > scheduledStart) {
         const diff = inTs - scheduledStart;
         const penaltyUnit = 10 * 60 * 1000; 
         const penaltyBlocks = Math.ceil(diff / penaltyUnit);
         return scheduledStart + (penaltyBlocks * penaltyUnit);
     }
-    // 일찍 오거나 정시인 경우: 그대로 리턴 (나중에 스케줄과 비교해서 정시 인정)
     return inTs; 
   }
 
@@ -1038,7 +1060,7 @@
     if (outTs <= scheduledEnd) {
       return outTs;
     } else {
-      // [수정] 연장 근무 로직: 1ms라도 넘으면 5분 단위 올림
+      // 연장 근무 로직: 1초라도 넘으면 5분 단위 올림
       const diff = outTs - scheduledEnd;
       const bonusUnit = 5 * 60 * 1000; 
       
@@ -1084,7 +1106,6 @@
     return { h:Math.floor(ms/3600000), m:Math.floor((ms%3600000)/60000), pay, has:logs.length>0 };
   }
 
-  // [수정] 주휴수당 - 평균 시급 적용 로직
   function getWeeklyJuhyuSum(sundayDate, filterCode){
      const endTs = new Date(sundayDate).setHours(23,59,59,999);
      const startDate = new Date(sundayDate); startDate.setDate(startDate.getDate() - 6);
