@@ -8,15 +8,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="format-detection" content="telephone=no" />
   
-  <link rel="icon" href="data:,">
-  
-  <title>탐나는피자 화성남양점</title>
+  <link rel="icon" href="data:,"> <title>탐나는피자 화성남양점</title>
   
   <style>
-    /* ==========================================================================
-       [사장님 원본 CSS 100% 유지] 
-       절대 건드리지 않았습니다. (약 400줄 분량)
-       ========================================================================== */
     :root{
       --bg: #f4f6f9; --panel: #ffffff; --panel2: #f8f9fa;
       --text: #2c3e50; --muted: #8395a7; --line: #dcdde1;
@@ -30,7 +24,7 @@
       -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
       padding-bottom: 20px;
     }
-    input, textarea, select { -webkit-user-select: text; user-select: text; }
+    input, textarea { -webkit-user-select: text; user-select: text; }
 
     header{ padding: 14px 18px 10px; position: sticky; top:0; background: rgba(255,255,255,.90); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); z-index:100; }
     .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; max-width:1100px; margin:0 auto; }
@@ -669,7 +663,7 @@
   window.logAddDates = []; 
   window.isHolidayMode = false;
   const LS_TG_CHAT_ID = "ALBA_TG_CHAT_ID";
-  // [텔레그램 토큰 복구]
+  // [복구] 텔레그램 토큰 원상 복구
   const TG_TOKEN = "7735983028:AAGgXPT18XIeBHC4C_sjKrSKSbNqQsT0ZN0";
 
   window.getToday = function() {
@@ -693,7 +687,7 @@
   const db = getDatabase(app);
   let SERVER_CACHE = {}; 
 
-  // [텔레그램 알림 기능 복구]
+  // [복구] 텔레그램 알림 기능
   async function sendTelegramAlert(text) {
       const chatId = localStorage.getItem(LS_TG_CHAT_ID);
       if(!chatId) return;
@@ -829,7 +823,7 @@
   function setNoticeMap(map){ saveJSON(LS_KEYS.DAILY_NOTICE, map); }
   
   function getTodayNotice(){ return getNoticeMap()[todayKey()]?.text || ""; }
-  function getTodayNoticeDuration(){ return getNoticeMap()[todayKey()]?.duration || 5; }
+  function getTodayNoticeDuration(){ return getNoticeMap()[todayKey()]?.duration || 5; } // 기본값 5초
 
   function setTodayNotice(text, duration=5){ 
     const m=getNoticeMap(); 
@@ -1019,28 +1013,23 @@
     renderCalendar();
   });
 
-  // [수정: 출근 시간 보정 로직]
-  // 일찍 오면 무조건 스케줄 시간으로 강제 맞춤 (지각만 따짐)
   function getAdjustedStartTime(emp, inTs) {
     if (!emp.workStart) return inTs;
     const d = new Date(inTs);
     const [h, m] = emp.workStart.split(':').map(Number);
     const scheduledStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
     
-    // 지각인 경우 (1ms라도 늦으면) -> 10분 단위 패널티
+    // 지각 로직: 1초라도 늦으면 10분 패널티
     if (inTs > scheduledStart) {
         const diff = inTs - scheduledStart;
         const penaltyUnit = 10 * 60 * 1000; 
         const penaltyBlocks = Math.ceil(diff / penaltyUnit);
         return scheduledStart + (penaltyBlocks * penaltyUnit);
     }
-    // 일찍 오거나 정시인 경우 -> 스케줄 시간으로 강제 맞춤 (급여는 17:00부터)
+    // 일찍 오거나 정시인 경우: 그대로 리턴 (나중에 스케줄과 비교해서 정시 인정)
     return scheduledStart; 
   }
 
-  // [수정: 퇴근 시간 보정 로직]
-  // 조기 퇴근 -> 무조건 스케줄 시간까지 인정
-  // 연장 근무 -> 5분 단위 인정
   function getAdjustedWorkTime(emp, inTs, outTs) {
     if (!emp.workEnd) return outTs;
     const d = new Date(inTs);
@@ -1048,11 +1037,11 @@
     let scheduledEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
     if (scheduledEnd < inTs) { scheduledEnd += 24 * 60 * 60 * 1000; }
     
-    // 조기 퇴근 -> 무조건 정시 퇴근으로 인정 (풀타임 급여 보장)
+    // [수정] 조기 퇴근은 계약 시간까지 인정
     if (outTs <= scheduledEnd) {
       return scheduledEnd;
     } else {
-      // 연장 근무 -> 5분 단위 올림 (1분이라도 넘으면 5분 더 줌)
+      // [수정] 연장 근무 로직: 1초라도 넘으면 5분 단위 올림
       const diff = outTs - scheduledEnd;
       const bonusUnit = 5 * 60 * 1000; 
       
@@ -1061,6 +1050,7 @@
     }
   }
 
+  // [수정] 공휴일 반영 급여 계산
   function getWageForDay(emp, dateObj) {
       const k = getDayKey(dateObj.getFullYear(), dateObj.getMonth()+1, dateObj.getDate());
       if(isHoliday(k)) {
@@ -1620,7 +1610,14 @@
           if(!emps.length) btnDiv.innerHTML=`<span class="muted">관리자 메뉴에서 알바생을 등록하세요.</span>`;
           else{
             btnDiv.innerHTML=emps.map(e=>`<button class="btn" data-c="${e.code}">${escapeHtml(e.name)} <span class="muted">${e.code}</span></button>`).join("");
-            // 버튼 클릭 이벤트는 HTML inline onclick으로 처리됨 (window.onCodeChanged 사용)
+            // [중요 수정] 버튼 클릭 이벤트 리스너 확실하게 연결
+            btnDiv.querySelectorAll('button').forEach(b => {
+                b.addEventListener('click', () => {
+                    document.getElementById('attCode').value = b.dataset.c;
+                    window.onCodeChanged();
+                    recordAction("알바생 선택", b.dataset.c);
+                });
+            });
           }
       }
       window.onCodeChanged(); 
