@@ -375,7 +375,6 @@
     <div class="menuGrid">
       <button class="btn primary" id="goEmp">알바생 관리</button>
       <button class="btn primary" id="goLog">근태 조회</button>
-      <button class="btn good" id="btnOpenMate">업무/루틴 관리</button>
       <button class="btn" id="btnShowActionLogs">시스템 로그 보기</button>
       <button class="btn warn" id="btnExportCsv2">CSV 내보내기</button>
       <button class="btn bad" id="btnResetAll">전체 초기화</button>
@@ -443,74 +442,6 @@
   </div>
 </div>
 
-<div class="modalOverlay" id="mateOverlay" style="z-index: 2000;">
-  <div class="modal" style="max-width:600px; height:90vh; display:flex; flex-direction:column;">
-    <div class="mate-header">
-      <h3 class="mate-title">업무 & 루틴 관리</h3>
-      <button class="btn small" id="btnOpenRoutineSet">루틴 설정 ⚙️</button>
-    </div>
-    
-    <div class="calHeader">
-        <button class="btn small" id="matePrevMonth">◀</button>
-        <span id="mateMonthTitle" style="font-weight:900;">202X. XX</span>
-        <button class="btn small" id="mateNextMonth">▶</button>
-    </div>
-    <div class="mate-grid" id="mateCalendar"></div>
-    
-    <div class="hr"></div>
-    
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <span id="mateSelectedDate" class="tag in">오늘의 할 일</span>
-        <button class="btn small" id="btnAddOneTimeTask">+ 1회성 추가</button>
-    </div>
-    <div class="mate-list-area" id="mateListArea" style="flex:1; overflow-y:auto;">
-        </div>
-    
-    <div style="margin-top:10px;">
-        <button class="btn" onclick="document.getElementById('mateOverlay').classList.remove('show')" style="width:100%;">닫기</button>
-    </div>
-  </div>
-</div>
-
-<div class="modalOverlay" id="routineSetOverlay" style="z-index: 3000;">
-  <div class="modal">
-    <h3>루틴 만들기</h3>
-    <div class="muted">반복되는 업무를 설정합니다.</div>
-    <div class="hr"></div>
-    <label>할 일 내용</label>
-    <input id="routineInput" placeholder="예: 오픈 준비, 마감 청소" />
-    
-    <label style="margin-top:10px;">반복 주기</label>
-    <div class="routine-opt" id="routineTypeBox">
-        <div class="routine-btn active" data-type="daily">매일</div>
-        <div class="routine-btn" data-type="weekly">매주 (요일지정)</div>
-        <div class="routine-btn" data-type="monthly">매월 (날짜지정)</div>
-    </div>
-    
-    <div id="weekSelector" class="day-selector" style="display:none;">
-        <div class="day-btn" data-d="0">일</div>
-        <div class="day-btn" data-d="1">월</div>
-        <div class="day-btn" data-d="2">화</div>
-        <div class="day-btn" data-d="3">수</div>
-        <div class="day-btn" data-d="4">목</div>
-        <div class="day-btn" data-d="5">금</div>
-        <div class="day-btn" data-d="6">토</div>
-    </div>
-    
-    <div id="monthSelector" style="display:none; margin-top:4px;">
-        <input type="number" id="routineMonthDay" placeholder="1~31일 입력" style="width:80px;" /> 일 마다
-    </div>
-
-    <div class="split" style="margin-top:20px;">
-        <button class="btn" onclick="document.getElementById('routineSetOverlay').classList.remove('show')">취소</button>
-        <button class="btn primary" id="btnSaveRoutine">저장</button>
-    </div>
-    
-    <div class="hr"></div>
-    <h4>등록된 루틴 목록</h4>
-    <div id="routineListBody" style="max-height:150px; overflow-y:auto; font-size:13px;"></div>
-  </div>
-</div>
 
 <div class="modalOverlay" id="actionLogOverlay" style="z-index: 2000;">
   <div class="modal" style="width: 100%; max-width: 700px;">
@@ -1024,35 +955,20 @@
   let calYear=new Date().getFullYear(), calMonth=new Date().getMonth()+1;
   function getDayKey(y,m,d){ return `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`; }
 
-function getAdjustedWorkTime(emp, inTs, outTs) {
-  if (!emp.workEnd) return outTs;
-  
-  const d = new Date(outTs);
-  const [h, m] = emp.workEnd.split(':').map(Number);
-  
-  // 1. 계약된 종료 시간 (시:분만 사용, 초/밀리초는 0으로)
-  let scheduledEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
-  
-  // 야간 근무 보정
-  if (outTs - scheduledEnd > 43200000) scheduledEnd += 86400000; 
-  if (scheduledEnd - outTs > 43200000) scheduledEnd -= 86400000;
-
-  // 2. 실제 퇴근 시간에서 초 단위를 버린 '분' 기준 시간 계산
-  const actualOutDate = new Date(outTs);
-  const actualOutOnlyMin = new Date(actualOutDate.getFullYear(), actualOutDate.getMonth(), actualOutDate.getDate(), actualOutDate.getHours(), actualOutDate.getMinutes(), 0, 0).getTime();
-
-  // 3. 보정 로직 적용
-  if (actualOutOnlyMin <= scheduledEnd) {
-    // [사례 1] 일찍 퇴근하거나, 30분 '몇 초'에 퇴근한 경우 -> 23:30 인정
-    return scheduledEnd;
-  } else {
-    // [사례 2] 23:31분 이후에 퇴근한 경우 -> 5분 단위 올림
-    const diff = actualOutOnlyMin - scheduledEnd;
-    const bonusUnit = 5 * 60 * 1000; // 5분
-    const blocks = Math.ceil(diff / bonusUnit); 
+  function getAdjustedWorkTime(emp, inTs, outTs) {
+    if (!emp.workEnd) return outTs;
+    const d = new Date(inTs);
+    const [h, m] = emp.workEnd.split(':').map(Number);
+    let scheduledEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
+    if (scheduledEnd < inTs) { scheduledEnd += 24 * 60 * 60 * 1000; }
+    if (outTs <= scheduledEnd) return outTs;
+    const diff = outTs - scheduledEnd;
+    const bonusUnit = 5 * 60 * 1000; 
+    if(diff <= 0) return scheduledEnd;
+    const blocks = Math.ceil(diff / bonusUnit);
     return scheduledEnd + (blocks * bonusUnit);
   }
-}
+
   function calcDayStats(dk, tCode){
     const logs=getLogs().filter(l=>dateKey(l.ts)===dk && (!tCode||l.code===tCode)).sort((a,b)=>a.ts-b.ts);
     let ms=0, pay=0, codeMap={};
@@ -1069,23 +985,15 @@ function getAdjustedWorkTime(emp, inTs, outTs) {
       else if (isWeekend && e && e.wageWeekend) wage = e.wageWeekend;
       else wage = e ? e.wage : 0;
 
-	// calcDayStats 함수 내부 수정
-	evts.forEach(ev => {
-	  if(ev.type === "IN") inTs = ev.ts;
-	  else if(ev.type === "OUT" && inTs) {
-		const adjInTs = getAdjustedStartTime(e, inTs);
-		const adjOutTs = getAdjustedWorkTime(e, inTs, ev.ts);
-		if(adjOutTs > adjInTs) {
-		  const d = adjOutTs - adjInTs;
-		  ms += d;
-		  
-		  // 기존 계산식에 10원 단위 절사 추가
-		  let dailyPay = (d / 3600000) * wage;
-		  pay += Math.floor(dailyPay / 10) * 10; // 1원 단위 버림
-		}
-		inTs = null;
-	  }
-	});
+      evts.forEach(ev=>{
+        if(ev.type==="IN") inTs=ev.ts;
+        else if(ev.type==="OUT" && inTs){
+          const adjInTs = getAdjustedStartTime(e, inTs);
+          const adjOutTs = getAdjustedWorkTime(e, inTs, ev.ts);
+          if(adjOutTs > adjInTs) { const d=adjOutTs-adjInTs; ms+=d; pay+=Math.floor((d/3600000)*wage); }
+          inTs=null;
+        }
+      });
     });
     return { h:Math.floor(ms/3600000), m:Math.floor((ms%3600000)/60000), pay, has:logs.length>0 };
   }
@@ -1175,22 +1083,23 @@ function getAdjustedWorkTime(emp, inTs, outTs) {
         if(l.type === 'IN') l._tempIn = l.ts;
         else if(l.type === 'OUT') {
            const prevIn = empLogs.find(xx => xx.type === 'IN' && xx.ts < l.ts && !xx._usedBase);
-// updateMonthlyWageEstimate 함수 내부 수정
-if(adjOutTs > adjInTs) {
-  const ms = adjOutTs - adjInTs;
-  const dt = new Date(l.ts);
-  const dk = dateKey(l.ts);
-  const isWeekend = dt.getDay() === 0 || dt.getDay() === 6;
-  const isHol = isHoliday(dk);
-  let wage;
-  if (isHol && !isWeekend) wage = emp.wage * 1.5;
-  else if (isWeekend && emp.wageWeekend) wage = emp.wageWeekend;
-  else wage = emp.wage;
-
-  // 이 부분을 수정
-  let shiftPay = (ms / 3600000) * wage;
-  totalBase += Math.floor(shiftPay / 10) * 10; // 1원 단위 버림
-}
+           if(prevIn) { 
+             const adjInTs = getAdjustedStartTime(emp, prevIn.ts);
+             const adjOutTs = getAdjustedWorkTime(emp, prevIn.ts, l.ts);
+             if(adjOutTs > adjInTs) {
+               const ms = adjOutTs - adjInTs;
+               const dt = new Date(l.ts);
+               const dk = dateKey(l.ts);
+               const isWeekend = dt.getDay() === 0 || dt.getDay() === 6;
+               const isHol = isHoliday(dk);
+               let wage;
+               if (isHol && !isWeekend) wage = emp.wage * 1.5;
+               else if (isWeekend && emp.wageWeekend) wage = emp.wageWeekend;
+               else wage = emp.wage;
+               totalBase += Math.floor((ms / 3600000) * wage);
+             }
+             prevIn._usedBase = true; 
+           }
         }
       });
       empLogs.forEach(l => delete l._usedBase);
@@ -1210,7 +1119,7 @@ if(adjOutTs > adjInTs) {
   }
   document.getElementById("logFilterEmp").addEventListener("change",renderLogAll);
 
-// [수정] 근태 기록 표시 함수 (일찍 퇴근 보정 및 연장 5분 올림 반영)
+  // [수정] 근태 기록 표시 함수 (지각 판정 로직 수정)
   function renderLogAll(){
     const f=document.getElementById("logFilterEmp").value, all=getLogs(), list=f?all.filter(l=>l.code===f):all;
     document.getElementById("logTotal").textContent=list.length;
@@ -1219,9 +1128,10 @@ if(adjOutTs > adjInTs) {
         let timeDisplay = fmtTS(l.ts);
         const emp = findEmpByCode(l.code);
         
-        // 1. 출근 표시 로직
+        // 1. 출근 표시 로직 수정
         if(l.type === "IN" && emp && emp.workStart) {
             const adjInTs = getAdjustedStartTime(emp, l.ts);
+            
             const d = new Date(l.ts);
             const [h, m] = emp.workStart.split(':').map(Number);
             const scheduledStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
@@ -1229,42 +1139,30 @@ if(adjOutTs > adjInTs) {
             const adjDate = new Date(adjInTs);
             const adjStr = `${String(adjDate.getHours()).padStart(2,"0")}:${String(adjDate.getMinutes()).padStart(2,"0")}`;
 
+            // 실제 출근(l.ts)이 예정시간(scheduledStart)보다 늦은 경우 -> 지각
             if(l.ts > scheduledStart) {
                 timeDisplay += `<br><span class="tag out" style="font-size:10px;">지각(인정:${adjStr})</span>`;
-            } else {
+            } 
+            // 일찍 왔거나 정시인 경우 -> 정시(초록색)으로 표시하되, 인정 시간은 보여줌
+            else {
                 timeDisplay += `<br><span class="tag good" style="font-size:10px;">정시(인정:${adjStr})</span>`;
             }
         }
         
-        // renderLogAll 함수 내 2. 퇴근 표시 로직 부분
-if(l.type === "OUT" && emp && emp.workEnd) {
-    // 위에서 수정한 getAdjustedWorkTime 함수를 호출
-    const adjOutTs = getAdjustedWorkTime(emp, l.ts, l.ts); 
-    
-    // 비교를 위한 계약 종료 시간 재계산
-    const d = new Date(l.ts);
-    const [h, m] = emp.workEnd.split(':').map(Number);
-    let sEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
-    if (l.ts - sEnd > 43200000) sEnd += 86400000;
-    if (sEnd - l.ts > 43200000) sEnd -= 86400000;
-
-    const adjDate = new Date(adjOutTs);
-    const adjStr = `${String(adjDate.getHours()).padStart(2,"0")}:${String(adjDate.getMinutes()).padStart(2,"0")}`;
-
-    if(l.ts > sEnd) {
-        // 실제 퇴근이 계약보다 늦으면 '연장' 표시
-        timeDisplay += `<br><span class="tag good" style="font-size:10px;">연장(인정:${adjStr})</span>`;
-    } else {
-        // 실제 퇴근이 계약보다 빠르거나 같으면 '정시' 표시
-        timeDisplay += `<br><span class="tag good" style="font-size:10px;">정시(인정:${adjStr})</span>`;
-    }
-}
+        // 2. 퇴근 표시 로직
+        if(l.type === "OUT" && emp) {
+            const adjOutTs = getAdjustedWorkTime(emp, 0, l.ts);
+            if(adjOutTs !== l.ts) {
+                const d = new Date(adjOutTs);
+                const adjStr = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+                timeDisplay += `<br><span class="tag good" style="font-size:10px;">연장(인정:${adjStr})</span>`;
+            }
+        }
         
         const noteTag = l.note ? (l.note.includes("[마감체크]") ? `<span class="tag good">마감✅</span>` : (l.note.length>10?l.note.slice(0,10)+"...":l.note)) : "";
         return `<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name||"")}</td><td>${timeDisplay}</td><td>${noteTag}</td><td><button class="btn small" onclick="window.editLog(${l.id})">수정</button></td></tr>`;
     }).join("")||`<tr><td colspan="6" class="muted">기록 없음</td></tr>`;
     
-    // 이하는 기존 코드와 동일
     const ons=getOutNotes().slice().reverse().filter(x=>!f||x.code===f);
     document.getElementById("outNoteTable").innerHTML=ons.map((x,i)=>`<tr><td>${ons.length-i}</td><td>${x.date}</td><td>${x.code}</td><td>${escapeHtml(x.name)}</td><td>${fmtTS(x.ts)}</td><td>${escapeHtml(x.text)}</td></tr>`).join("");
     const cls=getCloseCheckLogs().slice().reverse().filter(x=>!f||x.code===f);
@@ -1300,47 +1198,17 @@ if(l.type === "OUT" && emp && emp.workEnd) {
   document.getElementById("btnSaveCloseChecklist").addEventListener("click",()=>{ const l=Array.from(document.querySelectorAll(".admCLInput")).map(i=>i.value.trim()).filter(Boolean); setCloseChecklist(l); toast("저장됨"); renderAdminCloseChecklist(); });
   document.getElementById("btnResetCloseChecklist").addEventListener("click",()=>{ localStorage.removeItem(LS_KEYS.CLOSE_CHECKLIST); renderAdminCloseChecklist(); });
 
-  let mateYear = new Date().getFullYear();
-  let mateMonth = new Date().getMonth() + 1;
-  let selectedDate = getToday();
-  function renderMateCalendar() {
-    const title = document.getElementById('mateMonthTitle'); title.textContent = `${mateYear}. ${pad4(mateMonth).slice(-2)}`;
-    const grid = document.getElementById('mateCalendar'); grid.innerHTML = '<div class="mate-day-head">일</div><div class="mate-day-head">월</div><div class="mate-day-head">화</div><div class="mate-day-head">수</div><div class="mate-day-head">목</div><div class="mate-day-head">금</div><div class="mate-day-head">토</div>';
-    const firstDay = new Date(mateYear, mateMonth-1, 1).getDay(); const lastDate = new Date(mateYear, mateMonth, 0).getDate();
-    for(let i=0; i<firstDay; i++) grid.innerHTML += `<div></div>`;
-    const routines = loadJSON('ROUTINES', []); const history = loadJSON('ROUTINE_HISTORY', {});
-    for(let d=1; d<=lastDate; d++) {
-        const dateKey = `${mateYear}-${pad4(mateMonth).slice(-2)}-${pad4(d).slice(-2)}`;
-        const dayOfWeek = new Date(mateYear, mateMonth-1, d).getDay();
-        let todoCount = 0; let doneCount = 0;
-        routines.forEach(r => { if(isRoutineForDate(r, dateKey, dayOfWeek)) { todoCount++; if(history[dateKey] && history[dateKey][r.id]) doneCount++; } });
-        let dotsHtml = ''; if(todoCount > 0) { for(let k=0; k<doneCount && k<4; k++) dotsHtml += `<div class="mate-dot done"></div>`; for(let k=0; k<(todoCount-doneCount) && (k+doneCount)<4; k++) dotsHtml += `<div class="mate-dot"></div>`; }
-        const isToday = (dateKey === getToday()); const isSel = (dateKey === selectedDate);
-        const cell = document.createElement('div'); cell.className = `mate-cell ${isToday?'today':''} ${isSel?'selected':''}`; cell.onclick = () => { selectedDate = dateKey; renderMateCalendar(); renderMateList(); }; cell.innerHTML = `<span class="mate-date-num">${d}</span><div class="mate-dots">${dotsHtml}</div>`; grid.appendChild(cell);
+// [삭제한 자리에 이 코드만 남겨주세요]
+  (async () => {
+    try {
+      renderAttendancePanel();
+      if (typeof updateAdminStateText === 'function') updateAdminStateText();
+      renderEmployees();
+      renderLogFilterOptions();
+      renderLogAll();
+      console.log("탐나는피자 시스템 재가동 완료");
+    } catch (e) {
+      console.error("로딩 에러:", e);
     }
-  }
-  function renderMateList() {
-    const listArea = document.getElementById('mateListArea'); document.getElementById('mateSelectedDate').textContent = `${selectedDate} 할 일`;
-    const routines = loadJSON('ROUTINES', []); const history = loadJSON('ROUTINE_HISTORY', {}); const dayHistory = history[selectedDate] || {};
-    const dayOfWeek = new Date(selectedDate).getDay(); const todaysTasks = routines.filter(r => isRoutineForDate(r, selectedDate, dayOfWeek));
-    if(todaysTasks.length === 0) { listArea.innerHTML = '<div class="muted" style="text-align:center; padding:20px;">할 일이 없습니다.</div>'; return; }
-    listArea.innerHTML = todaysTasks.map(t => { const isDone = !!dayHistory[t.id]; return `<div class="mate-item ${isDone?'done':''}"><div class="mate-check ${isDone?'checked':''}" onclick="window.toggleTask('${t.id}')">✔</div><div class="mate-text">${t.text} <span class="mate-tag">${getRoutineLabel(t)}</span></div>${t.type==='onetime' ? `<button class="btn small bad" onclick="window.delRoutine('${t.id}')">삭제</button>` : ''}</div>`; }).join("");
-  }
-  function isRoutineForDate(r, dateKey, dayOfWeek) { if(r.type === 'daily') return true; if(r.type === 'weekly') return r.days.includes(dayOfWeek); if(r.type === 'monthly') return r.date === parseInt(dateKey.split('-')[2]); if(r.type === 'onetime') return r.targetDate === dateKey; return false; }
-  function getRoutineLabel(r) { if(r.type==='daily') return '매일'; if(r.type==='weekly') return '매주'; if(r.type==='monthly') return '매월'; return '1회성'; }
-  window.toggleTask = (rid) => { const history = loadJSON('ROUTINE_HISTORY', {}); if(!history[selectedDate]) history[selectedDate] = {}; history[selectedDate][rid] = !history[selectedDate][rid]; saveJSON('ROUTINE_HISTORY', history).then(() => { renderMateCalendar(); renderMateList(); }); };
-  let curRoutineType = 'daily'; let curWeekDays = [];
-  document.querySelectorAll('.routine-btn').forEach(b => { b.addEventListener('click', () => { document.querySelectorAll('.routine-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); curRoutineType = b.dataset.type; document.getElementById('weekSelector').style.display = (curRoutineType === 'weekly') ? 'flex' : 'none'; document.getElementById('monthSelector').style.display = (curRoutineType === 'monthly') ? 'block' : 'none'; }); });
-  document.querySelectorAll('.day-btn').forEach(b => { b.addEventListener('click', () => { const d = parseInt(b.dataset.d); if(curWeekDays.includes(d)) { curWeekDays = curWeekDays.filter(x => x!==d); b.classList.remove('active'); } else { curWeekDays.push(d); b.classList.add('active'); } }); });
-  document.getElementById('btnSaveRoutine').addEventListener('click', () => { const txt = document.getElementById('routineInput').value.trim(); if(!txt) return toast("내용 없음"); const newRoutine = { id: 'r_' + Date.now(), text: txt, type: curRoutineType, days: curWeekDays, date: parseInt(document.getElementById('routineMonthDay').value) || 1, created: Date.now() }; const list = loadJSON('ROUTINES', []); list.push(newRoutine); saveJSON('ROUTINES', list); document.getElementById('routineInput').value = ''; toast("루틴 추가됨"); renderMateCalendar(); renderMateList(); });
-  window.delRoutine = (rid) => { if(!confirm("삭제?")) return; const list = loadJSON('ROUTINES', []).filter(r => r.id !== rid); saveJSON('ROUTINES', list); renderMateCalendar(); renderMateList(); };
-  document.getElementById('matePrevMonth').onclick = () => { mateMonth--; if(mateMonth<1){mateMonth=12; mateYear--;} renderMateCalendar(); };
-  document.getElementById('mateNextMonth').onclick = () => { mateMonth++; if(mateMonth>12){mateMonth=1; mateYear++;} renderMateCalendar(); };
-  document.getElementById('btnAddOneTimeTask').onclick = () => { const txt = prompt("오늘만 할 일을 입력하세요:"); if(txt) { const list = loadJSON('ROUTINES', []); list.push({ id: 'ot_' + Date.now(), text: txt, type: 'onetime', targetDate: selectedDate }); saveJSON('ROUTINES', list); renderMateList(); renderMateCalendar(); } };
-  document.getElementById('btnOpenMate').onclick = () => { document.getElementById('mateOverlay').classList.add('show'); renderMateCalendar(); renderMateList(); };
-  document.getElementById('btnOpenRoutineSet').onclick = () => { document.getElementById('routineSetOverlay').classList.add('show'); };
-  document.getElementById('btnShowActionLogs').onclick = () => { const logs = loadJSON('ACTION_LOGS', []); document.getElementById('actionLogTable').innerHTML = logs.slice().reverse().map(l => `<tr><td>${l.time}</td><td>${l.action}</td><td>${l.detail}</td></tr>`).join("") || '<tr><td colspan="3" style="text-align:center;">기록 없음</td></tr>'; document.getElementById('actionLogOverlay').classList.add('show'); };
-  document.getElementById('btnCloseActionLog').addEventListener("click", () => { document.getElementById("actionLogOverlay").classList.remove("show"); });
-
-  (async()=>{ renderAttendancePanel(); updateAdminStateText(); })();
+  })();
 </script>
