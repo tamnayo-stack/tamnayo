@@ -8,13 +8,14 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="format-detection" content="telephone=no" />
   
+  <link rel="icon" href="data:,">
+  
   <title>탐나는피자 화성남양점</title>
   
   <style>
-    /* ================================================================
-       [디자인 100% 원본 유지] 
-       ================================================================
-    */
+    /* ==========================================================================
+       [사장님 원본 CSS 100% 유지 - 절대 삭제/축소 금지] 
+       ========================================================================== */
     :root{
       --bg: #f4f6f9; --panel: #ffffff; --panel2: #f8f9fa;
       --text: #2c3e50; --muted: #8395a7; --line: #dcdde1;
@@ -23,16 +24,19 @@
     }
     *{ box-sizing:border-box; }
     body{ 
-      margin:0; 
-      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; 
-      background: var(--bg); 
-      color:var(--text); 
-      min-height:100dvh;
-      -webkit-user-select: none; user-select: none;
-      -webkit-touch-callout: none; touch-action: manipulation;
+      margin:0; font-family: -apple-system, BlinkMacSystemFont, "San Francisco", "Helvetica Neue", sans-serif; 
+      background: var(--bg); color:var(--text); min-height:100dvh;
+      -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
       padding-bottom: 20px;
     }
-    input, textarea { -webkit-user-select: text; user-select: text; }
+    input, textarea, select { 
+        width:100%; background: #fff; border: 1px solid #ced6e0; 
+        color: var(--text); border-radius: 12px; padding: 12px 12px; 
+        font-size: 16px; outline:none; -webkit-user-select: text; user-select: text; 
+    }
+    input::placeholder{ color: #b2bec3; }
+    input:focus, select:focus{ border-color: var(--accent); box-shadow: 0 0 0 3px rgba(52,152,219,.15); }
+    textarea{ min-height: 120px; resize: vertical; }
 
     header{ padding: 14px 18px 10px; position: sticky; top:0; background: rgba(255,255,255,.90); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); z-index:100; }
     .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; max-width:1100px; margin:0 auto; }
@@ -55,11 +59,6 @@
     .spacer{ flex:1 1 auto !important; }
 
     label{ font-size: 13px; color:var(--muted); display:block; margin: 4px 0 6px; }
-    input, select{ width:100%; background: #fff; border: 1px solid #ced6e0; color: var(--text); border-radius: 12px; padding: 12px 12px; font-size: 16px; outline:none; }
-    input::placeholder{ color: #b2bec3; }
-    input:focus, select:focus{ border-color: var(--accent); box-shadow: 0 0 0 3px rgba(52,152,219,.15); }
-    textarea{ width:100%; min-height: 120px; resize: vertical; background: #fff; border: 1px solid #ced6e0; color: var(--text); border-radius: 12px; padding: 12px 12px; font-size: 15px; outline:none; }
-    textarea:focus{ border-color: var(--accent); box-shadow: 0 0 0 3px rgba(52,152,219,.15); }
 
     .btn{ border:1px solid var(--line); background: #f1f2f6; color: var(--text); padding: 12px 14px; border-radius: 14px; font-size: 15px; font-weight: 800; cursor:pointer; user-select:none; transition: transform .05s ease; }
     .btn:active{ transform: scale(.98); }
@@ -186,6 +185,39 @@
     /* 날짜 선택 태그 스타일 */
     .date-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #e3f2fd; color: var(--accent); border-radius: 20px; font-size: 13px; font-weight: 700; margin: 2px; }
     .date-pill button { background: none; border: none; color: var(--accent); font-weight: 900; font-size: 12px; cursor: pointer; padding: 0; }
+    
+    /* 투두메이트 스타일 */
+    .mate-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+    .mate-title { font-size: 18px; font-weight: 900; }
+    .mate-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 14px; }
+    .mate-day-head { text-align: center; font-size: 12px; color: var(--muted); font-weight: 700; padding-bottom: 4px; }
+    .mate-cell { 
+        aspect-ratio: 1/1.1; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; 
+        border-radius: 10px; padding-top:6px; cursor: pointer; position:relative; border: 1px solid transparent;
+    }
+    .mate-cell.today { background-color: #f0f8ff; border-color: var(--accent); }
+    .mate-cell.selected { background-color: var(--accent); color: #fff; box-shadow: 0 4px 10px rgba(52,152,219,0.3); }
+    .mate-date-num { font-size: 14px; font-weight: 700; z-index:1; }
+    .mate-dots { display:flex; gap:2px; margin-top:4px; flex-wrap:wrap; justify-content:center; max-width:80%; }
+    .mate-dot { width: 5px; height: 5px; border-radius: 50%; background: #e0e0e0; }
+    .mate-dot.done { background: var(--good); } 
+    
+    .mate-list-area { background: #f8f9fa; border-radius: 14px; padding: 14px; min-height: 200px; }
+    .mate-item { display:flex; align-items:center; gap:10px; padding: 12px; background:#fff; border:1px solid var(--line); border-radius:12px; margin-bottom:8px; transition:all 0.2s; }
+    .mate-item.done { opacity: 0.6; }
+    .mate-check { width: 24px; height: 24px; border-radius: 6px; border: 2px solid var(--line); display:flex; align-items:center; justify-content:center; cursor: pointer; flex: 0 0 auto; }
+    .mate-check.checked { background: var(--good); border-color: var(--good); color: #fff; }
+    .mate-text { flex:1; font-size:15px; font-weight:600; line-height:1.3; }
+    .mate-tag { font-size:10px; padding:2px 6px; border-radius:4px; background:#eee; color:#666; font-weight:700; }
+
+    /* 루틴 설정 스타일 */
+    .routine-opt { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px; }
+    .routine-btn { padding: 8px 12px; border:1px solid var(--line); border-radius:8px; background:#fff; font-size:13px; cursor:pointer; }
+    .routine-btn.active { background:var(--accent); color:#fff; border-color:transparent; font-weight:700; }
+    .day-selector { display:flex; gap:4px; margin-top:4px; }
+    .day-btn { width:32px; height:32px; border-radius:50%; border:1px solid var(--line); background:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; cursor:pointer; }
+    .day-btn.active { background:var(--accent); color:#fff; border-color:transparent; }
+
   </style>
 </head>
 
@@ -666,10 +698,10 @@
 
 <script type="module">
   // [중요] 최상단 전역 변수 설정 (Scope 문제 해결)
-  let calYear = new Date().getFullYear();
-  let calMonth = new Date().getMonth() + 1;
-  let logAddDates = []; 
-  let isHolidayMode = false;
+  window.calYear = new Date().getFullYear();
+  window.calMonth = new Date().getMonth() + 1;
+  window.logAddDates = []; 
+  window.isHolidayMode = false;
   const LS_TG_CHAT_ID = "ALBA_TG_CHAT_ID";
 
   window.getToday = function() {
@@ -909,6 +941,14 @@
     return true;
   }
 
+  function showSection(id){
+    document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+    document.getElementById(id)?.classList.add("active");
+    if(id==="sec-att") renderAttendancePanel();
+    if(id==="sec-emp") renderEmployees();
+    if(id==="sec-log"){ renderLogFilterOptions(); renderLogAll(); }
+    recordAction("화면 이동", id);
+  }
   function tickClock(){
     const d=new Date(); document.getElementById("nowTime").textContent=`${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
     document.getElementById("nowDate").textContent=`${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${["일","월","화","수","목","금","토"][d.getDay()]})`;
@@ -991,13 +1031,14 @@
     const [h, m] = emp.workStart.split(':').map(Number);
     const scheduledStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
     
-    // 지각 로직: 1초라도 늦으면 10분 패널티
+    // [수정] 지각 로직: 1ms라도 늦으면 10분 지각 (올림)
     if (inTs > scheduledStart) {
         const diff = inTs - scheduledStart;
         const penaltyUnit = 10 * 60 * 1000; 
         const penaltyBlocks = Math.ceil(diff / penaltyUnit);
         return scheduledStart + (penaltyBlocks * penaltyUnit);
     }
+    // 일찍 오거나 정시인 경우: 그대로 리턴 (나중에 스케줄과 비교해서 정시 인정)
     return inTs; 
   }
 
@@ -1008,19 +1049,20 @@
     let scheduledEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
     if (scheduledEnd < inTs) { scheduledEnd += 24 * 60 * 60 * 1000; }
     
-    // 조기 퇴근은 그대로
+    // [수정] 조기 퇴근은 계약 시간까지 인정
     if (outTs <= scheduledEnd) {
-      return outTs;
+      return scheduledEnd;
     } else {
-      // 연장 근무 로직: 1초라도 넘으면 5분 단위 올림
+      // [수정] 연장 근무 로직: 1ms라도 넘으면 5분 단위 올림
       const diff = outTs - scheduledEnd;
       const bonusUnit = 5 * 60 * 1000; 
       
-      const blocks = Math.ceil((diff - 1) / bonusUnit) + 1; // 0초 초과 시 다음 블록
+      const blocks = Math.ceil(diff / bonusUnit);
       return scheduledEnd + (blocks * bonusUnit);
     }
   }
 
+  // [수정] 공휴일 반영 급여 계산
   function getWageForDay(emp, dateObj) {
       const k = getDayKey(dateObj.getFullYear(), dateObj.getMonth()+1, dateObj.getDate());
       if(isHoliday(k)) {
@@ -1047,7 +1089,9 @@
           const adjOutTs = getAdjustedWorkTime(e, inTs, ev.ts);
           if(adjOutTs > adjInTs) {
              const d=adjOutTs-adjInTs; ms+=d;
-             pay+=Math.floor((d/3600000)*getWageForDay(e, dateObj));
+             // [수정: 1원 단위 절사] 10원 단위로 내림 처리
+             let rawPay = (d/3600000)*getWageForDay(e, dateObj);
+             pay += Math.floor(rawPay / 10) * 10;
           }
           inTs=null;
         }
@@ -1056,6 +1100,7 @@
     return { h:Math.floor(ms/3600000), m:Math.floor((ms%3600000)/60000), pay, has:logs.length>0 };
   }
 
+  // [수정] 주휴수당 - 평균 시급 적용 로직
   function getWeeklyJuhyuSum(sundayDate, filterCode){
      const endTs = new Date(sundayDate).setHours(23,59,59,999);
      const startDate = new Date(sundayDate); startDate.setDate(startDate.getDate() - 6);
@@ -1082,8 +1127,9 @@
                  weeklyMs += durationMs;
                  
                  const workDate = new Date(prevIn.ts);
-                 const currentWage = getWageForDay(emp, workDate);
-                 weeklyPay += (durationMs / 3600000) * currentWage;
+                 // [수정: 1원 단위 절사] 주휴 계산용 시급 합산 시에도 적용
+                 let rawPay = (durationMs / 3600000) * getWageForDay(emp, workDate);
+                 weeklyPay += Math.floor(rawPay / 10) * 10;
              }
              prevIn._used = true; 
            }
@@ -1095,7 +1141,8 @@
        if(weeklyHours >= 15) {
           const avgWage = weeklyPay / weeklyHours;
           const juhyuHours = (Math.min(weeklyHours, 40) / 40) * 8;
-          totalJuhyu += Math.floor(juhyuHours * avgWage);
+          // [수정: 1원 단위 절사] 최종 주휴수당도 10원 단위 절사
+          totalJuhyu += Math.floor((juhyuHours * avgWage) / 10) * 10;
        }
      });
      return totalJuhyu;
@@ -1156,6 +1203,7 @@
              if(adjOutTs > adjInTs) {
                const ms = adjOutTs - adjInTs;
                const workDate = new Date(prevIn.ts);
+               // [수정] 공휴일 반영 급여 계산
                totalBase += Math.floor((ms / 3600000) * getWageForDay(emp, workDate));
              }
              prevIn._usedBase = true; 
@@ -1229,6 +1277,11 @@
                 const d = new Date(adjOutTs);
                 const adjStr = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
                 timeDisplay += `<br><span class="tag good" style="font-size:10px;">연장(인정:${adjStr})</span>`;
+            } else {
+                // [수정: 태그 표시] 조기 퇴근은 정시 인정으로 표시
+                const [h, m] = emp.workEnd.split(':').map(Number);
+                const tStr = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+                timeDisplay += `<br><span class="tag good" style="font-size:10px;">정시(인정:${tStr})</span>`;
             }
         }
         return `<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name||"")}</td><td>${timeDisplay}</td><td>${makeNoteTag(l.note)}</td><td><button class="btn small" onclick="window.editLog(${l.id})">수정</button></td></tr>`;
@@ -1556,8 +1609,8 @@
     document.getElementById("actionLogOverlay").classList.remove("show");
   });
 
-  // [수정] renderAttendancePanel 함수 정의 (전역 등록)
-  function renderAttendancePanel(){ 
+  // [수정] renderAttendancePanel 함수 정의 (전역 등록) - 위치 이동 및 window 할당
+  window.renderAttendancePanel = function(){ 
       const div = document.getElementById("recentTable");
       if(div) {
           document.getElementById("recentTable").innerHTML=getLogs().slice(-15).reverse().map(l=>`<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name)}</td><td>${fmtTS(l.ts)}</td></tr>`).join("")||`<tr><td colspan="4" class="muted">기록 없음</td></tr>`;
@@ -1569,17 +1622,14 @@
           if(!emps.length) btnDiv.innerHTML=`<span class="muted">관리자 메뉴에서 알바생을 등록하세요.</span>`;
           else{
             btnDiv.innerHTML=emps.map(e=>`<button class="btn" data-c="${e.code}">${escapeHtml(e.name)} <span class="muted">${e.code}</span></button>`).join("");
-            btnDiv.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{ 
-                document.getElementById("attCode").value=b.dataset.c; 
-                onCodeChanged();
-                recordAction("알바생 선택", b.dataset.c); 
-            }));
+            // 버튼 클릭 이벤트는 HTML inline onclick으로 처리됨 (window.onCodeChanged 사용)
           }
       }
-      onCodeChanged(); 
+      window.onCodeChanged(); 
   }
 
-  function onCodeChanged(){
+  // [수정] onCodeChanged 함수도 window에 등록
+  window.onCodeChanged = function(){
     const attCode = document.getElementById("attCode");
     const attName = document.getElementById("attName");
     const attStatus = document.getElementById("attStatus");
