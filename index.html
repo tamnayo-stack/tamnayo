@@ -8,12 +8,13 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="format-detection" content="telephone=no" />
   
-  <link rel="icon" href="data:,"> <title>탐나는피자 화성남양점</title>
+  <title>탐나는피자 화성남양점</title>
   
   <style>
-    /* ==========================================================================
-       [사장님 원본 CSS 100% 유지] 
-       ========================================================================== */
+    /* ================================================================
+       [디자인 100% 원본 유지] 
+       ================================================================
+    */
     :root{
       --bg: #f4f6f9; --panel: #ffffff; --panel2: #f8f9fa;
       --text: #2c3e50; --muted: #8395a7; --line: #dcdde1;
@@ -22,19 +23,16 @@
     }
     *{ box-sizing:border-box; }
     body{ 
-      margin:0; font-family: -apple-system, BlinkMacSystemFont, "San Francisco", "Helvetica Neue", sans-serif; 
-      background: var(--bg); color:var(--text); min-height:100dvh;
-      -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+      margin:0; 
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; 
+      background: var(--bg); 
+      color:var(--text); 
+      min-height:100dvh;
+      -webkit-user-select: none; user-select: none;
+      -webkit-touch-callout: none; touch-action: manipulation;
       padding-bottom: 20px;
     }
-    input, textarea, select { 
-        width:100%; background: #fff; border: 1px solid #ced6e0; 
-        color: var(--text); border-radius: 12px; padding: 12px 12px; 
-        font-size: 16px; outline:none; -webkit-user-select: text; user-select: text; 
-    }
-    input::placeholder{ color: #b2bec3; }
-    input:focus, select:focus{ border-color: var(--accent); box-shadow: 0 0 0 3px rgba(52,152,219,.15); }
-    textarea{ min-height: 120px; resize: vertical; }
+    input, textarea { -webkit-user-select: text; user-select: text; }
 
     header{ padding: 14px 18px 10px; position: sticky; top:0; background: rgba(255,255,255,.90); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); z-index:100; }
     .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; max-width:1100px; margin:0 auto; }
@@ -57,6 +55,11 @@
     .spacer{ flex:1 1 auto !important; }
 
     label{ font-size: 13px; color:var(--muted); display:block; margin: 4px 0 6px; }
+    input, select{ width:100%; background: #fff; border: 1px solid #ced6e0; color: var(--text); border-radius: 12px; padding: 12px 12px; font-size: 16px; outline:none; }
+    input::placeholder{ color: #b2bec3; }
+    input:focus, select:focus{ border-color: var(--accent); box-shadow: 0 0 0 3px rgba(52,152,219,.15); }
+    textarea{ width:100%; min-height: 120px; resize: vertical; background: #fff; border: 1px solid #ced6e0; color: var(--text); border-radius: 12px; padding: 12px 12px; font-size: 15px; outline:none; }
+    textarea:focus{ border-color: var(--accent); box-shadow: 0 0 0 3px rgba(52,152,219,.15); }
 
     .btn{ border:1px solid var(--line); background: #f1f2f6; color: var(--text); padding: 12px 14px; border-radius: 14px; font-size: 15px; font-weight: 800; cursor:pointer; user-select:none; transition: transform .05s ease; }
     .btn:active{ transform: scale(.98); }
@@ -141,7 +144,7 @@
     .todo-text { flex:1; font-size:15px; font-weight:700; color:var(--text); }
     .todo-text.done { text-decoration: line-through; color:var(--muted); }
 
-    /* Z-Index 정리 */
+    /* Z-Index 및 팝업 설정 */
     #adminMenuOverlay { z-index: 1000 !important; }
     #mateOverlay, #actionLogOverlay, #empEditOverlay, #logEditOverlay, #logAddOverlay, #todoOverlay { z-index: 2000 !important; }
     #routineSetOverlay { z-index: 3000 !important; }
@@ -164,11 +167,6 @@
     .calTime{ font-size: 13px; font-weight: 800; color: var(--text); display:block; }
     .calPay{ font-size: 11px; color: var(--good); font-weight: 700; display:block; margin-top:2px; }
     .calDay:hover{ background: #f8f9fa !important; }
-    
-    /* [공휴일 스타일] */
-    .calDay.holiday { background-color: #ffebee !important; border-color: #ffcdd2; }
-    .calDay.holiday .calNum { color: #e53935; font-weight:900; }
-    .calDay.holiday-select-mode { cursor: pointer; border: 2px dashed #e53935; }
 
     .totalWageBox { background: var(--panel2); border: 2px solid var(--accent); border-radius: 14px; padding: 16px; text-align:center; margin-bottom: 14px; display:flex; flex-direction:column; align-items:center; gap:4px; }
     .totalWageLabel { color: var(--muted); font-size: 13px; font-weight: 800; }
@@ -180,7 +178,38 @@
     #quickButtons .btn { height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 16px; }
     #quickButtons .btn .muted { font-size: 12px; font-weight: normal; }
     
-    /* 날짜 선택 태그 스타일 */
+    /* 투두메이트 스타일 */
+    .mate-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+    .mate-title { font-size: 18px; font-weight: 900; }
+    .mate-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 14px; }
+    .mate-day-head { text-align: center; font-size: 12px; color: var(--muted); font-weight: 700; padding-bottom: 4px; }
+    .mate-cell { 
+        aspect-ratio: 1/1.1; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; 
+        border-radius: 10px; padding-top:6px; cursor: pointer; position:relative; border: 1px solid transparent;
+    }
+    .mate-cell.today { background-color: #f0f8ff; border-color: var(--accent); }
+    .mate-cell.selected { background-color: var(--accent); color: #fff; box-shadow: 0 4px 10px rgba(52,152,219,0.3); }
+    .mate-date-num { font-size: 14px; font-weight: 700; z-index:1; }
+    .mate-dots { display:flex; gap:2px; margin-top:4px; flex-wrap:wrap; justify-content:center; max-width:80%; }
+    .mate-dot { width: 5px; height: 5px; border-radius: 50%; background: #e0e0e0; }
+    .mate-dot.done { background: var(--good); } 
+    
+    .mate-list-area { background: #f8f9fa; border-radius: 14px; padding: 14px; min-height: 200px; }
+    .mate-item { display:flex; align-items:center; gap:10px; padding: 12px; background:#fff; border:1px solid var(--line); border-radius:12px; margin-bottom:8px; transition:all 0.2s; }
+    .mate-item.done { opacity: 0.6; }
+    .mate-check { width: 24px; height: 24px; border-radius: 6px; border: 2px solid var(--line); display:flex; align-items:center; justify-content:center; cursor: pointer; flex: 0 0 auto; }
+    .mate-check.checked { background: var(--good); border-color: var(--good); color: #fff; }
+    .mate-text { flex:1; font-size:15px; font-weight:600; line-height:1.3; }
+    .mate-tag { font-size:10px; padding:2px 6px; border-radius:4px; background:#eee; color:#666; font-weight:700; }
+
+    /* 루틴 설정 스타일 */
+    .routine-opt { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px; }
+    .routine-btn { padding: 8px 12px; border:1px solid var(--line); border-radius:8px; background:#fff; font-size:13px; cursor:pointer; }
+    .routine-btn.active { background:var(--accent); color:#fff; border-color:transparent; font-weight:700; }
+    .day-selector { display:flex; gap:4px; margin-top:4px; }
+    .day-btn { width:32px; height:32px; border-radius:50%; border:1px solid var(--line); background:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; cursor:pointer; }
+    .day-btn.active { background:var(--accent); color:#fff; border-color:transparent; }
+    
     .date-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #e3f2fd; color: var(--accent); border-radius: 20px; font-size: 13px; font-weight: 700; margin: 2px; }
     .date-pill button { background: none; border: none; color: var(--accent); font-weight: 900; font-size: 12px; cursor: pointer; padding: 0; }
   </style>
@@ -208,15 +237,12 @@
           <div><label>알바 코드 (자동 입력)</label><input id="attCode" inputmode="numeric" autocomplete="off" placeholder="버튼을 누르세요" maxlength="4" readonly /></div>
           <div><label>이름 (자동 표시)</label><input id="attName" disabled placeholder="-" /></div>
         </div>
-        <div class="big-actions">
-            <button class="btn good" id="btnIn" onclick="window.clockIn()">출근</button>
-            <button class="btn bad" id="btnOut" onclick="window.clockOut()">퇴근</button>
-        </div>
+        <div class="big-actions"><button class="btn good" id="btnIn">출근</button><button class="btn bad" id="btnOut">퇴근</button></div>
         <div class="row" style="margin-top:10px;">
           <span class="pill">상태: <strong id="attStatus">-</strong></span>
           <span class="pill">마지막 기록: <strong id="attLast">-</strong></span>
           <span class="spacer"></span>
-          <button class="btn small" onclick="document.getElementById('attCode').value=''; window.onCodeChanged();">지우기</button>
+          <button class="btn small" id="btnClearCode">지우기</button>
         </div>
         <div class="hr"></div>
         <div class="row" style="gap:12px;">
@@ -245,7 +271,7 @@
 
   <section class="section" id="sec-emp">
     <div class="card">
-      <div class="row"><h2 style="margin:0;">알바생 관리 (관리자)</h2><div class="spacer"></div><button class="btn small" onclick="window.showSection('sec-att')">← 출근/퇴근</button></div>
+      <div class="row"><h2 style="margin:0;">알바생 관리 (관리자)</h2><div class="spacer"></div><button class="btn small" id="btnBackFromEmp">← 출근/퇴근</button></div>
       <div class="hr"></div>
       <div class="grid">
         <div class="card" style="box-shadow:none;">
@@ -287,7 +313,7 @@
 
   <section class="section" id="sec-log">
     <div class="card">
-      <div class="row"><h2 style="margin:0;">근태 조회 (관리자)</h2><div class="spacer"></div><button class="btn small" onclick="window.showSection('sec-att')">← 출근/퇴근</button></div>
+      <div class="row"><h2 style="margin:0;">근태 조회 (관리자)</h2><div class="spacer"></div><button class="btn small" id="btnBackFromLog">← 출근/퇴근</button></div>
       <div class="hr"></div>
       <div class="row" style="margin-bottom:10px; gap:10px; flex-wrap:wrap;">
         <span class="pill">전체 기록: <strong id="logTotal">0</strong>건</span>
@@ -308,11 +334,10 @@
         <button class="btn small" id="calPrevBtn">◀ 이전달</button>
         <h3 id="calTitle" style="margin:0; font-size:18px;">202X. XX</h3>
         <button class="btn small" id="calNextBtn">다음달 ▶</button>
-        <button class="btn small bad" id="btnManageHoliday" style="margin-left:8px;">📅 공휴일 관리</button>
       </div>
       <div class="calGrid" id="calendarView"></div>
       
-      <div class="note" style="margin:14px 0;">• 일요일에 해당 주의 주휴수당(15시간↑)이 표시됩니다. <br>• '공휴일 관리'를 눌러 빨간 날을 지정하면 시급 1.5배로 계산됩니다.</div>
+      <div class="note" style="margin:14px 0;">• 일요일에 해당 주의 주휴수당(15시간↑)이 표시됩니다.<br/>• 평일 공휴일은 1.5배 시급이 자동 적용됩니다.</div>
       
       <div style="overflow:auto; max-height: 540px;">
         <table>
@@ -348,13 +373,13 @@
     <div class="muted" id="adminStateText">관리자 모드 (PIN 없음)</div>
     <div class="hr"></div>
     <div class="menuGrid">
-      <button class="btn primary" onclick="window.showSection('sec-emp'); document.getElementById('adminMenuOverlay').classList.remove('show');">알바생 관리</button>
-      <button class="btn primary" onclick="window.showSection('sec-log'); document.getElementById('adminMenuOverlay').classList.remove('show');">근태 조회</button>
+      <button class="btn primary" id="goEmp">알바생 관리</button>
+      <button class="btn primary" id="goLog">근태 조회</button>
       <button class="btn good" id="btnOpenMate">업무/루틴 관리</button>
       <button class="btn" id="btnShowActionLogs">시스템 로그 보기</button>
       <button class="btn warn" id="btnExportCsv2">CSV 내보내기</button>
       <button class="btn bad" id="btnResetAll">전체 초기화</button>
-      <button class="btn" onclick="window.lockAdmin()">관리자 잠금</button>
+      <button class="btn" id="btnLockAdmin">관리자 메뉴 닫기</button>
     </div>
     
     <div class="hr"></div>
@@ -364,6 +389,7 @@
         <button class="btn small primary" id="btnSaveTgId">저장</button>
         <button class="btn small good" id="btnAutoTgId">내 ID 자동찾기</button>
     </div>
+    <div class="note" style="margin-top:4px;">* 자동찾기: 봇에게 먼저 아무 말이나 보내고 누르세요.</div>
     
     <div class="hr"></div>
     <div class="muted" style="font-size:13px; font-weight:900;">마감 체크리스트 편집</div>
@@ -646,171 +672,108 @@
   </div>
 </div>
 
-<div class="modalOverlay" id="pinOverlay" role="dialog" aria-modal="true" style="z-index: 9999;">
-  <div class="modal">
-    <h3 id="pinTitle">관리자 PIN</h3>
-    <div class="muted" id="pinDesc">관리자 기능을 사용하려면 PIN을 입력하세요.</div>
-    <div class="hr"></div>
-    <div id="pinUnlockBlock">
-      <label>PIN 입력</label><input id="pinInput" inputmode="numeric" autocomplete="off" placeholder="PIN" maxlength="8" />
-      <div class="note">해제 후 <b>10분</b> 동안 관리자 기능이 열립니다.</div>
-    </div>
-    <div class="modalActions">
-      <button class="btn" id="pinCancel">취소</button>
-      <button class="btn primary" id="pinOk">확인</button>
-    </div>
-  </div>
-</div>
-
 <input id="restoreInput" type="file" accept="application/json" style="display:none;" />
 
 <script type="module">
-  // [중요] 최상단 전역 변수 설정 (Scope 문제 해결)
-  window.calYear = new Date().getFullYear();
-  window.calMonth = new Date().getMonth() + 1;
-  window.logAddDates = []; 
-  window.isHolidayMode = false;
-  const LS_TG_CHAT_ID = "ALBA_TG_CHAT_ID";
-  // [복구] 텔레그램 토큰 원상 복구
-  const TG_TOKEN = "7735983028:AAGgXPT18XIeBHC4C_sjKrSKSbNqQsT0ZN0";
-
+  // [중요] getToday 함수를 가장 먼저 정의해서 에러 방지
   window.getToday = function() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   };
 
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+  // -------------------------------------------------------------
+  // [텔레그램 연동 코드 유지]
+  // -------------------------------------------------------------
+  const TG_TOKEN = "7735983028:AAGgXPT18XIeBHC4C_sjKrSKSbNqQsT0ZN0";
+  const LS_TG_CHAT_ID = "ALBA_TG_CHAT_ID";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyAbdEqVxEOcA3qFEcYEH9yuvNRx_CTMxhE",
-    authDomain: "tamna-hr.firebaseapp.com",
-    projectId: "tamna-hr",
-    storageBucket: "tamna-hr.firebasestorage.app",
-    messagingSenderId: "766306504997",
-    appId: "1:766306504997:web:3e4e77bc14101cd6660acc"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  let SERVER_CACHE = {}; 
-
-  // [텔레그램 알림 기능 복구]
   async function sendTelegramAlert(text) {
       const chatId = localStorage.getItem(LS_TG_CHAT_ID);
       if(!chatId) return;
       try {
-          await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+          const url = `https://api.telegram.org/bot${TG_TOKEN}/sendMessage`;
+          await fetch(url, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ chat_id: chatId, text: text })
           });
-      } catch(e) {}
+      } catch(e) { console.error(e); }
   }
 
-  // [중요] HTML에서 호출하는 함수들을 window 객체에 등록 (Scope 문제 해결)
-  window.execCmd = function(command, value = null) {
-    if(command === 'removeFormat') {
-      document.execCommand('removeFormat', false, null);
-      document.execCommand('outdent', false, null);
-    } else {
-      document.execCommand(command, false, value);
-    }
-  };
-  
-  window.insertTable = function() {
-    const html = `
-      <table style="width:100%; border-collapse:collapse; margin:8px 0;">
-        <tbody>
-          <tr><td style="border:1px solid #dcdde1; padding:8px;">항목1</td><td style="border:1px solid #dcdde1; padding:8px;">내용1</td></tr>
-          <tr><td style="border:1px solid #dcdde1; padding:8px;">항목2</td><td style="border:1px solid #dcdde1; padding:8px;">내용2</td></tr>
-          <tr><td style="border:1px solid #dcdde1; padding:8px;">항목3</td><td style="border:1px solid #dcdde1; padding:8px;">내용3</td></tr>
-        </tbody>
-      </table><br/>`;
-    document.execCommand('insertHTML', false, html);
-  };
+  document.getElementById("btnSaveTgId").addEventListener("click", () => {
+      const v = document.getElementById("adminTgChatId").value.trim();
+      if(!v) return alert("ID를 입력하세요.");
+      localStorage.setItem(LS_TG_CHAT_ID, v);
+      alert("저장되었습니다.");
+  });
 
-  window.handleImageUpload = function(input) {
-    if (input.files && input.files[0]) {
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        document.execCommand('insertImage', false, e.target.result);
-      };
-      reader.readAsDataURL(input.files[0]);
-    }
-    input.value = ''; 
-  };
+  document.getElementById("btnAutoTgId").addEventListener("click", async () => {
+      try {
+          const url = `https://api.telegram.org/bot${TG_TOKEN}/getUpdates`;
+          const res = await fetch(url);
+          const data = await res.json();
+          if(data.ok && data.result.length > 0) {
+              const lastMsg = data.result[data.result.length - 1];
+              const myId = lastMsg.message.chat.id;
+              document.getElementById("adminTgChatId").value = myId;
+              localStorage.setItem(LS_TG_CHAT_ID, myId);
+              alert(`ID 찾음: ${myId}`);
+          } else { alert("메시지 없음. 봇에게 말을 건 뒤 다시 시도하세요."); }
+      } catch(e) { alert("오류: " + e.message); }
+  });
+
+  // -------------------------------------------------------------
+  // [Firebase 및 기본 설정]
+  // -------------------------------------------------------------
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+  const firebaseConfig = { apiKey: "AIzaSyAbdEqVxEOcA3qFEcYEH9yuvNRx_CTMxhE", authDomain: "tamna-hr.firebaseapp.com", projectId: "tamna-hr", storageBucket: "tamna-hr.firebasestorage.app", messagingSenderId: "766306504997", appId: "1:766306504997:web:3e4e77bc14101cd6660acc" };
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  let SERVER_CACHE = {}; 
+  let logAddDates = []; 
+
+  // [공휴일 데이터 유지]
+  const HOLIDAYS = ["2024-01-01","2024-02-09","2024-02-10","2024-02-11","2024-02-12","2024-03-01","2024-04-10","2024-05-05","2024-05-06","2024-05-15","2024-06-06","2024-08-15","2024-09-16","2024-09-17","2024-09-18","2024-10-03","2024-10-09","2024-12-25","2025-01-01","2025-01-28","2025-01-29","2025-01-30","2025-03-01","2025-05-05","2025-05-06","2025-06-06","2025-08-15","2025-10-03","2025-10-05","2025-10-06","2025-10-07","2025-10-08","2025-10-09","2025-12-25","2026-01-01","2026-02-17","2026-02-18","2026-02-19","2026-03-01","2026-05-05","2026-05-24","2026-05-25","2026-06-06","2026-08-15","2026-09-24","2026-09-25","2026-09-26","2026-10-03","2026-10-09","2026-12-25"];
+  function isHoliday(dateStr) { return HOLIDAYS.includes(dateStr); }
+
+  // [에디터 기능 유지]
+  window.execCmd = function(command, value = null) { document.execCommand(command, false, value); };
+  window.insertTable = function() { const html = `<table style="width:100%; border-collapse:collapse; margin:8px 0;"><tbody><tr><td style="border:1px solid #dcdde1; padding:8px;">항목</td><td style="border:1px solid #dcdde1; padding:8px;">내용</td></tr></tbody></table><br/>`; document.execCommand('insertHTML', false, html); };
+  window.handleImageUpload = function(input) { if (input.files && input.files[0]) { const reader = new FileReader(); reader.onload = function(e) { document.execCommand('insertImage', false, e.target.result); }; reader.readAsDataURL(input.files[0]); } input.value = ''; };
   
   window.recordAction = function(action, detail) {
     const logs = loadJSON('ACTION_LOGS', []);
-    logs.push({
-      ts: Date.now(),
-      time: fmtTS(Date.now()),
-      action: action,
-      detail: detail
-    });
+    logs.push({ ts: Date.now(), time: fmtTS(Date.now()), action: action, detail: detail });
     if(logs.length > 200) logs.shift();
     saveJSON('ACTION_LOGS', logs);
   };
 
-  window.showSection = function(id){
-    document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
-    document.getElementById(id)?.classList.add("active");
-    if(id==="sec-att") renderAttendancePanel();
-    if(id==="sec-emp") renderEmployees();
-    if(id==="sec-log"){ renderLogFilterOptions(); renderLogAll(); }
-    recordAction("화면 이동", id);
-  }
-
-  // [중요] Firebase 데이터 수신 시 화면 갱신
   onValue(ref(db, 'tamnaData'), (snapshot) => {
     const data = snapshot.val();
     if (data) {
       SERVER_CACHE = data;
       try {
-        renderAttendancePanel();
-        if(document.getElementById("sec-log").classList.contains("active")) {
-            renderLogFilterOptions();
-            renderLogAll();
-        }
-        if(document.getElementById("sec-emp").classList.contains("active")) {
-            renderEmployees();
-        }
+        if(typeof renderAttendancePanel === 'function') renderAttendancePanel();
+        if(typeof renderLogAll === 'function') { renderLogFilterOptions(); renderLogAll(); }
+        if(typeof renderEmployees === 'function') renderEmployees();
         
         let status = document.getElementById('syncStatus');
-        if(!status) {
-          status = document.createElement('div');
-          status.id = 'syncStatus';
-          document.body.appendChild(status);
-        }
-        status.textContent = "● 서버 동기화됨";
-      } catch(e) {
-          console.error("Rendering Error:", e);
-      }
+        if(!status) { status = document.createElement('div'); status.id = 'syncStatus'; document.body.appendChild(status); }
+        status.textContent = "● 서버 동기화됨"; status.style.background = "rgba(39, 174, 96, 0.8)";
+      } catch(e) {}
     }
   });
 
-  window.saveJSON = async function(key, val) {
-    SERVER_CACHE[key] = val;
-    await set(ref(db, 'tamnaData'), SERVER_CACHE);
-  };
+  window.saveJSON = async function(key, val) { SERVER_CACHE[key] = val; await set(ref(db, 'tamnaData'), SERVER_CACHE); };
+  window.loadJSON = function(key, fallback) { return SERVER_CACHE[key] ? SERVER_CACHE[key] : fallback; };
 
-  window.loadJSON = function(key, fallback) {
-    return SERVER_CACHE[key] ? SERVER_CACHE[key] : fallback;
-  };
-
-  const LS_KEYS = { DAILY_NOTICE: "ALBA_DAILY_NOTICE_V1", OUT_NOTES: "ALBA_OUT_NOTES_V1", CLOSE_CHECKLIST: "ALBA_CLOSE_CHECKLIST_V1", CLOSE_CHECK_LOGS: "ALBA_CLOSE_CHECK_LOGS_V1", EMPLOYEES: "ALBA_EMPLOYEES_V2", NEXT_ID: "ALBA_NEXT_EMP_ID_V2", ATT_LOGS: "ALBA_ATT_LOGS_V2", PIN_HASH: "ALBA_ADMIN_PIN_HASH_V1", PIN_SALT: "ALBA_ADMIN_PIN_SALT_V1", HOLIDAYS: "ALBA_HOLIDAYS_V1", NOTICE_TEMPLATES: "NOTICE_TEMPLATES_V1" };
-  const SS_KEYS = { UNLOCK_UNTIL: "ALBA_ADMIN_UNLOCK_UNTIL_V1" };
+  const LS_KEYS = { DAILY_NOTICE: "ALBA_DAILY_NOTICE_V1", OUT_NOTES: "ALBA_OUT_NOTES_V1", CLOSE_CHECKLIST: "ALBA_CLOSE_CHECKLIST_V1", CLOSE_CHECK_LOGS: "ALBA_CLOSE_CHECK_LOGS_V1", EMPLOYEES: "ALBA_EMPLOYEES_V2", NEXT_ID: "ALBA_NEXT_EMP_ID_V2", ATT_LOGS: "ALBA_ATT_LOGS_V2" };
 
   function pad4(n){ return String(n).length>=4?String(n):("0000"+n).slice(-4); }
   function nowTS(){ return Date.now(); }
   function dateKey(ts){ const d=new Date(ts); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
-  
-  // [중요 - 복구됨] 누락되었던 getDayKey 함수 추가
-  function getDayKey(y, m, d) {
-      return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-  }
-
   function todayKey(){ return dateKey(Date.now()); }
   function fmtTS(ts){ const d=new Date(ts); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`; }
   function toast(msg,type){ const el=document.getElementById("toast"); el.textContent=msg; el.className="toast show "+(type==="danger"?"danger":""); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove("show"),2200); }
@@ -829,64 +792,21 @@
   
   function getNoticeMap(){ return loadJSON(LS_KEYS.DAILY_NOTICE, {}); }
   function setNoticeMap(map){ saveJSON(LS_KEYS.DAILY_NOTICE, map); }
-  
   function getTodayNotice(){ return getNoticeMap()[todayKey()]?.text || ""; }
-  function getTodayNoticeDuration(){ return getNoticeMap()[todayKey()]?.duration || 5; } // 기본값 5초
-
-  function setTodayNotice(text, duration=5){ 
-    const m=getNoticeMap(); 
-    m[todayKey()]={text:String(text||""), duration: Number(duration), updatedAt:nowTS()}; 
-    setNoticeMap(m); 
-  }
+  function getTodayNoticeDuration(){ return getNoticeMap()[todayKey()]?.duration || 5; }
+  function setTodayNotice(text, duration=5){ const m=getNoticeMap(); m[todayKey()]={text:String(text||""), duration: Number(duration), updatedAt:nowTS()}; setNoticeMap(m); }
   function clearTodayNotice(){ const m=getNoticeMap(); delete m[todayKey()]; setNoticeMap(m); }
 
-  function getHolidays() { return loadJSON(LS_KEYS.HOLIDAYS, []); }
-  function setHolidays(list) { saveJSON(LS_KEYS.HOLIDAYS, list); }
-  function toggleHoliday(dateStr) {
-      let list = getHolidays();
-      if(list.includes(dateStr)) list = list.filter(d => d !== dateStr);
-      else list.push(dateStr);
-      setHolidays(list);
-  }
-  function isHoliday(dateStr) {
-      return getHolidays().includes(dateStr);
-  }
-
-  function getTemplates() { return loadJSON(LS_KEYS.NOTICE_TEMPLATES, []); }
+  function getTemplates() { return loadJSON('NOTICE_TEMPLATES', []); }
   function renderTemplates() {
     const list = getTemplates();
     const container = document.getElementById('templateList');
-    if(!list.length) {
-        container.innerHTML = '<span class="muted" style="font-size:11px; padding:4px;">저장된 문구가 없습니다.</span>';
-        return;
-    }
-    container.innerHTML = list.map((t, i) => `
-        <div style="display:flex; align-items:center; background:#fff; border:1px solid #dcdde1; padding:6px; border-radius:8px;">
-            <div style="flex:1; font-size:12px; cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" onclick="window.applyTemplate(${i})">${t.replace(/<[^>]*>/g, '') || '(이미지/표)'}</div>
-            <button class="btn small bad" onclick="window.deleteTemplate(${i})" style="padding:2px 6px; font-size:10px; margin-left:4px;">x</button>
-        </div>
-    `).join('');
+    if(!list.length) { container.innerHTML = '<span class="muted" style="font-size:11px; padding:4px;">저장된 문구가 없습니다.</span>'; return; }
+    container.innerHTML = list.map((t, i) => `<div style="display:flex; align-items:center; background:#fff; border:1px solid #dcdde1; padding:6px; border-radius:8px;"><div style="flex:1; font-size:12px; cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" onclick="window.applyTemplate(${i})">${t.replace(/<[^>]*>/g, '') || '(이미지/표)'}</div><button class="btn small bad" onclick="window.deleteTemplate(${i})" style="padding:2px 6px; font-size:10px; margin-left:4px;">x</button></div>`).join('');
   }
-  window.applyTemplate = (i) => {
-    const list = getTemplates();
-    document.getElementById('adminNoticeInput').innerHTML = list[i];
-  };
-  window.deleteTemplate = (i) => {
-    if(!confirm("삭제할까요?")) return;
-    const list = getTemplates();
-    list.splice(i, 1);
-    saveJSON(LS_KEYS.NOTICE_TEMPLATES, list);
-    renderTemplates();
-  };
-  document.getElementById('btnSaveTemplate').onclick = () => {
-    const txt = document.getElementById('adminNoticeInput').innerHTML;
-    if(!txt) return toast("내용이 없습니다");
-    const list = getTemplates();
-    list.push(txt);
-    saveJSON(LS_KEYS.NOTICE_TEMPLATES, list);
-    renderTemplates();
-    toast("문구 저장됨");
-  };
+  window.applyTemplate = (i) => { document.getElementById('adminNoticeInput').innerHTML = getTemplates()[i]; };
+  window.deleteTemplate = (i) => { if(!confirm("삭제?")) return; const list = getTemplates(); list.splice(i, 1); saveJSON('NOTICE_TEMPLATES', list); renderTemplates(); };
+  document.getElementById('btnSaveTemplate').onclick = () => { const txt = document.getElementById('adminNoticeInput').innerHTML; if(!txt) return toast("내용 없음"); const list = getTemplates(); list.push(txt); saveJSON('NOTICE_TEMPLATES', list); renderTemplates(); toast("문구 저장됨"); };
 
   function getOutNotes(){ return loadJSON(LS_KEYS.OUT_NOTES, []); }
   function setOutNotes(list){ saveJSON(LS_KEYS.OUT_NOTES, list); }
@@ -898,32 +818,18 @@
   function addOutNote({code,name,text}){ const list=getOutNotes(); const id=list.length?(list[list.length-1].id+1):1; list.push({id,date:dateKey(nowTS()),ts:nowTS(),code,name,text:String(text||"").trim()}); setOutNotes(list); }
 
   function hasPin(){ return true; } 
-  function isAdminUnlocked(){ const u=sessionStorage.getItem(SS_KEYS.UNLOCK_UNTIL); return u && Date.now()<Number(u); }
-  function setAdminUnlocked(m=10){ sessionStorage.setItem(SS_KEYS.UNLOCK_UNTIL, String(Date.now()+m*60*1000)); updateAdminStateText(); }
-  function lockAdmin(){ sessionStorage.removeItem(SS_KEYS.UNLOCK_UNTIL); updateAdminStateText(); }
-  function verifyPin(p){ return p === "0721"; } 
+  function isAdminUnlocked(){ return true; } 
+  function lockAdmin(){ document.getElementById("adminMenuOverlay").classList.remove("show"); }
+  async function ensureAdmin(r="관리자 기능"){ return true; }
 
-  const pinOverlay=document.getElementById("pinOverlay");
-  let pinResolve=null;
-  function showPinModal(mode,opts={}){
-    document.getElementById("pinTitle").textContent=opts.title||"관리자 PIN";
-    document.getElementById("pinDesc").textContent=opts.desc||"";
-    document.getElementById("pinInput").value="";
-    pinOverlay.classList.add("show"); setTimeout(()=>document.getElementById("pinInput")?.focus(),50);
-    return new Promise(r=>{ pinResolve=r; });
+  function showSection(id){
+    document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+    document.getElementById(id)?.classList.add("active");
+    if(id==="sec-att") renderAttendancePanel();
+    if(id==="sec-emp") renderEmployees();
+    if(id==="sec-log"){ renderLogFilterOptions(); renderLogAll(); }
+    recordAction("화면 이동", id);
   }
-  function hidePinModal(res){ pinOverlay.classList.remove("show"); if(pinResolve){ pinResolve(res); pinResolve=null; } }
-  document.getElementById("pinCancel").addEventListener("click",()=>hidePinModal({ok:false}));
-  
-  document.getElementById("pinOk").addEventListener("click",()=>{
-    const p=(document.getElementById("pinInput").value||"").replace(/\D/g,"");
-    if(verifyPin(p)){ setAdminUnlocked(); toast("해제됨"); hidePinModal({ok:true}); } else toast("PIN 오류 (0721)");
-  });
-
-  async function ensureAdmin(r="관리자 기능"){
-    return true;
-  }
-
   function tickClock(){
     const d=new Date(); document.getElementById("nowTime").textContent=`${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
     document.getElementById("nowDate").textContent=`${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${["일","월","화","수","목","금","토"][d.getDay()]})`;
@@ -931,14 +837,10 @@
   setInterval(tickClock,250); tickClock();
 
   const adminMenuOverlay=document.getElementById("adminMenuOverlay");
-  function updateAdminStateText(){
-    if(document.getElementById("adminStateText")) {
-       document.getElementById("adminStateText").textContent="관리자 모드 (접속 중)";
-    }
-  }
+  function updateAdminStateText(){ if(document.getElementById("adminStateText")) document.getElementById("adminStateText").textContent="관리자 모드 (PIN 없음)"; }
   setInterval(updateAdminStateText,500); updateAdminStateText();
   
-  window.openAdminMenu = function(){
+  function openAdminMenu(){
     document.getElementById("adminNoticeInput").innerHTML = getTodayNotice();
     document.getElementById("adminNoticeDuration").value = getTodayNoticeDuration();
     renderAdminCloseChecklist();
@@ -947,132 +849,210 @@
     adminMenuOverlay.classList.add("show"); updateAdminStateText();
   }
   document.getElementById("adminMenuClose").addEventListener("click",()=>adminMenuOverlay.classList.remove("show"));
-  document.getElementById("btnLockAdmin").addEventListener("click",()=>{ lockAdmin(); toast("잠금 완료"); adminMenuOverlay.classList.remove("show"); showSection("sec-att"); });
+  document.getElementById("btnLockAdmin").addEventListener("click",()=>{ lockAdmin(); });
   document.getElementById("goEmp").addEventListener("click",()=>{ adminMenuOverlay.classList.remove("show"); showSection("sec-emp"); });
   document.getElementById("goLog").addEventListener("click",()=>{ adminMenuOverlay.classList.remove("show"); showSection("sec-log"); });
   document.getElementById("btnBackFromEmp").addEventListener("click",()=>showSection("sec-att"));
   document.getElementById("btnBackFromLog").addEventListener("click",()=>showSection("sec-att"));
   
-  document.getElementById("btnSaveTodayNotice").addEventListener("click",async()=>{ 
-      if(await ensureAdmin("공지 저장")){ 
-          const content = document.getElementById("adminNoticeInput").innerHTML;
-          const duration = document.getElementById("adminNoticeDuration").value;
-          setTodayNotice(content, duration); 
-          recordAction("공지 저장", content.slice(0,10));
-          toast("저장됨"); 
-      } 
-  });
-  
-  document.getElementById("btnClearTodayNotice").addEventListener("click",async()=>{ 
-      if(await ensureAdmin("공지 지우기")){ 
-          clearTodayNotice(); 
-          document.getElementById("adminNoticeInput").innerHTML = "";
-          document.getElementById("adminNoticeDuration").value = 5; 
-          recordAction("공지 삭제", "삭제됨");
-          toast("지워짐"); 
-      } 
-  });
+  document.getElementById("btnSaveTodayNotice").addEventListener("click",async()=>{ if(await ensureAdmin("공지 저장")){ const content = document.getElementById("adminNoticeInput").innerHTML; const duration = document.getElementById("adminNoticeDuration").value; setTodayNotice(content, duration); toast("저장됨"); } });
+  document.getElementById("btnClearTodayNotice").addEventListener("click",async()=>{ if(await ensureAdmin("공지 지우기")){ clearTodayNotice(); document.getElementById("adminNoticeInput").innerHTML = ""; toast("지워짐"); } });
   
   let logoTap=0, logoT;
-  document.getElementById("logoImg").addEventListener("click",async()=>{
-    logoTap++; clearTimeout(logoT); logoT=setTimeout(()=>{logoTap=0},1300);
-    if(logoTap>=5){ 
-        logoTap=0; 
-        openAdminMenu(); 
-    }
-  });
+  document.getElementById("logoImg").addEventListener("click",async()=>{ logoTap++; clearTimeout(logoT); logoT=setTimeout(()=>{logoTap=0},1300); if(logoTap>=5){ logoTap=0; openAdminMenu(); } });
 
-  // [텔레그램 설정 버튼 이벤트 복구]
-  document.getElementById("btnSaveTgId").addEventListener("click", () => {
-      const v = document.getElementById("adminTgChatId").value.trim();
-      if(!v) return alert("ID 입력");
-      localStorage.setItem(LS_TG_CHAT_ID, v);
-      alert("저장됨");
-  });
+  const noticeOverlay=document.getElementById("noticeOverlay");
+  function setRingProgress(p){ const c=2*Math.PI*30; document.getElementById("noticeRing").style.strokeDasharray=`${c}`; document.getElementById("noticeRing").style.strokeDashoffset=`${c*(1-p)}`; }
+  
+  async function showNoticeCountdownIfAny(){
+    const t=getTodayNotice(); if(!t) return true;
+    const duration = getTodayNoticeDuration();
+    const noticeEl = document.getElementById("noticeText"); noticeEl.innerHTML = t; noticeEl.scrollTop = 0; 
+    document.getElementById("noticeDateText").textContent=`${todayKey()} 공지`;
+    const btn=document.getElementById("noticeOk"), num=document.getElementById("noticeNum");
+    btn.disabled=true; noticeOverlay.classList.add("show"); num.textContent = String(duration); setRingProgress(0);
+    return new Promise(r=>{
+      let s=Date.now(), tm=setInterval(()=>{
+        const e=(Date.now()-s)/1000, p=Math.min(1,e/duration); setRingProgress(p); num.textContent=String(Math.max(0,duration-Math.floor(e)));
+        if(p>=1){ clearInterval(tm); btn.disabled=false; noticeOverlay.querySelector(".countWrap").style.display="none"; }
+      },60);
+      const done=()=>{ clearInterval(tm); noticeOverlay.classList.remove("show"); noticeOverlay.querySelector(".countWrap").style.display=""; btn.removeEventListener("click",done); r(true); };
+      btn.addEventListener("click",done);
+    });
+  }
 
-  document.getElementById("btnAutoTgId").addEventListener("click", async () => {
-      try {
-          const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/getUpdates`);
-          const data = await res.json();
-          if(data.ok && data.result.length > 0) {
-              const myId = data.result[data.result.length - 1].message.chat.id;
-              document.getElementById("adminTgChatId").value = myId;
-              localStorage.setItem(LS_TG_CHAT_ID, myId);
-              alert("ID 찾음: " + myId);
-          } else { alert("메시지 없음. 봇에게 말 걸고 다시 시도."); }
-      } catch(e) { alert("오류"); }
-  });
+  const outNoteOverlay=document.getElementById("outNoteOverlay");
+  function askOutNote(){
+    document.getElementById("outNoteText").value=""; outNoteOverlay.classList.add("show");
+    return new Promise(r=>{
+      const c=()=>{ document.getElementById("outNoteSkip").removeEventListener("click",s); document.getElementById("outNoteSave").removeEventListener("click",sv); };
+      const s=()=>{ c(); outNoteOverlay.classList.remove("show"); r(null); };
+      const sv=()=>{ const t=document.getElementById("outNoteText").value; c(); outNoteOverlay.classList.remove("show"); r(t); };
+      document.getElementById("outNoteSkip").addEventListener("click",s); document.getElementById("outNoteSave").addEventListener("click",sv); 
+    });
+  }
+  document.querySelectorAll('#outNoteOverlay button[data-cat]').forEach(b=>{ b.addEventListener("click",()=>{ const t=document.getElementById("outNoteText"), cat=b.dataset.cat, pre=`[${cat}] `; b.classList.add("cat-active"); setTimeout(()=>b.classList.remove("cat-active"),500); const v=t.value||"", lines=v.split("\n"); if(lines[lines.length-1].trim()===pre.trim())return; t.value=(v.trim()?v.trim()+"\n":"")+pre; t.focus(); }); });
 
-  document.getElementById("btnManageHoliday").addEventListener("click", () => {
-    isHolidayMode = !isHolidayMode;
-    const btn = document.getElementById("btnManageHoliday");
-    if(isHolidayMode) {
-        btn.textContent = "✅ 설정 완료";
-        btn.classList.remove("bad");
-        btn.classList.add("good");
-        toast("달력의 날짜를 눌러 공휴일을 설정하세요.");
-    } else {
-        btn.textContent = "📅 공휴일 관리";
-        btn.classList.remove("good");
-        btn.classList.add("bad");
-        toast("공휴일 설정이 완료되었습니다.");
-        renderLogAll();
-    }
-    renderCalendar();
-  });
+  const closeCheckOverlay=document.getElementById("closeCheckOverlay");
+  function openCloseCheckModal(items){
+    const lst=document.getElementById("closeCheckList"), done=document.getElementById("closeCheckDone");
+    lst.innerHTML=items.map((t,i)=>`<label class="checkItem"><input type="checkbox" data-i="${i}" /><div><div class="t">${escapeHtml(t)}</div></div></label>`).join("");
+    done.disabled=false; closeCheckOverlay.classList.add("show");
+    return new Promise(r=>{
+      const c=()=>{ done.removeEventListener("click",d); };
+      const d=()=>{ const boxes=lst.querySelectorAll('input[type="checkbox"]'); if(!Array.from(boxes).every(b=>b.checked)) return toast("모두 체크해주세요","danger"); c(); closeCheckOverlay.classList.remove("show"); r({skip:false, items:Array.from(boxes).filter(b=>b.checked).map(b=>items[b.dataset.i]), extra:""}); };
+      done.addEventListener("click",d); 
+    });
+  }
 
-  // [수정: 출근 시간 보정 로직]
-  // 일찍 오면 무조건 스케줄 시간으로 강제 맞춤 (지각만 따짐)
+  const attCode=document.getElementById("attCode"), attName=document.getElementById("attName"), attStatus=document.getElementById("attStatus"), attLast=document.getElementById("attLast");
+  function getLastEvent(code){ const logs=getLogs(); for(let i=logs.length-1;i>=0;i--)if(logs[i].code===code)return logs[i]; return null; }
+  function canClockIn(code){ const l=getLastEvent(code); return !l||l.type!=="IN"; }
+  function canClockOut(code){ const l=getLastEvent(code); return !!l&&l.type==="IN"; }
+  function nextLogId(){ const logs=getLogs(); let m=0; for(const l of logs)if(Number(l.id)>m)m=Number(l.id); return m+1; }
+  function addLog({code,name,type,note=""}){ const l=getLogs(); l.push({id:nextLogId(),code,name,type,ts:nowTS(),note}); setLogs(l); }
+  function onCodeChanged(){
+    const c=normalizeCodeInput(attCode.value);
+    if(c.length!==4){ attName.value=""; attStatus.textContent="-"; attLast.textContent="-"; return; }
+    const e=findEmpByCode(c); attName.value=e?e.name:"";
+    if(!e){ attStatus.textContent="미등록 코드"; attLast.textContent="-"; return; }
+    const l=getLastEvent(c);
+    attStatus.textContent=l&&l.type==="IN"?"출근 상태":"퇴근 상태";
+    attLast.textContent=l?`${l.type==="IN"?"출근":"퇴근"} · ${fmtTS(l.ts)}`:"기록 없음";
+  }
+  attCode.addEventListener("input",onCodeChanged);
+  document.getElementById("btnClearCode").addEventListener("click",()=>{attCode.value="";onCodeChanged();});
+
+  // [수정] 출근 시간 보정 계산 함수
   function getAdjustedStartTime(emp, inTs) {
     if (!emp.workStart) return inTs;
     const d = new Date(inTs);
     const [h, m] = emp.workStart.split(':').map(Number);
     const scheduledStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
     
-    // 지각인 경우 (1ms라도 늦으면) -> 10분 단위 패널티
+    // 1. 일찍 온 경우: 스케줄 시간으로 인정
+    if (inTs < scheduledStart) {
+        return scheduledStart;
+    }
+    // 2. 지각인 경우 (10분 단위 패널티)
     if (inTs > scheduledStart) {
         const diff = inTs - scheduledStart;
         const penaltyUnit = 10 * 60 * 1000; 
         const penaltyBlocks = Math.ceil(diff / penaltyUnit);
         return scheduledStart + (penaltyBlocks * penaltyUnit);
     }
-    // 일찍 오거나 정시인 경우 -> 스케줄 시간으로 강제 맞춤 (급여는 17:00부터)
-    return scheduledStart; 
+    return inTs; 
   }
 
-  // [수정: 퇴근 시간 보정 로직]
-  // 조기 퇴근 -> 무조건 스케줄 시간까지 인정
-  // 연장 근무 -> 5분 단위 인정
-  function getAdjustedWorkTime(emp, inTs, outTs) {
-    if (!emp.workEnd) return outTs;
-    const d = new Date(inTs);
-    const [h, m] = emp.workEnd.split(':').map(Number);
-    let scheduledEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
-    if (scheduledEnd < inTs) { scheduledEnd += 24 * 60 * 60 * 1000; }
+  document.getElementById("btnIn").addEventListener("click",async()=>{
+    const c=attCode.value; if(c.length!==4)return toast("알바생을 선택해주세요");
+    const e=findEmpByCode(c); if(!e)return toast("미등록 코드");
+    if(!canClockIn(c))return toast("이미 출근 상태");
+    recordAction("출근 시도", `${e.name}(${c})`);
     
-    // [수정] 조기 퇴근은 계약 시간까지 인정
-    if (outTs <= scheduledEnd) {
-      return scheduledEnd;
+    await showNoticeCountdownIfAny();
+    addLog({code:c,name:e.name,type:"IN"}); 
+    
+    // 지각 여부 확인 (화면 표시용)
+    const now = Date.now();
+    const d = new Date(now);
+    const [h, m] = e.workStart.split(':').map(Number);
+    const scheduledStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
+
+    if(now > scheduledStart + 1000) { // 1초 여유
+        toast("지각으로 인한 10분 페널티가 적용됩니다.", "danger");
     } else {
-      // [수정] 연장 근무 로직: 1초라도 넘으면 5분 단위 올림
-      const diff = outTs - scheduledEnd;
-      const bonusUnit = 5 * 60 * 1000; 
-      
-      const blocks = Math.ceil(diff / bonusUnit);
-      return scheduledEnd + (blocks * bonusUnit);
+        toast(`${e.name} 출근 완료`);
+    }
+    
+    sendTelegramAlert(`[출근] ${e.name}님이 출근했습니다. (${fmtTS(now)})`);
+    renderAttendancePanel();
+  });
+  
+  document.getElementById("btnOut").addEventListener("click",async()=>{
+    const c=attCode.value; if(c.length!==4)return toast("알바생을 선택해주세요");
+    const e=findEmpByCode(c); if(!e)return toast("미등록 코드");
+    if(!canClockOut(c))return toast("출근 기록 없음");
+    
+    let manualNote = await askOutNote();
+    let checklistLogStr = "";
+    if(e.shiftType==="CLOSE"){
+      const res=await openCloseCheckModal(getCloseChecklist());
+      if(!res.skip){ addCloseCheckLog({code:c,name:e.name,items:res.items,extra:res.extra}); checklistLogStr = `[마감체크] ${res.items.join("/")}`; }
+    }
+    if(manualNote) addOutNote({code:c, name:e.name, text:manualNote});
+
+    let combinedNote = (manualNote ? manualNote : "") + (manualNote && checklistLogStr ? "\n" : "") + (checklistLogStr ? checklistLogStr : "");
+    addLog({code:c, name:e.name, type:"OUT", note:combinedNote}); 
+    toast(`${e.name} 퇴근`); 
+
+    sendTelegramAlert(`[퇴근] ${e.name}님이 퇴근했습니다.${manualNote ? `\n특이사항: ${manualNote}` : ''}`);
+    renderAttendancePanel();
+  });
+
+  function renderRecent(){
+    document.getElementById("recentTable").innerHTML=getLogs().slice(-15).reverse().map(l=>`<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name)}</td><td>${fmtTS(l.ts)}</td></tr>`).join("")||`<tr><td colspan="4" class="muted">기록 없음</td></tr>`;
+  }
+  function renderQuickButtons(){
+    const div=document.getElementById("quickButtons"), emps=getEmployees();
+    if(!emps.length) div.innerHTML=`<span class="muted">관리자 메뉴에서 알바생을 등록하세요.</span>`;
+    else{
+      div.innerHTML=emps.map(e=>`<button class="btn" data-c="${e.code}">${escapeHtml(e.name)} <span class="muted">${e.code}</span></button>`).join("");
+      div.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{ attCode.value=b.dataset.c; onCodeChanged(); }));
     }
   }
+  function renderAttendancePanel(){ renderRecent(); renderQuickButtons(); onCodeChanged(); }
 
-  // [수정] 공휴일 반영 급여 계산
-  function getWageForDay(emp, dateObj) {
-      const k = getDayKey(dateObj.getFullYear(), dateObj.getMonth()+1, dateObj.getDate());
-      if(isHoliday(k)) {
-          return emp.wage * 1.5;
-      }
-      const isWeekend = (dateObj.getDay() === 0 || dateObj.getDay() === 6);
-      return (isWeekend && emp.wageWeekend) ? emp.wageWeekend : emp.wage;
+  /* Employee & Edit Logic preserved */
+  function nextAvailableCode(){ const s=new Set(getEmployees().map(e=>Number(e.code))); for(let i=1;i<=9999;i++)if(!s.has(i))return pad4(i); return pad4(getNextEmpId()); }
+  function addEmployee(name,memo,ws,we,st,wage,wageW){ const emps=getEmployees(), code=nextAvailableCode(); emps.push({code, name, memo, workStart:ws, workEnd:we, shiftType:st, wage:Number(wage)||0, wageWeekend:Number(wageW)||0, createdAt:nowTS()}); setEmployees(emps); setNextEmpId(Math.max(getNextEmpId(),Number(code)+1)); }
+  function updateEmployee(code,patch){ const emps=getEmployees(), idx=emps.findIndex(e=>e.code===code); if(idx>=0){ emps[idx]={...emps[idx],...patch}; setEmployees(emps); } }
+  document.getElementById("btnAddEmp").addEventListener("click",async()=>{ try{ const nm=document.getElementById("empName").value.trim(); if(!nm) throw new Error("이름 입력"); addEmployee(nm, document.getElementById("empMemo").value, document.getElementById("empWorkStart").value, document.getElementById("empWorkEnd").value, document.getElementById("empShiftType").value, document.getElementById("empWage").value, document.getElementById("empWageWeekend").value); document.getElementById("empName").value=""; toast("등록 완료"); renderEmployees(); renderQuickButtons(); }catch(e){ toast(e.message); } });
+  document.getElementById("btnRefreshEmp").addEventListener("click",renderEmployees);
+  document.getElementById("empSearch").addEventListener("input",renderEmployees);
+  
+  function renderEmployees(){
+    document.getElementById("nextCodeHint").textContent=`다음 코드: ${nextAvailableCode()}`;
+    const q=document.getElementById("empSearch").value.toLowerCase(), emps=getEmployees().filter(e=>e.code.includes(q)||e.name.toLowerCase().includes(q));
+    document.getElementById("empTable").innerHTML=emps.length?emps.map(e=>`<tr><td><span class="tag open">${e.code}</span></td><td>${escapeHtml(e.name)}</td><td class="muted typeCell">${e.shiftType==="CLOSE"?"마감":"미들"}</td><td class="muted">${(e.wage||0).toLocaleString()} / ${e.wageWeekend ? e.wageWeekend.toLocaleString() : '-'}</td><td class="muted timeCell">${e.workStart}~${e.workEnd}</td><td style="text-align:right;"><button class="btn small" onclick="window.editEmp('${e.code}')">수정</button> <button class="btn small bad" onclick="window.delEmp('${e.code}')">삭제</button></td></tr>`).join("") : `<tr><td colspan="6" class="muted">없음</td></tr>`;
   }
+  window.delEmp=async(c)=>{ if(!await ensureAdmin("삭제")) return; if(!confirm("정말 삭제?")) return; const l=getEmployees().filter(e=>e.code!==c); setEmployees(l); toast("삭제됨"); renderEmployees(); renderQuickButtons(); };
+  window.editEmp=async(c)=>{ if(!await ensureAdmin("수정"))return; const e=findEmpByCode(c); if(!e)return; document.getElementById("empEditCode").value=e.code; document.getElementById("empEditName").value=e.name; document.getElementById("empEditShiftType").value=e.shiftType||"MID"; document.getElementById("empEditWage").value=e.wage||""; document.getElementById("empEditWageWeekend").value=e.wageWeekend||""; document.getElementById("empEditMemo").value=e.memo||""; document.getElementById("empEditWorkStart").value=e.workStart||"17:00"; document.getElementById("empEditWorkEnd").value=e.workEnd||"23:30"; document.getElementById("empEditOverlay").classList.add("show"); };
+  document.getElementById("empEditSave").addEventListener("click",()=>{ const c=document.getElementById("empEditCode").value, n=document.getElementById("empEditName").value.trim(); if(!n)return toast("이름 입력"); updateEmployee(c,{ name:n, shiftType:document.getElementById("empEditShiftType").value, wage:Number(document.getElementById("empEditWage").value)||0, wageWeekend:Number(document.getElementById("empEditWageWeekend").value)||0, memo:document.getElementById("empEditMemo").value, workStart:document.getElementById("empEditWorkStart").value, workEnd:document.getElementById("empEditWorkEnd").value }); document.getElementById("empEditOverlay").classList.remove("show"); toast("수정 완료"); renderEmployees(); renderQuickButtons(); renderLogAll(); });
+  document.getElementById("empEditCancel").addEventListener("click",()=>document.getElementById("empEditOverlay").classList.remove("show"));
 
+  let calYear=new Date().getFullYear(), calMonth=new Date().getMonth()+1;
+  function getDayKey(y,m,d){ return `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`; }
+
+function getAdjustedWorkTime(emp, inTs, outTs) {
+  if (!emp.workEnd) return outTs;
+  
+  const d = new Date(outTs);
+  const [h, m] = emp.workEnd.split(':').map(Number);
+  
+  // 1. 계약된 종료 시간 (시:분만 사용, 초/밀리초는 0으로)
+  let scheduledEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
+  
+  // 야간 근무 보정
+  if (outTs - scheduledEnd > 43200000) scheduledEnd += 86400000; 
+  if (scheduledEnd - outTs > 43200000) scheduledEnd -= 86400000;
+
+  // 2. 실제 퇴근 시간에서 초 단위를 버린 '분' 기준 시간 계산
+  const actualOutDate = new Date(outTs);
+  const actualOutOnlyMin = new Date(actualOutDate.getFullYear(), actualOutDate.getMonth(), actualOutDate.getDate(), actualOutDate.getHours(), actualOutDate.getMinutes(), 0, 0).getTime();
+
+  // 3. 보정 로직 적용
+  if (actualOutOnlyMin <= scheduledEnd) {
+    // [사례 1] 일찍 퇴근하거나, 30분 '몇 초'에 퇴근한 경우 -> 23:30 인정
+    return scheduledEnd;
+  } else {
+    // [사례 2] 23:31분 이후에 퇴근한 경우 -> 5분 단위 올림
+    const diff = actualOutOnlyMin - scheduledEnd;
+    const bonusUnit = 5 * 60 * 1000; // 5분
+    const blocks = Math.ceil(diff / bonusUnit); 
+    return scheduledEnd + (blocks * bonusUnit);
+  }
+}
   function calcDayStats(dk, tCode){
     const logs=getLogs().filter(l=>dateKey(l.ts)===dk && (!tCode||l.code===tCode)).sort((a,b)=>a.ts-b.ts);
     let ms=0, pay=0, codeMap={};
@@ -1082,21 +1062,30 @@
       let inTs=null;
       const evts=codeMap[c];
       const dateObj = new Date(dk);
+      const isWeekend = (dateObj.getDay() === 0 || dateObj.getDay() === 6);
+      const isHol = isHoliday(dk);
+      let wage;
+      if (isHol && !isWeekend) wage = (e ? e.wage : 0) * 1.5;
+      else if (isWeekend && e && e.wageWeekend) wage = e.wageWeekend;
+      else wage = e ? e.wage : 0;
 
-      evts.forEach(ev=>{
-        if(ev.type==="IN") inTs=ev.ts;
-        else if(ev.type==="OUT" && inTs){
-          const adjInTs = getAdjustedStartTime(e, inTs);
-          const adjOutTs = getAdjustedWorkTime(e, inTs, ev.ts);
-          if(adjOutTs > adjInTs) {
-             const d=adjOutTs-adjInTs; ms+=d;
-             // [수정: 1원 단위 절사] 10원 단위로 내림 처리
-             let rawPay = (d/3600000)*getWageForDay(e, dateObj);
-             pay += Math.floor(rawPay / 10) * 10;
-          }
-          inTs=null;
-        }
-      });
+	// calcDayStats 함수 내부 수정
+	evts.forEach(ev => {
+	  if(ev.type === "IN") inTs = ev.ts;
+	  else if(ev.type === "OUT" && inTs) {
+		const adjInTs = getAdjustedStartTime(e, inTs);
+		const adjOutTs = getAdjustedWorkTime(e, inTs, ev.ts);
+		if(adjOutTs > adjInTs) {
+		  const d = adjOutTs - adjInTs;
+		  ms += d;
+		  
+		  // 기존 계산식에 10원 단위 절사 추가
+		  let dailyPay = (d / 3600000) * wage;
+		  pay += Math.floor(dailyPay / 10) * 10; // 1원 단위 버림
+		}
+		inTs = null;
+	  }
+	});
     });
     return { h:Math.floor(ms/3600000), m:Math.floor((ms%3600000)/60000), pay, has:logs.length>0 };
   }
@@ -1108,12 +1097,10 @@
      const allLogs = getLogs();
      const employees = getEmployees().filter(e => !filterCode || e.code === filterCode);
      let totalJuhyu = 0;
-     
      employees.forEach(emp => {
        const logs = allLogs.filter(l => l.code === emp.code && l.ts >= startTs && l.ts <= endTs).sort((a,b)=>a.ts-b.ts);
        let weeklyMs = 0;
        let weeklyPay = 0;
-
        logs.forEach(l => {
          if(l.type==='IN') l._tIn = l.ts;
          else if(l.type==='OUT') {
@@ -1121,28 +1108,29 @@
            if(prevIn) { 
              const adjInTs = getAdjustedStartTime(emp, prevIn.ts);
              const adjOutTs = getAdjustedWorkTime(emp, prevIn.ts, l.ts);
-             
              if(adjOutTs > adjInTs) {
                  const durationMs = adjOutTs - adjInTs;
                  weeklyMs += durationMs;
-                 
                  const workDate = new Date(prevIn.ts);
-                 // [수정: 1원 단위 절사] 주휴 계산용 시급 합산 시에도 적용
-                 let rawPay = (durationMs / 3600000) * getWageForDay(emp, workDate);
-                 weeklyPay += Math.floor(rawPay / 10) * 10;
+                 const dk = dateKey(prevIn.ts);
+                 const isWeekend = (workDate.getDay() === 0 || workDate.getDay() === 6);
+                 const isHol = isHoliday(dk);
+                 let currentWage;
+                 if (isHol && !isWeekend) currentWage = emp.wage * 1.5;
+                 else if (isWeekend && emp.wageWeekend) currentWage = emp.wageWeekend;
+                 else currentWage = emp.wage;
+                 weeklyPay += (durationMs / 3600000) * currentWage;
              }
              prevIn._used = true; 
            }
          }
        });
        logs.forEach(l => delete l._used);
-       
        const weeklyHours = weeklyMs / 3600000;
        if(weeklyHours >= 15) {
           const avgWage = weeklyPay / weeklyHours;
           const juhyuHours = (Math.min(weeklyHours, 40) / 40) * 8;
-          // [수정: 1원 단위 절사] 최종 주휴수당도 10원 단위 절사
-          totalJuhyu += Math.floor((juhyuHours * avgWage) / 10) * 10;
+          totalJuhyu += Math.floor(juhyuHours * avgWage);
        }
      });
      return totalJuhyu;
@@ -1152,24 +1140,16 @@
     const g=document.getElementById("calendarView"); if(!g)return;
     document.getElementById("calTitle").textContent=`${calYear}. ${String(calMonth).padStart(2,"0")}`;
     g.innerHTML = "";
-    
     const start=new Date(calYear,calMonth-1,1).getDay(), end=new Date(calYear,calMonth,0).getDate(), tFilter=document.getElementById("logFilterEmp").value;
     for(let i=0;i<start;i++){ const d=document.createElement("div"); d.className="calDay empty"; g.appendChild(d); }
     for(let d=1;d<=end;d++){
       const div=document.createElement("div"); div.className="calDay";
-      const dateObj = new Date(calYear, calMonth-1, d);
       const k=getDayKey(calYear,calMonth,d); if(k===todayKey())div.classList.add("today");
-      
-      if(isHoliday(k)) div.classList.add("holiday");
-      if(isHolidayMode) {
-          div.classList.add("holiday-select-mode");
-          div.onclick = () => { toggleHoliday(k); renderCalendar(); };
-      }
-
+      const isHol = isHoliday(k);
       const st=calcDayStats(k, tFilter);
-      let inner = `<div class="calNum">${d}</div>`;
-      if(dateObj.getDay() === 0) { 
-         const juhyu = getWeeklyJuhyuSum(dateObj, tFilter);
+      let inner = `<div class="calNum" style="${isHol?'color:var(--bad);':''}">${d}${isHol?'(휴)':''}</div>`;
+      if(new Date(calYear, calMonth-1, d).getDay() === 0) { 
+         const juhyu = getWeeklyJuhyuSum(new Date(calYear, calMonth-1, d), tFilter);
          if(juhyu > 0) inner += `<span class="tag juhyu">주휴💰 +${juhyu.toLocaleString()}</span>`;
       }
       if(st.has) inner += `<div class="calData"><span class="calTime">${st.h>0?st.h+'h ':''}${st.m}m</span>${st.pay>0?`<span class="calPay">${st.pay.toLocaleString()}원</span>`:''}</div>`;
@@ -1188,42 +1168,37 @@
     const allLogs = getLogs();
     const currentMonthLogs = allLogs.filter(l => dateKey(l.ts).startsWith(targetPrefix));
     const employees = getEmployees().filter(e => !tEmp || e.code === tEmp);
-    let totalBase = 0;
-    let totalJuhyu = 0;
-    
+    let totalBase = 0, totalJuhyu = 0;
     employees.forEach(emp => {
       const empLogs = currentMonthLogs.filter(l => l.code === emp.code).sort((a,b)=>a.ts-b.ts);
       empLogs.forEach(l => {
         if(l.type === 'IN') l._tempIn = l.ts;
         else if(l.type === 'OUT') {
            const prevIn = empLogs.find(xx => xx.type === 'IN' && xx.ts < l.ts && !xx._usedBase);
-           if(prevIn) { 
-             const adjInTs = getAdjustedStartTime(emp, prevIn.ts);
-             const adjOutTs = getAdjustedWorkTime(emp, prevIn.ts, l.ts);
-             if(adjOutTs > adjInTs) {
-               const ms = adjOutTs - adjInTs;
-               const workDate = new Date(prevIn.ts);
-               // [수정: 1원 단위 절사] 월급 계산 시에도 적용
-               let rawPay = (ms / 3600000) * getWageForDay(emp, workDate);
-               totalBase += Math.floor(rawPay / 10) * 10;
-             }
-             prevIn._usedBase = true; 
-           }
+// updateMonthlyWageEstimate 함수 내부 수정
+if(adjOutTs > adjInTs) {
+  const ms = adjOutTs - adjInTs;
+  const dt = new Date(l.ts);
+  const dk = dateKey(l.ts);
+  const isWeekend = dt.getDay() === 0 || dt.getDay() === 6;
+  const isHol = isHoliday(dk);
+  let wage;
+  if (isHol && !isWeekend) wage = emp.wage * 1.5;
+  else if (isWeekend && emp.wageWeekend) wage = emp.wageWeekend;
+  else wage = emp.wage;
+
+  // 이 부분을 수정
+  let shiftPay = (ms / 3600000) * wage;
+  totalBase += Math.floor(shiftPay / 10) * 10; // 1원 단위 버림
+}
         }
       });
       empLogs.forEach(l => delete l._usedBase);
-
       const sundaysInMonth = [];
       const d = new Date(calYear, calMonth-1, 1);
-      while(d.getMonth() === calMonth-1) {
-          if(d.getDay() === 0) sundaysInMonth.push(new Date(d));
-          d.setDate(d.getDate() + 1);
-      }
-      sundaysInMonth.forEach(sunday => {
-          totalJuhyu += getWeeklyJuhyuSum(sunday, emp.code);
-      });
+      while(d.getMonth() === calMonth-1) { if(d.getDay() === 0) sundaysInMonth.push(new Date(d)); d.setDate(d.getDate() + 1); }
+      sundaysInMonth.forEach(sunday => { totalJuhyu += getWeeklyJuhyuSum(sunday, emp.code); });
     });
-
     document.getElementById("totalWageAmount").textContent = (totalBase + totalJuhyu).toLocaleString() + "원";
     document.getElementById("totalWageDetail").textContent = `(기본 ${totalBase.toLocaleString()} + 주휴 ${totalJuhyu.toLocaleString()})`;
   }
@@ -1235,59 +1210,61 @@
   }
   document.getElementById("logFilterEmp").addEventListener("change",renderLogAll);
 
+// [수정] 근태 기록 표시 함수 (일찍 퇴근 보정 및 연장 5분 올림 반영)
   function renderLogAll(){
     const f=document.getElementById("logFilterEmp").value, all=getLogs(), list=f?all.filter(l=>l.code===f):all;
     document.getElementById("logTotal").textContent=list.length;
-    const makeNoteTag = (note) => {
-      if(!note) return "";
-      let tags = "";
-      if(note.includes("[마감체크]")) tags += `<span class="tag good" style="margin-right:4px;">마감✅</span>`;
-      if(note.includes("[누락]") || note.includes("[환불]") || note.includes("[물품]") || note.includes("[기타]")) tags += `<span class="tag warn" style="margin-right:4px;">특이📝</span>`;
-      if(note.includes("수동추가")) tags += `<span class="tag" style="background:#eee; color:#888;">수동</span>`;
-      if(!tags) return note.length > 10 ? note.slice(0,10)+"..." : note;
-      return tags;
-    };
     
     document.getElementById("logTable").innerHTML=list.slice().reverse().map(l=> {
         let timeDisplay = fmtTS(l.ts);
         const emp = findEmpByCode(l.code);
         
-        if(l.type === "IN" && emp) {
+        // 1. 출근 표시 로직
+        if(l.type === "IN" && emp && emp.workStart) {
             const adjInTs = getAdjustedStartTime(emp, l.ts);
-            const adjDate = new Date(adjInTs);
-            const adjStr = `${String(adjDate.getHours()).padStart(2,"0")}:${String(adjDate.getMinutes()).padStart(2,"0")}`;
-            
-            // 스케줄 시간 구하기
             const d = new Date(l.ts);
             const [h, m] = emp.workStart.split(':').map(Number);
             const scheduledStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
 
-            // [수정] 지각 판별 로직 수정 (스케줄 시간보다 늦게 왔을 때만 지각)
-            if (l.ts > scheduledStart) {
-                // 진짜 지각 (빨간색)
+            const adjDate = new Date(adjInTs);
+            const adjStr = `${String(adjDate.getHours()).padStart(2,"0")}:${String(adjDate.getMinutes()).padStart(2,"0")}`;
+
+            if(l.ts > scheduledStart) {
                 timeDisplay += `<br><span class="tag out" style="font-size:10px;">지각(인정:${adjStr})</span>`;
-            } else if (l.ts <= scheduledStart) {
-                // 일찍 왔거나 정시 (초록색) -> "정시(보정:...)"
-                timeDisplay += `<br><span class="tag good" style="font-size:10px;">정시(보정:${adjStr})</span>`;
+            } else {
+                timeDisplay += `<br><span class="tag good" style="font-size:10px;">정시(인정:${adjStr})</span>`;
             }
         }
         
-        if(l.type === "OUT" && emp) {
-            const adjOutTs = getAdjustedWorkTime(emp, 0, l.ts);
-            if(adjOutTs !== l.ts) {
-                const d = new Date(adjOutTs);
-                const adjStr = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
-                timeDisplay += `<br><span class="tag good" style="font-size:10px;">연장(인정:${adjStr})</span>`;
-            } else {
-                // [수정: 태그 표시] 조기 퇴근은 정시 인정으로 표시
-                const [h, m] = emp.workEnd.split(':').map(Number);
-                const tStr = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
-                timeDisplay += `<br><span class="tag good" style="font-size:10px;">정시(인정:${tStr})</span>`;
-            }
-        }
-        return `<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name||"")}</td><td>${timeDisplay}</td><td>${makeNoteTag(l.note)}</td><td><button class="btn small" onclick="window.editLog(${l.id})">수정</button></td></tr>`;
+        // renderLogAll 함수 내 2. 퇴근 표시 로직 부분
+if(l.type === "OUT" && emp && emp.workEnd) {
+    // 위에서 수정한 getAdjustedWorkTime 함수를 호출
+    const adjOutTs = getAdjustedWorkTime(emp, l.ts, l.ts); 
+    
+    // 비교를 위한 계약 종료 시간 재계산
+    const d = new Date(l.ts);
+    const [h, m] = emp.workEnd.split(':').map(Number);
+    let sEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
+    if (l.ts - sEnd > 43200000) sEnd += 86400000;
+    if (sEnd - l.ts > 43200000) sEnd -= 86400000;
+
+    const adjDate = new Date(adjOutTs);
+    const adjStr = `${String(adjDate.getHours()).padStart(2,"0")}:${String(adjDate.getMinutes()).padStart(2,"0")}`;
+
+    if(l.ts > sEnd) {
+        // 실제 퇴근이 계약보다 늦으면 '연장' 표시
+        timeDisplay += `<br><span class="tag good" style="font-size:10px;">연장(인정:${adjStr})</span>`;
+    } else {
+        // 실제 퇴근이 계약보다 빠르거나 같으면 '정시' 표시
+        timeDisplay += `<br><span class="tag good" style="font-size:10px;">정시(인정:${adjStr})</span>`;
+    }
+}
+        
+        const noteTag = l.note ? (l.note.includes("[마감체크]") ? `<span class="tag good">마감✅</span>` : (l.note.length>10?l.note.slice(0,10)+"...":l.note)) : "";
+        return `<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name||"")}</td><td>${timeDisplay}</td><td>${noteTag}</td><td><button class="btn small" onclick="window.editLog(${l.id})">수정</button></td></tr>`;
     }).join("")||`<tr><td colspan="6" class="muted">기록 없음</td></tr>`;
     
+    // 이하는 기존 코드와 동일
     const ons=getOutNotes().slice().reverse().filter(x=>!f||x.code===f);
     document.getElementById("outNoteTable").innerHTML=ons.map((x,i)=>`<tr><td>${ons.length-i}</td><td>${x.date}</td><td>${x.code}</td><td>${escapeHtml(x.name)}</td><td>${fmtTS(x.ts)}</td><td>${escapeHtml(x.text)}</td></tr>`).join("");
     const cls=getCloseCheckLogs().slice().reverse().filter(x=>!f||x.code===f);
@@ -1299,87 +1276,23 @@
   const d = new Date(l.ts);
   const timeStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
   document.getElementById("logEditTs").value = timeStr;
-  
   document.getElementById("logEditNote").value=l.note||""; document.getElementById("logEditSave").onclick=()=>{ const ts=new Date(document.getElementById("logEditTs").value).getTime(); if(!ts)return toast("시간 확인"); const logs=getLogs(), idx=logs.findIndex(x=>x.id===id); if(idx>=0){ logs[idx]={...logs[idx], type:document.getElementById("logEditType").value, ts, note:document.getElementById("logEditNote").value}; setLogs(logs); } document.getElementById("logEditOverlay").classList.remove("show"); toast("수정됨"); renderLogAll(); renderAttendancePanel(); }; document.getElementById("logEditDelete").onclick=()=>{ if(confirm("삭제?")){ setLogs(getLogs().filter(x=>x.id!==id)); document.getElementById("logEditOverlay").classList.remove("show"); toast("삭제됨"); renderLogAll(); renderAttendancePanel(); } }; document.getElementById("logEditOverlay").classList.add("show"); };
   document.getElementById("logEditCancel").addEventListener("click",()=>document.getElementById("logEditOverlay").classList.remove("show"));
 
-  document.getElementById("btnAddShift").addEventListener("click",async()=>{ if(!await ensureAdmin("추가"))return; const emps=getEmployees(); if(!emps.length)return toast("알바생 없음"); document.getElementById("logAddEmp").innerHTML=emps.map(e=>`<option value="${e.code}">${e.code} ${e.name}</option>`).join(""); const t=new Date(); document.getElementById("logAddDate").value=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`; 
-  logAddDates = [];
-  document.getElementById("selectedDateList").innerHTML = `<span class="muted" style="font-size:12px; padding:4px;">날짜를 담아주세요</span>`;
-  document.getElementById("logAddOverlay").classList.add("show"); });
-  
-  document.getElementById("btnPushDate").addEventListener("click", () => {
-    const dVal = document.getElementById("logAddDate").value;
-    if(!dVal) return toast("날짜를 선택하세요");
-    if(logAddDates.includes(dVal)) return toast("이미 담은 날짜입니다");
-    
-    logAddDates.push(dVal);
-    renderSelectedDates();
+  document.getElementById("btnAddShift").addEventListener("click",async()=>{ if(!await ensureAdmin("추가"))return; const emps=getEmployees(); if(!emps.length)return toast("알바생 없음"); document.getElementById("logAddEmp").innerHTML=emps.map(e=>`<option value="${e.code}">${e.code} ${e.name}</option>`).join(""); logAddDates = []; document.getElementById("selectedDateList").innerHTML = `<span class="muted" style="font-size:12px; padding:4px;">날짜를 담아주세요</span>`; document.getElementById("logAddOverlay").classList.add("show"); });
+  document.getElementById("btnPushDate").addEventListener("click", () => { const dVal = document.getElementById("logAddDate").value; if(!dVal) return toast("날짜 선택"); if(logAddDates.includes(dVal)) return toast("중복 날짜"); logAddDates.push(dVal); renderSelectedDates(); });
+  function renderSelectedDates() { const box = document.getElementById("selectedDateList"); if(logAddDates.length === 0) { box.innerHTML = `<span class="muted" style="font-size:12px; padding:4px;">날짜를 담아주세요</span>`; return; } box.innerHTML = logAddDates.map(d => `<span class="date-pill">${d} <button onclick="removeDate('${d}')">x</button></span>`).join(""); }
+  window.removeDate = function(d) { logAddDates = logAddDates.filter(x => x !== d); renderSelectedDates(); };
+  document.getElementById("logAddSave").addEventListener("click",()=>{ const c=document.getElementById("logAddEmp").value; const e=findEmpByCode(c); const md=document.getElementById("logAddMode").value; const inT=document.getElementById("logAddInTime").value; const outT=document.getElementById("logAddOutTime").value; const note=document.getElementById("logAddNote").value; let targetDates = [...logAddDates]; if(targetDates.length === 0) { const singleDate = document.getElementById("logAddDate").value; if(singleDate) targetDates.push(singleDate); } if(targetDates.length === 0) return toast("날짜 없음");
+    targetDates.forEach(dt => { const mkTs=(t)=>new Date(`${dt}T${t}`).getTime(); if(md==="SHIFT"){ addLog({code:c,name:e.name,type:"IN",note:note||"수동"}); const l=getLogs(); l[l.length-1].ts=mkTs(inT); setLogs(l); addLog({code:c,name:e.name,type:"OUT",note:note||"수동"}); const l2=getLogs(); l2[l2.length-1].ts=mkTs(outT); setLogs(l2); } else if(md==="IN"){ addLog({code:c,name:e.name,type:"IN",note:note||"수동"}); const l=getLogs(); l[l.length-1].ts=mkTs(inT); setLogs(l); } else{ addLog({code:c,name:e.name,type:"OUT",note:note||"수동"}); const l=getLogs(); l[l.length-1].ts=mkTs(outT); setLogs(l); } }); document.getElementById("logAddOverlay").classList.remove("show"); toast("추가 완료"); renderLogAll(); renderAttendancePanel(); 
   });
-
-  function renderSelectedDates() {
-    const box = document.getElementById("selectedDateList");
-    if(logAddDates.length === 0) {
-        box.innerHTML = `<span class="muted" style="font-size:12px; padding:4px;">날짜를 담아주세요</span>`;
-        return;
-    }
-    box.innerHTML = logAddDates.map(d => 
-        `<span class="date-pill">${d} <button onclick="removeDate('${d}')">x</button></span>`
-    ).join("");
-  }
-
-  window.removeDate = function(d) {
-    logAddDates = logAddDates.filter(x => x !== d);
-    renderSelectedDates();
-  };
-
-  document.getElementById("logAddSave").addEventListener("click",()=>{ 
-    const c=document.getElementById("logAddEmp").value;
-    const e=findEmpByCode(c);
-    const md=document.getElementById("logAddMode").value;
-    const inT=document.getElementById("logAddInTime").value;
-    const outT=document.getElementById("logAddOutTime").value;
-    const note=document.getElementById("logAddNote").value;
-
-    let targetDates = [...logAddDates];
-    if(targetDates.length === 0) {
-        const singleDate = document.getElementById("logAddDate").value;
-        if(singleDate) targetDates.push(singleDate);
-    }
-
-    if(targetDates.length === 0) return toast("날짜를 선택하거나 담아주세요");
-
-    targetDates.forEach(dt => {
-        const mkTs=(t)=>new Date(`${dt}T${t}`).getTime();
-        
-        if(md==="SHIFT"){ 
-            addLog({code:c,name:e.name,type:"IN",note:note || "수동추가"}); 
-            const l=getLogs(); l[l.length-1].ts=mkTs(inT); setLogs(l); 
-            addLog({code:c,name:e.name,type:"OUT",note:note || "수동추가"}); 
-            const l2=getLogs(); l2[l2.length-1].ts=mkTs(outT); setLogs(l2); 
-        } else if(md==="IN"){ 
-            addLog({code:c,name:e.name,type:"IN",note:note || "수동추가"}); 
-            const l=getLogs(); l[l.length-1].ts=mkTs(inT); setLogs(l); 
-        } else{ 
-            addLog({code:c,name:e.name,type:"OUT",note:note || "수동추가"}); 
-            const l=getLogs(); l[l.length-1].ts=mkTs(outT); setLogs(l); 
-        }
-    });
-
-    document.getElementById("logAddOverlay").classList.remove("show"); 
-    toast(`${targetDates.length}건 추가 완료`); 
-    renderLogAll(); 
-    renderAttendancePanel(); 
-  });
-  
   document.getElementById("logAddCancel").addEventListener("click",()=>document.getElementById("logAddOverlay").classList.remove("show"));
 
   function downloadFile(fn,txt,mime){ const b=new Blob([txt],{type:mime}), a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download=fn; document.body.appendChild(a); a.click(); a.remove(); }
   function exportCsv(){ const f=document.getElementById("logFilterEmp").value, l=getLogs().filter(x=>!f||x.code===f); const csv="id,type,code,name,ts,time,note\n"+l.map(x=>`${x.id},${x.type},${x.code},"${x.name}",${x.ts},"${fmtTS(x.ts)}","${(x.note||"").replace(/"/g,'""')}"`).join("\n"); downloadFile(`근태_${todayKey()}.csv`,csv,"text/csv;charset=utf-8"); }
   document.getElementById("btnExportCsv").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
   document.getElementById("btnExportCsv2").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
-  
-  document.getElementById("btnResetAll").addEventListener("click",async()=>{ if(await ensureAdmin() && confirm("전체 초기화?? (복구불가)")){ localStorage.clear(); await set(ref(db, 'tamnaData'), null); location.reload(); } });
+  document.getElementById("btnResetAll").addEventListener("click",async()=>{ if(await ensureAdmin() && confirm("전체 초기화(복구불가)?")){ localStorage.clear(); await set(ref(db, 'tamnaData'), null); location.reload(); } });
 
   function renderAdminCloseChecklist(){ const lst=document.getElementById("adminCloseChecklistList"), items=getCloseChecklist(); lst.innerHTML=items.map((t,i)=>`<div class="admCLRow"><div class="idx">${i+1}</div><input class="admCLInput" value="${escapeHtml(t)}" /><button class="btn small" onclick="delCLItem(${i})">삭제</button></div>`).join(""); }
   window.delCLItem=async(i)=>{ const l=getCloseChecklist(); l.splice(i,1); setCloseChecklist(l); renderAdminCloseChecklist(); };
@@ -1390,280 +1303,44 @@
   let mateYear = new Date().getFullYear();
   let mateMonth = new Date().getMonth() + 1;
   let selectedDate = getToday();
-  
   function renderMateCalendar() {
-    const title = document.getElementById('mateMonthTitle');
-    title.textContent = `${mateYear}. ${pad4(mateMonth).slice(-2)}`;
-    
-    const grid = document.getElementById('mateCalendar');
-    grid.innerHTML = '<div class="mate-day-head">일</div><div class="mate-day-head">월</div><div class="mate-day-head">화</div><div class="mate-day-head">수</div><div class="mate-day-head">목</div><div class="mate-day-head">금</div><div class="mate-day-head">토</div>';
-
-    const firstDay = new Date(mateYear, mateMonth-1, 1).getDay();
-    const lastDate = new Date(mateYear, mateMonth, 0).getDate();
-    
+    const title = document.getElementById('mateMonthTitle'); title.textContent = `${mateYear}. ${pad4(mateMonth).slice(-2)}`;
+    const grid = document.getElementById('mateCalendar'); grid.innerHTML = '<div class="mate-day-head">일</div><div class="mate-day-head">월</div><div class="mate-day-head">화</div><div class="mate-day-head">수</div><div class="mate-day-head">목</div><div class="mate-day-head">금</div><div class="mate-day-head">토</div>';
+    const firstDay = new Date(mateYear, mateMonth-1, 1).getDay(); const lastDate = new Date(mateYear, mateMonth, 0).getDate();
     for(let i=0; i<firstDay; i++) grid.innerHTML += `<div></div>`;
-    
-    const routines = loadJSON('ROUTINES', []);
-    const history = loadJSON('ROUTINE_HISTORY', {});
-
+    const routines = loadJSON('ROUTINES', []); const history = loadJSON('ROUTINE_HISTORY', {});
     for(let d=1; d<=lastDate; d++) {
         const dateKey = `${mateYear}-${pad4(mateMonth).slice(-2)}-${pad4(d).slice(-2)}`;
         const dayOfWeek = new Date(mateYear, mateMonth-1, d).getDay();
-        
-        let todoCount = 0;
-        let doneCount = 0;
-        
-        routines.forEach(r => {
-            if(isRoutineForDate(r, dateKey, dayOfWeek)) {
-                todoCount++;
-                if(history[dateKey] && history[dateKey][r.id]) doneCount++;
-            }
-        });
-        
-        let dotsHtml = '';
-        if(todoCount > 0) {
-            for(let k=0; k<doneCount && k<4; k++) dotsHtml += `<div class="mate-dot done"></div>`;
-            for(let k=0; k<(todoCount-doneCount) && (k+doneCount)<4; k++) dotsHtml += `<div class="mate-dot"></div>`;
-        }
-
-        const isToday = (dateKey === getToday());
-        const isSel = (dateKey === selectedDate);
-        
-        const cell = document.createElement('div');
-        cell.className = `mate-cell ${isToday?'today':''} ${isSel?'selected':''}`;
-        cell.onclick = () => { selectedDate = dateKey; renderMateCalendar(); renderMateList(); };
-        cell.innerHTML = `<span class="mate-date-num">${d}</span><div class="mate-dots">${dotsHtml}</div>`;
-        grid.appendChild(cell);
+        let todoCount = 0; let doneCount = 0;
+        routines.forEach(r => { if(isRoutineForDate(r, dateKey, dayOfWeek)) { todoCount++; if(history[dateKey] && history[dateKey][r.id]) doneCount++; } });
+        let dotsHtml = ''; if(todoCount > 0) { for(let k=0; k<doneCount && k<4; k++) dotsHtml += `<div class="mate-dot done"></div>`; for(let k=0; k<(todoCount-doneCount) && (k+doneCount)<4; k++) dotsHtml += `<div class="mate-dot"></div>`; }
+        const isToday = (dateKey === getToday()); const isSel = (dateKey === selectedDate);
+        const cell = document.createElement('div'); cell.className = `mate-cell ${isToday?'today':''} ${isSel?'selected':''}`; cell.onclick = () => { selectedDate = dateKey; renderMateCalendar(); renderMateList(); }; cell.innerHTML = `<span class="mate-date-num">${d}</span><div class="mate-dots">${dotsHtml}</div>`; grid.appendChild(cell);
     }
   }
-
   function renderMateList() {
-    const listArea = document.getElementById('mateListArea');
-    document.getElementById('mateSelectedDate').textContent = `${selectedDate} 할 일`;
-    
-    const routines = loadJSON('ROUTINES', []);
-    const history = loadJSON('ROUTINE_HISTORY', {});
-    const dayHistory = history[selectedDate] || {};
-    
-    const dayOfWeek = new Date(selectedDate).getDay();
-    const todaysTasks = routines.filter(r => isRoutineForDate(r, selectedDate, dayOfWeek));
-
-    if(todaysTasks.length === 0) {
-        listArea.innerHTML = '<div class="muted" style="text-align:center; padding:20px;">할 일이 없습니다.</div>';
-        return;
-    }
-
-    listArea.innerHTML = todaysTasks.map(t => {
-        const isDone = !!dayHistory[t.id];
-        return `
-        <div class="mate-item ${isDone?'done':''}">
-            <div class="mate-check ${isDone?'checked':''}" onclick="window.toggleTask('${t.id}')">✔</div>
-            <div class="mate-text">${t.text} <span class="mate-tag">${getRoutineLabel(t)}</span></div>
-            ${t.type==='onetime' ? `<button class="btn small bad" onclick="window.delRoutine('${t.id}')">삭제</button>` : ''}
-        </div>`;
-    }).join("");
+    const listArea = document.getElementById('mateListArea'); document.getElementById('mateSelectedDate').textContent = `${selectedDate} 할 일`;
+    const routines = loadJSON('ROUTINES', []); const history = loadJSON('ROUTINE_HISTORY', {}); const dayHistory = history[selectedDate] || {};
+    const dayOfWeek = new Date(selectedDate).getDay(); const todaysTasks = routines.filter(r => isRoutineForDate(r, selectedDate, dayOfWeek));
+    if(todaysTasks.length === 0) { listArea.innerHTML = '<div class="muted" style="text-align:center; padding:20px;">할 일이 없습니다.</div>'; return; }
+    listArea.innerHTML = todaysTasks.map(t => { const isDone = !!dayHistory[t.id]; return `<div class="mate-item ${isDone?'done':''}"><div class="mate-check ${isDone?'checked':''}" onclick="window.toggleTask('${t.id}')">✔</div><div class="mate-text">${t.text} <span class="mate-tag">${getRoutineLabel(t)}</span></div>${t.type==='onetime' ? `<button class="btn small bad" onclick="window.delRoutine('${t.id}')">삭제</button>` : ''}</div>`; }).join("");
   }
+  function isRoutineForDate(r, dateKey, dayOfWeek) { if(r.type === 'daily') return true; if(r.type === 'weekly') return r.days.includes(dayOfWeek); if(r.type === 'monthly') return r.date === parseInt(dateKey.split('-')[2]); if(r.type === 'onetime') return r.targetDate === dateKey; return false; }
+  function getRoutineLabel(r) { if(r.type==='daily') return '매일'; if(r.type==='weekly') return '매주'; if(r.type==='monthly') return '매월'; return '1회성'; }
+  window.toggleTask = (rid) => { const history = loadJSON('ROUTINE_HISTORY', {}); if(!history[selectedDate]) history[selectedDate] = {}; history[selectedDate][rid] = !history[selectedDate][rid]; saveJSON('ROUTINE_HISTORY', history).then(() => { renderMateCalendar(); renderMateList(); }); };
+  let curRoutineType = 'daily'; let curWeekDays = [];
+  document.querySelectorAll('.routine-btn').forEach(b => { b.addEventListener('click', () => { document.querySelectorAll('.routine-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); curRoutineType = b.dataset.type; document.getElementById('weekSelector').style.display = (curRoutineType === 'weekly') ? 'flex' : 'none'; document.getElementById('monthSelector').style.display = (curRoutineType === 'monthly') ? 'block' : 'none'; }); });
+  document.querySelectorAll('.day-btn').forEach(b => { b.addEventListener('click', () => { const d = parseInt(b.dataset.d); if(curWeekDays.includes(d)) { curWeekDays = curWeekDays.filter(x => x!==d); b.classList.remove('active'); } else { curWeekDays.push(d); b.classList.add('active'); } }); });
+  document.getElementById('btnSaveRoutine').addEventListener('click', () => { const txt = document.getElementById('routineInput').value.trim(); if(!txt) return toast("내용 없음"); const newRoutine = { id: 'r_' + Date.now(), text: txt, type: curRoutineType, days: curWeekDays, date: parseInt(document.getElementById('routineMonthDay').value) || 1, created: Date.now() }; const list = loadJSON('ROUTINES', []); list.push(newRoutine); saveJSON('ROUTINES', list); document.getElementById('routineInput').value = ''; toast("루틴 추가됨"); renderMateCalendar(); renderMateList(); });
+  window.delRoutine = (rid) => { if(!confirm("삭제?")) return; const list = loadJSON('ROUTINES', []).filter(r => r.id !== rid); saveJSON('ROUTINES', list); renderMateCalendar(); renderMateList(); };
+  document.getElementById('matePrevMonth').onclick = () => { mateMonth--; if(mateMonth<1){mateMonth=12; mateYear--;} renderMateCalendar(); };
+  document.getElementById('mateNextMonth').onclick = () => { mateMonth++; if(mateMonth>12){mateMonth=1; mateYear++;} renderMateCalendar(); };
+  document.getElementById('btnAddOneTimeTask').onclick = () => { const txt = prompt("오늘만 할 일을 입력하세요:"); if(txt) { const list = loadJSON('ROUTINES', []); list.push({ id: 'ot_' + Date.now(), text: txt, type: 'onetime', targetDate: selectedDate }); saveJSON('ROUTINES', list); renderMateList(); renderMateCalendar(); } };
+  document.getElementById('btnOpenMate').onclick = () => { document.getElementById('mateOverlay').classList.add('show'); renderMateCalendar(); renderMateList(); };
+  document.getElementById('btnOpenRoutineSet').onclick = () => { document.getElementById('routineSetOverlay').classList.add('show'); };
+  document.getElementById('btnShowActionLogs').onclick = () => { const logs = loadJSON('ACTION_LOGS', []); document.getElementById('actionLogTable').innerHTML = logs.slice().reverse().map(l => `<tr><td>${l.time}</td><td>${l.action}</td><td>${l.detail}</td></tr>`).join("") || '<tr><td colspan="3" style="text-align:center;">기록 없음</td></tr>'; document.getElementById('actionLogOverlay').classList.add('show'); };
+  document.getElementById('btnCloseActionLog').addEventListener("click", () => { document.getElementById("actionLogOverlay").classList.remove("show"); });
 
-  function isRoutineForDate(r, dateKey, dayOfWeek) {
-    if(r.type === 'daily') return true;
-    if(r.type === 'weekly') return r.days.includes(dayOfWeek);
-    if(r.type === 'monthly') return r.date === parseInt(dateKey.split('-')[2]);
-    if(r.type === 'onetime') return r.targetDate === dateKey;
-    return false;
-  }
-  
-  function getRoutineLabel(r) {
-    if(r.type==='daily') return '매일';
-    if(r.type==='weekly') return '매주';
-    if(r.type==='monthly') return '매월';
-    return '1회성';
-  }
-
-  window.toggleTask = (rid) => {
-    const history = loadJSON('ROUTINE_HISTORY', {});
-    if(!history[selectedDate]) history[selectedDate] = {};
-    history[selectedDate][rid] = !history[selectedDate][rid];
-    saveJSON('ROUTINE_HISTORY', history).then(() => {
-        renderMateCalendar();
-        renderMateList();
-        recordAction("할일 체크", rid);
-    });
-  };
-
-  let curRoutineType = 'daily';
-  let curWeekDays = [];
-
-  document.querySelectorAll('.routine-btn').forEach(b => {
-    b.addEventListener('click', () => {
-        document.querySelectorAll('.routine-btn').forEach(x=>x.classList.remove('active'));
-        b.classList.add('active');
-        curRoutineType = b.dataset.type;
-        document.getElementById('weekSelector').style.display = (curRoutineType === 'weekly') ? 'flex' : 'none';
-        document.getElementById('monthSelector').style.display = (curRoutineType === 'monthly') ? 'block' : 'none';
-    });
-  });
-
-  document.querySelectorAll('.day-btn').forEach(b => {
-    b.addEventListener('click', () => {
-        const d = parseInt(b.dataset.d);
-        if(curWeekDays.includes(d)) {
-            curWeekDays = curWeekDays.filter(x => x!==d);
-            b.classList.remove('active');
-        } else {
-            curWeekDays.push(d);
-            b.classList.add('active');
-        }
-    });
-  });
-
-  document.getElementById('btnSaveRoutine').addEventListener('click', () => {
-    const txt = document.getElementById('routineInput').value.trim();
-    if(!txt) return toast("내용을 입력하세요");
-
-    const newRoutine = {
-        id: 'r_' + Date.now(),
-        text: txt,
-        type: curRoutineType,
-        days: curWeekDays,
-        date: parseInt(document.getElementById('routineMonthDay').value) || 1,
-        created: Date.now()
-    };
-
-    const list = loadJSON('ROUTINES', []);
-    list.push(newRoutine);
-    saveJSON('ROUTINES', list);
-    
-    document.getElementById('routineInput').value = '';
-    toast("루틴 추가됨");
-    renderRoutineList(); 
-    renderMateCalendar(); 
-    renderMateList();
-    recordAction("루틴 추가", txt);
-  });
-
-  function renderRoutineList() {
-    const list = loadJSON('ROUTINES', []);
-    document.getElementById('routineListBody').innerHTML = list.map(r => `
-        <div style="display:flex; justify-content:space-between; padding:6px; border-bottom:1px solid #eee;">
-            <span>${r.text} <small>(${getRoutineLabel(r)})</small></span>
-            <button onclick="window.delRoutine('${r.id}')" style="font-size:11px; color:red; border:none; background:none;">삭제</button>
-        </div>
-    `).join("");
-  }
-  
-  window.delRoutine = (rid) => {
-    if(!confirm("삭제하시겠습니까?")) return;
-    const list = loadJSON('ROUTINES', []).filter(r => r.id !== rid);
-    saveJSON('ROUTINES', list);
-    renderRoutineList();
-    renderMateCalendar();
-    renderMateList();
-    recordAction("루틴 삭제", rid);
-  };
-
-  document.getElementById('matePrevMonth').onclick = () => {
-      mateMonth--; if(mateMonth<1){mateMonth=12; mateYear--;}
-      renderMateCalendar();
-  };
-  document.getElementById('mateNextMonth').onclick = () => {
-      mateMonth++; if(mateMonth>12){mateMonth=1; mateYear++;}
-      renderMateCalendar();
-  };
-
-  document.getElementById('btnAddOneTimeTask').onclick = () => {
-    const txt = prompt("오늘만 할 일을 입력하세요:");
-    if(txt) {
-        const list = loadJSON('ROUTINES', []);
-        list.push({
-            id: 'ot_' + Date.now(),
-            text: txt,
-            type: 'onetime',
-            targetDate: selectedDate
-        });
-        saveJSON('ROUTINES', list);
-        renderMateList();
-        renderMateCalendar();
-        recordAction("1회성 할일", txt);
-    }
-  };
-
-  // ----- UI 이벤트 연결 -----
-  document.getElementById('btnOpenMate').onclick = () => {
-      document.getElementById('mateOverlay').classList.add('show');
-      renderMateCalendar();
-      renderMateList();
-      recordAction('투두 관리', '열기');
-  };
-  document.getElementById('btnOpenRoutineSet').onclick = () => {
-      document.getElementById('routineSetOverlay').classList.add('show');
-      renderRoutineList();
-  };
-  
-  document.getElementById('btnShowActionLogs').onclick = () => {
-      const logs = loadJSON('ACTION_LOGS', []);
-      document.getElementById('actionLogTable').innerHTML = logs.slice().reverse().map(l => 
-        `<tr><td>${l.time}</td><td>${l.action}</td><td>${l.detail}</td></tr>`
-      ).join("") || '<tr><td colspan="3" style="text-align:center;">기록 없음</td></tr>';
-      document.getElementById('actionLogOverlay').classList.add('show');
-  };
-  document.getElementById('btnCloseActionLog').addEventListener("click", () => {
-    document.getElementById("actionLogOverlay").classList.remove("show");
-  });
-
-  // [수정] renderAttendancePanel 함수 정의 (전역 등록)
-  window.renderAttendancePanel = function(){ 
-      const div = document.getElementById("recentTable");
-      if(div) {
-          document.getElementById("recentTable").innerHTML=getLogs().slice(-15).reverse().map(l=>`<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name)}</td><td>${fmtTS(l.ts)}</td></tr>`).join("")||`<tr><td colspan="4" class="muted">기록 없음</td></tr>`;
-      }
-      
-      const btnDiv = document.getElementById("quickButtons");
-      if(btnDiv) {
-          const emps=getEmployees();
-          if(!emps.length) btnDiv.innerHTML=`<span class="muted">관리자 메뉴에서 알바생을 등록하세요.</span>`;
-          else{
-            btnDiv.innerHTML=emps.map(e=>`<button class="btn" data-c="${e.code}">${escapeHtml(e.name)} <span class="muted">${e.code}</span></button>`).join("");
-            // [중요 수정] 버튼 클릭 이벤트 리스너 확실하게 연결
-            btnDiv.querySelectorAll('button').forEach(b => {
-                b.addEventListener('click', () => {
-                    document.getElementById('attCode').value = b.dataset.c;
-                    window.onCodeChanged();
-                    recordAction("알바생 선택", b.dataset.c);
-                });
-            });
-          }
-      }
-      window.onCodeChanged(); 
-  }
-
-  // [수정] onCodeChanged 함수도 window에 등록
-  window.onCodeChanged = function(){
-    const attCode = document.getElementById("attCode");
-    const attName = document.getElementById("attName");
-    const attStatus = document.getElementById("attStatus");
-    const attLast = document.getElementById("attLast");
-
-    if(!attCode) return;
-
-    const c=normalizeCodeInput(attCode.value);
-    if(c.length!==4){ attName.value=""; attStatus.textContent="-"; attLast.textContent="-"; return; }
-    const e=findEmpByCode(c); attName.value=e?e.name:"";
-    if(!e){ attStatus.textContent="미등록 코드"; attLast.textContent="-"; return; }
-    const l=getLastEvent(c);
-    attStatus.textContent=l&&l.type==="IN"?"출근 상태":"퇴근 상태";
-    attLast.textContent=l?`${l.type==="IN"?"출근":"퇴근"} · ${fmtTS(l.ts)}`:"기록 없음";
-  }
-
-  function getLastEvent(code){ const logs=getLogs(); for(let i=logs.length-1;i>=0;i--)if(logs[i].code===code)return logs[i]; return null; }
-  function canClockIn(code){ const l=getLastEvent(code); return !l||l.type!=="IN"; }
-  function canClockOut(code){ const l=getLastEvent(code); return !!l&&l.type==="IN"; }
-  function nextLogId(){ const logs=getLogs(); let m=0; for(const l of logs)if(Number(l.id)>m)m=Number(l.id); return m+1; }
-
-  // [중요] 초기 실행
-  (async()=>{ 
-      updateAdminStateText(); 
-      // renderAttendancePanel()은 데이터 로드 후 실행됨
-  })();
+  (async()=>{ renderAttendancePanel(); updateAdminStateText(); })();
 </script>
-</body>
-</html>
