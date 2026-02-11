@@ -1044,28 +1044,61 @@
      return totalJuhyu;
   }
 
-  function renderCalendar(){
-    const g=document.getElementById("calendarView"); if(!g)return;
-    document.getElementById("calTitle").textContent=`${calYear}. ${String(calMonth).padStart(2,"0")}`;
+function renderCalendar(){
+    const g = document.getElementById("calendarView"); 
+    if(!g) return;
+    document.getElementById("calTitle").textContent = `${calYear}. ${String(calMonth).padStart(2,"0")}`;
     g.innerHTML = "";
-    const start=new Date(calYear,calMonth-1,1).getDay(), end=new Date(calYear,calMonth,0).getDate(), tFilter=document.getElementById("logFilterEmp").value;
-    for(let i=0;i<start;i++){ const d=document.createElement("div"); d.className="calDay empty"; g.appendChild(d); }
-    for(let d=1;d<=end;d++){
-      const div=document.createElement("div"); div.className="calDay";
-      const k=getDayKey(calYear,calMonth,d); if(k===todayKey())div.classList.add("today");
+
+    // 1. 요일 헤더 추가 (일~토)
+    const days = ['일', '월', '화', '수', '목', '금', '토'];
+    days.forEach(day => {
+      const d = document.createElement("div");
+      d.className = "calCellHeader"; // 소스 내 정의된 헤더 스타일
+      d.textContent = day;
+      if(day === '일') d.style.color = 'var(--bad)';
+      if(day === '토') d.style.color = 'var(--accent)';
+      g.appendChild(d);
+    });
+
+    const start = new Date(calYear, calMonth-1, 1).getDay();
+    const end = new Date(calYear, calMonth, 0).getDate();
+    const tFilter = document.getElementById("logFilterEmp").value;
+
+    // 2. 시작 요일 맞추기 위한 빈 칸 생성
+    for(let i=0; i<start; i++){ 
+      const d = document.createElement("div"); 
+      d.className = "calDay empty"; 
+      g.appendChild(d); 
+    }
+
+    // 3. 날짜별 데이터 렌더링
+    for(let d=1; d<=end; d++){
+      const div = document.createElement("div"); 
+      div.className = "calDay";
+      const k = getDayKey(calYear, calMonth, d); 
+      if(k === todayKey()) div.classList.add("today");
+
       const isHol = isHoliday(k);
-      const st=calcDayStats(k, tFilter);
-      let inner = `<div class="calNum" style="${isHol?'color:var(--bad);':''}">${d}${isHol?'(휴)':''}</div>`;
+      const st = calcDayStats(k, tFilter);
+      
+      let inner = `<div class="calNum" style="${isHol ? 'color:var(--bad);' : ''}">${d}${isHol ? '(휴)' : ''}</div>`;
+      
+      // 일요일 주휴수당 표시
       if(new Date(calYear, calMonth-1, d).getDay() === 0) { 
          const juhyu = getWeeklyJuhyuSum(new Date(calYear, calMonth-1, d), tFilter);
          if(juhyu > 0) inner += `<span class="tag juhyu">주휴💰 +${juhyu.toLocaleString()}</span>`;
       }
-      if(st.has) inner += `<div class="calData"><span class="calTime">${st.h>0?st.h+'h ':''}${st.m}m</span>${st.pay>0?`<span class="calPay">${st.pay.toLocaleString()}원</span>`:''}</div>`;
+
+      // 근무 기록 표시
+      if(st.has) inner += `<div class="calData"><span class="calTime">${st.h > 0 ? st.h + 'h ' : ''}${st.m}m</span>${st.pay > 0 ? `<span class="calPay">${st.pay.toLocaleString()}원</span>` : ''}</div>`;
+      
       div.innerHTML = inner;
       g.appendChild(div);
     }
-    updateMonthlyWageEstimate(); 
+    updateMonthlyWageEstimate(); // 월별 예상 급여 갱신
   }
+  
   document.getElementById("calPrevBtn").addEventListener("click",()=>{ calMonth--; if(calMonth<1){calMonth=12;calYear--;} renderCalendar(); });
   document.getElementById("calNextBtn").addEventListener("click",()=>{ calMonth++; if(calMonth>12){calMonth=1;calYear++;} renderCalendar(); });
 
@@ -1212,3 +1245,4 @@
     }
   })();
 </script>
+
