@@ -618,25 +618,36 @@
   const TG_TOKEN = "7735983028:AAGgXPT18XIeBHC4C_sjKrSKSbNqQsT0ZN0";
   const LS_TG_CHAT_ID = "ALBA_TG_CHAT_ID";
 
-  async function sendTelegramAlert(text) {
-      const chatId = localStorage.getItem(LS_TG_CHAT_ID);
-      if(!chatId) return;
-      try {
-          const url = `https://api.telegram.org/bot${TG_TOKEN}/sendMessage`;
-          await fetch(url, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ chat_id: chatId, text: text })
-          });
-      } catch(e) { console.error(e); }
-  }
+  // 관리자 메뉴에서 ID 저장 버튼용 함수
+window.saveTgId = function() {
+    const v = document.getElementById("adminTgChatId").value.trim();
+    if (!v) return alert("ID를 입력하세요.");
+    
+    // [수정] 기기가 아닌 서버(Firebase)에 저장
+    window.saveJSON('adminChatId', v); 
+    alert("텔레그램 ID가 서버에 저장되었습니다. 이제 모든 기기에서 알림이 옵니다.");
+};
 
-  document.getElementById("btnSaveTgId").addEventListener("click", () => {
-      const v = document.getElementById("adminTgChatId").value.trim();
-      if(!v) return alert("ID를 입력하세요.");
-      localStorage.setItem(LS_TG_CHAT_ID, v);
-      alert("저장되었습니다.");
-  });
+window.sendTelegramAlert = async function(text) {
+    // [수정] localStorage 대신 서버 데이터(SERVER_CACHE)에서 불러옴
+    const chatId = window.loadJSON('adminChatId', null); 
+    const TG_TOKEN = "7735983028:AAGgXPT18XIeBHC4C_sjKrSKSbNqQsT0ZN0"; 
+
+    if (!chatId) {
+        console.log("텔레그램 Chat ID가 설정되지 않았습니다.");
+        return;
+    }
+
+    try {
+        await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, text: text })
+        });
+    } catch (e) {
+        console.error("텔레그램 알림 전송 실패:", e);
+    }
+};
 
   document.getElementById("btnAutoTgId").addEventListener("click", async () => {
       try {
@@ -1245,4 +1256,3 @@ function renderCalendar(){
     }
   })();
 </script>
-
