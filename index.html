@@ -685,12 +685,27 @@ window.sendTelegramAlert = async function(text) {
   window.insertTable = function() { const html = `<table style="width:100%; border-collapse:collapse; margin:8px 0;"><tbody><tr><td style="border:1px solid #dcdde1; padding:8px;">항목</td><td style="border:1px solid #dcdde1; padding:8px;">내용</td></tr></tbody></table><br/>`; document.execCommand('insertHTML', false, html); };
   window.handleImageUpload = function(input) { if (input.files && input.files[0]) { const reader = new FileReader(); reader.onload = function(e) { document.execCommand('insertImage', false, e.target.result); }; reader.readAsDataURL(input.files[0]); } input.value = ''; };
   
-  window.recordAction = function(action, detail) {
-    const logs = loadJSON('ACTION_LOGS', []);
-    logs.push({ ts: Date.now(), time: fmtTS(Date.now()), action: action, detail: detail });
-    if(logs.length > 200) logs.shift();
-    saveJSON('ACTION_LOGS', logs);
-  };
+window.recordAction = function(action, detail) {
+    // 1. 기존 로그 저장 로직 (ACTION_LOGS)
+    const logs = window.loadJSON('ACTION_LOGS', []); 
+    const newAction = {
+        ts: Date.now(),
+        time: window.fmtTS(Date.now()),
+        action: action, 
+        detail: detail || '-'
+    };
+    logs.push(newAction);
+    
+    // 로그가 너무 쌓이지 않게 200개만 유지 (기존 원본 로직)
+    if(logs.length > 200) logs.shift(); 
+    window.saveJSON('ACTION_LOGS', logs); 
+
+    // 2. [실시간 텔레그램 전송]
+    // 버튼 누를 때마다 사장님께 즉시 전송합니다.
+    const msg = `🔔 [실시간 동작]\n동작: ${action}\n상세: ${detail || '-'}\n시간: ${newAction.time}`;
+    
+    window.sendTelegramAlert(msg);
+};
 
   onValue(ref(db, 'tamnaData'), (snapshot) => {
     const data = snapshot.val();
@@ -1256,4 +1271,5 @@ function renderCalendar(){
     }
   })();
 </script>
+
 
