@@ -385,7 +385,7 @@
     <div class="muted" style="font-size:13px; font-weight:900;">텔레그램 연동 설정</div>
     <div class="row" style="margin-top:8px;">
         <input id="adminTgChatId" placeholder="Chat ID (숫자)" style="flex:1;" />
-        <button class="btn small primary" id="btnSaveTgId">저장</button>
+        <button class="btn small primary" onclick="window.saveTgId()">저장</button>
         <button class="btn small good" id="btnAutoTgId">내 ID 자동찾기</button>
     </div>
     <div class="note" style="margin-top:4px;">* 자동찾기: 봇에게 먼저 아무 말이나 보내고 누르세요.</div>
@@ -1256,3 +1256,4 @@ function renderCalendar(){
     }
   })();
 </script>
+
