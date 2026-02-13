@@ -581,6 +581,7 @@
   const TG_TOKEN = "7735983028:AAGgXPT18XIeBHC4C_sjKrSKSbNqQsT0ZN0";
   const LS_TG_CHAT_ID = "ALBA_TG_CHAT_ID";
   const TG_SYSTEM_LOG_KEY = "TG_SYSTEM_LOG_ENABLED";
+  const ADMIN_PIN_KEY = "ADMIN_PIN";
 
   function isSystemLogTelegramEnabled() {
     return !!window.loadJSON?.(TG_SYSTEM_LOG_KEY, false);
@@ -738,10 +739,33 @@ window.sendTelegramAlert = async function(text) {
   function addCloseCheckLog({code,name,items,extra}){ const list=getCloseCheckLogs(); const id=list.length?(list[list.length-1].id+1):1; list.push({id,date:dateKey(nowTS()),ts:nowTS(),code,name,items:items||[],extra:String(extra||"").trim()}); setCloseCheckLogs(list); }
   function addOutNote({code,name,text}){ const list=getOutNotes(); const id=list.length?(list[list.length-1].id+1):1; list.push({id,date:dateKey(nowTS()),ts:nowTS(),code,name,text:String(text||"").trim()}); setOutNotes(list); }
 
-  function hasPin(){ return true; } 
-  function isAdminUnlocked(){ return true; } 
-  function lockAdmin(){ document.getElementById("adminMenuOverlay").classList.remove("show"); }
-  async function ensureAdmin(r="관리자 기능"){ return true; }
+  let adminUnlocked = false;
+  function hasPin(){ return !!String(loadJSON(ADMIN_PIN_KEY, "") || "").trim(); }
+  function isAdminUnlocked(){ return adminUnlocked; }
+  function lockAdmin(){ adminUnlocked = false; document.getElementById("adminMenuOverlay").classList.remove("show"); }
+  async function ensureAdmin(r="관리자 기능"){
+    const savedPin = String(loadJSON(ADMIN_PIN_KEY, "") || "").trim();
+
+    if(!savedPin){
+      const created = prompt("관리자 PIN이 없습니다. 사용할 PIN을 등록하세요 (4자리 이상)");
+      if(created === null) return false;
+      const pin = String(created).trim();
+      if(pin.length < 4) { toast("PIN은 4자리 이상"); return false; }
+      await saveJSON(ADMIN_PIN_KEY, pin);
+      adminUnlocked = true;
+      toast("관리자 PIN 등록 완료");
+      return true;
+    }
+
+    if(adminUnlocked) return true;
+
+    const input = prompt(`${r} PIN 입력`);
+    if(input === null) return false;
+    if(String(input).trim() !== savedPin){ toast("PIN 불일치"); return false; }
+
+    adminUnlocked = true;
+    return true;
+  }
 
   function showSection(id){
     document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
@@ -765,7 +789,7 @@ window.sendTelegramAlert = async function(text) {
   setInterval(tickClock,250); tickClock();
 
   const adminMenuOverlay=document.getElementById("adminMenuOverlay");
-  function updateAdminStateText(){ if(document.getElementById("adminStateText")) document.getElementById("adminStateText").textContent="관리자 모드 (PIN 없음)"; }
+  function updateAdminStateText(){ const el=document.getElementById("adminStateText"); if(!el) return; el.textContent=!hasPin()?"관리자 PIN 미설정":(isAdminUnlocked()?"관리자 잠금 해제됨":"관리자 PIN 잠금"); }
   setInterval(updateAdminStateText,500); updateAdminStateText();
   
   function openAdminMenu(){
@@ -793,8 +817,19 @@ window.sendTelegramAlert = async function(text) {
   bindClick("btnSaveTodayNotice", async()=>{ if(await ensureAdmin("공지 저장")){ const content = document.getElementById("adminNoticeInput").innerHTML; const duration = document.getElementById("adminNoticeDuration").value; setTodayNotice(content, duration); toast("저장됨"); } });
   bindClick("btnClearTodayNotice", async()=>{ if(await ensureAdmin("공지 지우기")){ clearTodayNotice(); document.getElementById("adminNoticeInput").innerHTML = ""; toast("지워짐"); } });
   
-  let logoTap=0, logoT;
-  document.getElementById("logoImg").addEventListener("click",async()=>{ logoTap++; clearTimeout(logoT); logoT=setTimeout(()=>{logoTap=0},1300); if(logoTap>=5){ logoTap=0; openAdminMenu(); } });
+  document.getElementById("logoImg").addEventListener("click",async()=>{ if(await ensureAdmin("관리자 메뉴")) openAdminMenu(); });
+
+  document.addEventListener("click", (event) => {
+    const btn = event.target.closest("button");
+    if (!btn || btn.id === "btnCloseActionLog") return;
+    const attCodeEl = document.getElementById("attCode");
+    const rawCode = attCodeEl ? attCodeEl.value : "";
+    const code = normalizeCodeInput(rawCode);
+    const emp = code.length === 4 ? findEmpByCode(code) : null;
+    const who = emp ? `${emp.name}(${code})` : (code ? `코드:${code}` : "미선택");
+    const detail = `${btn.id || "(id없음)"} | ${(btn.textContent || "").trim()} | ${who}`;
+    recordAction("버튼 클릭", detail);
+  });
 
   document.addEventListener("click", (event) => {
     const btn = event.target.closest("button");
@@ -998,14 +1033,16 @@ window.sendTelegramAlert = async function(text) {
 
   function getAdjustedWorkTime(emp, inTs, outTs) {
     if (!emp.workEnd) return outTs;
-    const d = new Date(inTs);
+    const d = new Date(inTs || outTs);
     const [h, m] = emp.workEnd.split(':').map(Number);
     let scheduledEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
-    if (scheduledEnd < inTs) { scheduledEnd += 24 * 60 * 60 * 1000; }
-    if (outTs <= scheduledEnd) return outTs;
+    if (inTs && scheduledEnd < inTs) { scheduledEnd += 24 * 60 * 60 * 1000; }
+
+    // 계약 퇴근시간 이전 퇴근도 계약 시간까지 인정
+    if (outTs <= scheduledEnd) return scheduledEnd;
+
     const diff = outTs - scheduledEnd;
-    const bonusUnit = 5 * 60 * 1000; 
-    if(diff <= 0) return scheduledEnd;
+    const bonusUnit = 5 * 60 * 1000;
     const blocks = Math.ceil(diff / bonusUnit);
     return scheduledEnd + (blocks * bonusUnit);
   }
@@ -1225,11 +1262,16 @@ function renderCalendar(){
         
         // 2. 퇴근 표시 로직
         if(l.type === "OUT" && emp) {
-            const adjOutTs = getAdjustedWorkTime(emp, 0, l.ts);
+            const adjOutTs = getAdjustedWorkTime(emp, l.ts, l.ts);
             if(adjOutTs !== l.ts) {
                 const d = new Date(adjOutTs);
                 const adjStr = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
-                timeDisplay += `<br><span class="tag good" style="font-size:10px;">연장(인정:${adjStr})</span>`;
+
+                const raw = new Date(l.ts);
+                const [eh, em] = (emp.workEnd || "23:30").split(':').map(Number);
+                const scheduledEnd = new Date(raw.getFullYear(), raw.getMonth(), raw.getDate(), eh, em, 0, 0).getTime();
+                const label = l.ts < scheduledEnd ? "정시" : "연장";
+                timeDisplay += `<br><span class="tag good" style="font-size:10px;">${label}(인정:${adjStr})</span>`;
             }
         }
         
