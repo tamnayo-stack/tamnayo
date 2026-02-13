@@ -138,16 +138,9 @@
     .editor-content table { width: 100%; border-collapse: collapse; margin: 8px 0; }
     .editor-content td { border: 1px solid #dcdde1; padding: 8px; vertical-align: top; }
 
-    /* 투두 리스트 스타일 */
-    .todo-row { display:flex; align-items:center; gap:10px; padding:10px; background:#fff; border:1px solid var(--line); border-radius:12px; margin-bottom:8px; }
-    .todo-check { width:24px; height:24px; cursor:pointer; }
-    .todo-text { flex:1; font-size:15px; font-weight:700; color:var(--text); }
-    .todo-text.done { text-decoration: line-through; color:var(--muted); }
-
     /* Z-Index 및 팝업 설정 */
     #adminMenuOverlay { z-index: 1000 !important; }
-    #mateOverlay, #actionLogOverlay, #empEditOverlay, #logEditOverlay, #logAddOverlay, #todoOverlay { z-index: 2000 !important; }
-    #routineSetOverlay { z-index: 3000 !important; }
+    #actionLogOverlay, #empEditOverlay, #logEditOverlay, #logAddOverlay { z-index: 2000 !important; }
     #noticeOverlay, #closeCheckOverlay, #outNoteOverlay, .toast { z-index: 5000 !important; }
     #pinOverlay { z-index: 9999 !important; }
     
@@ -177,38 +170,6 @@
     #quickButtons { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
     #quickButtons .btn { height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 16px; }
     #quickButtons .btn .muted { font-size: 12px; font-weight: normal; }
-    
-    /* 투두메이트 스타일 */
-    .mate-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
-    .mate-title { font-size: 18px; font-weight: 900; }
-    .mate-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 14px; }
-    .mate-day-head { text-align: center; font-size: 12px; color: var(--muted); font-weight: 700; padding-bottom: 4px; }
-    .mate-cell { 
-        aspect-ratio: 1/1.1; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; 
-        border-radius: 10px; padding-top:6px; cursor: pointer; position:relative; border: 1px solid transparent;
-    }
-    .mate-cell.today { background-color: #f0f8ff; border-color: var(--accent); }
-    .mate-cell.selected { background-color: var(--accent); color: #fff; box-shadow: 0 4px 10px rgba(52,152,219,0.3); }
-    .mate-date-num { font-size: 14px; font-weight: 700; z-index:1; }
-    .mate-dots { display:flex; gap:2px; margin-top:4px; flex-wrap:wrap; justify-content:center; max-width:80%; }
-    .mate-dot { width: 5px; height: 5px; border-radius: 50%; background: #e0e0e0; }
-    .mate-dot.done { background: var(--good); } 
-    
-    .mate-list-area { background: #f8f9fa; border-radius: 14px; padding: 14px; min-height: 200px; }
-    .mate-item { display:flex; align-items:center; gap:10px; padding: 12px; background:#fff; border:1px solid var(--line); border-radius:12px; margin-bottom:8px; transition:all 0.2s; }
-    .mate-item.done { opacity: 0.6; }
-    .mate-check { width: 24px; height: 24px; border-radius: 6px; border: 2px solid var(--line); display:flex; align-items:center; justify-content:center; cursor: pointer; flex: 0 0 auto; }
-    .mate-check.checked { background: var(--good); border-color: var(--good); color: #fff; }
-    .mate-text { flex:1; font-size:15px; font-weight:600; line-height:1.3; }
-    .mate-tag { font-size:10px; padding:2px 6px; border-radius:4px; background:#eee; color:#666; font-weight:700; }
-
-    /* 루틴 설정 스타일 */
-    .routine-opt { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px; }
-    .routine-btn { padding: 8px 12px; border:1px solid var(--line); border-radius:8px; background:#fff; font-size:13px; cursor:pointer; }
-    .routine-btn.active { background:var(--accent); color:#fff; border-color:transparent; font-weight:700; }
-    .day-selector { display:flex; gap:4px; margin-top:4px; }
-    .day-btn { width:32px; height:32px; border-radius:50%; border:1px solid var(--line); background:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; cursor:pointer; }
-    .day-btn.active { background:var(--accent); color:#fff; border-color:transparent; }
     
     .date-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #e3f2fd; color: var(--accent); border-radius: 20px; font-size: 13px; font-weight: 700; margin: 2px; }
     .date-pill button { background: none; border: none; color: var(--accent); font-weight: 900; font-size: 12px; cursor: pointer; padding: 0; }
@@ -376,6 +337,7 @@
       <button class="btn primary" id="goEmp">알바생 관리</button>
       <button class="btn primary" id="goLog">근태 조회</button>
       <button class="btn warn" id="btnExportCsv2">CSV 내보내기</button>
+      <button class="btn" id="btnOpenActionLog">시스템 로그</button>
       <button class="btn" id="btnLockAdmin">관리자 메뉴 닫기</button>
     </div>
     
@@ -387,6 +349,10 @@
         <button class="btn small good" id="btnAutoTgId">내 ID 자동찾기</button>
     </div>
     <div class="note" style="margin-top:4px;">* 자동찾기: 봇에게 먼저 아무 말이나 보내고 누르세요.</div>
+    <label class="row" style="margin-top:8px; gap:8px; align-items:center;">
+      <input id="tgSystemLogEnabled" type="checkbox" />
+      <span class="muted" style="font-size:12px;">시스템 로그(버튼 클릭/출퇴근 시도) 텔레그램 전송</span>
+    </label>
     
     <div class="hr"></div>
     <div class="muted" style="font-size:13px; font-weight:900;">마감 체크리스트 편집</div>
@@ -614,6 +580,16 @@
   // -------------------------------------------------------------
   const TG_TOKEN = "7735983028:AAGgXPT18XIeBHC4C_sjKrSKSbNqQsT0ZN0";
   const LS_TG_CHAT_ID = "ALBA_TG_CHAT_ID";
+  const TG_SYSTEM_LOG_KEY = "TG_SYSTEM_LOG_ENABLED";
+  const ADMIN_PIN_KEY = "ADMIN_PIN";
+
+  function isSystemLogTelegramEnabled() {
+    return !!window.loadJSON?.(TG_SYSTEM_LOG_KEY, false);
+  }
+
+  function setSystemLogTelegramEnabled(enabled) {
+    window.saveJSON?.(TG_SYSTEM_LOG_KEY, !!enabled);
+  }
 
   // 관리자 메뉴에서 ID 저장 버튼용 함수
 window.saveTgId = function() {
@@ -683,10 +659,15 @@ window.sendTelegramAlert = async function(text) {
   window.handleImageUpload = function(input) { if (input.files && input.files[0]) { const reader = new FileReader(); reader.onload = function(e) { document.execCommand('insertImage', false, e.target.result); }; reader.readAsDataURL(input.files[0]); } input.value = ''; };
   
   window.recordAction = function(action, detail) {
+    const now = Date.now();
     const logs = loadJSON('ACTION_LOGS', []);
-    logs.push({ ts: Date.now(), time: fmtTS(Date.now()), action: action, detail: detail });
+    logs.push({ ts: now, time: fmtTS(now), action: action, detail: detail });
     if(logs.length > 200) logs.shift();
     saveJSON('ACTION_LOGS', logs);
+
+    if (isSystemLogTelegramEnabled()) {
+      sendTelegramAlert(`[시스템로그] ${fmtTS(now)}\n${action}\n${detail || '-'}`);
+    }
   };
 
   onValue(ref(db, 'tamnaData'), (snapshot) => {
@@ -706,7 +687,9 @@ window.sendTelegramAlert = async function(text) {
   });
 
   window.saveJSON = async function(key, val) { SERVER_CACHE[key] = val; await set(ref(db, 'tamnaData'), SERVER_CACHE); };
-  window.loadJSON = function(key, fallback) { return SERVER_CACHE[key] ? SERVER_CACHE[key] : fallback; };
+  window.loadJSON = function(key, fallback) {
+    return Object.prototype.hasOwnProperty.call(SERVER_CACHE, key) ? SERVER_CACHE[key] : fallback;
+  };
 
   const LS_KEYS = { DAILY_NOTICE: "ALBA_DAILY_NOTICE_V1", OUT_NOTES: "ALBA_OUT_NOTES_V1", CLOSE_CHECKLIST: "ALBA_CLOSE_CHECKLIST_V1", CLOSE_CHECK_LOGS: "ALBA_CLOSE_CHECK_LOGS_V1", EMPLOYEES: "ALBA_EMPLOYEES_V2", NEXT_ID: "ALBA_NEXT_EMP_ID_V2", ATT_LOGS: "ALBA_ATT_LOGS_V2" };
 
@@ -756,10 +739,33 @@ window.sendTelegramAlert = async function(text) {
   function addCloseCheckLog({code,name,items,extra}){ const list=getCloseCheckLogs(); const id=list.length?(list[list.length-1].id+1):1; list.push({id,date:dateKey(nowTS()),ts:nowTS(),code,name,items:items||[],extra:String(extra||"").trim()}); setCloseCheckLogs(list); }
   function addOutNote({code,name,text}){ const list=getOutNotes(); const id=list.length?(list[list.length-1].id+1):1; list.push({id,date:dateKey(nowTS()),ts:nowTS(),code,name,text:String(text||"").trim()}); setOutNotes(list); }
 
-  function hasPin(){ return true; } 
-  function isAdminUnlocked(){ return true; } 
-  function lockAdmin(){ document.getElementById("adminMenuOverlay").classList.remove("show"); }
-  async function ensureAdmin(r="관리자 기능"){ return true; }
+  let adminUnlocked = false;
+  function hasPin(){ return !!String(loadJSON(ADMIN_PIN_KEY, "") || "").trim(); }
+  function isAdminUnlocked(){ return adminUnlocked; }
+  function lockAdmin(){ adminUnlocked = false; document.getElementById("adminMenuOverlay").classList.remove("show"); }
+  async function ensureAdmin(r="관리자 기능"){
+    const savedPin = String(loadJSON(ADMIN_PIN_KEY, "") || "").trim();
+
+    if(!savedPin){
+      const created = prompt("관리자 PIN이 없습니다. 사용할 PIN을 등록하세요 (4자리 이상)");
+      if(created === null) return false;
+      const pin = String(created).trim();
+      if(pin.length < 4) { toast("PIN은 4자리 이상"); return false; }
+      await saveJSON(ADMIN_PIN_KEY, pin);
+      adminUnlocked = true;
+      toast("관리자 PIN 등록 완료");
+      return true;
+    }
+
+    if(adminUnlocked) return true;
+
+    const input = prompt(`${r} PIN 입력`);
+    if(input === null) return false;
+    if(String(input).trim() !== savedPin){ toast("PIN 불일치"); return false; }
+
+    adminUnlocked = true;
+    return true;
+  }
 
   function showSection(id){
     document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
@@ -769,6 +775,13 @@ window.sendTelegramAlert = async function(text) {
     if(id==="sec-log"){ renderLogFilterOptions(); renderLogAll(); }
     recordAction("화면 이동", id);
   }
+  function renderActionLog(){
+    const rows = (loadJSON('ACTION_LOGS', []) || []).slice(-100).reverse();
+    document.getElementById("actionLogTable").innerHTML = rows.length
+      ? rows.map(x=>`<tr><td>${escapeHtml(x.time || fmtTS(x.ts || Date.now()))}</td><td>${escapeHtml(x.action || "-")}</td><td>${escapeHtml(x.detail || "-")}</td></tr>`).join("")
+      : `<tr><td colspan="3" class="muted">로그 없음</td></tr>`;
+  }
+
   function tickClock(){
     const d=new Date(); document.getElementById("nowTime").textContent=`${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
     document.getElementById("nowDate").textContent=`${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${["일","월","화","수","목","금","토"][d.getDay()]})`;
@@ -776,7 +789,7 @@ window.sendTelegramAlert = async function(text) {
   setInterval(tickClock,250); tickClock();
 
   const adminMenuOverlay=document.getElementById("adminMenuOverlay");
-  function updateAdminStateText(){ if(document.getElementById("adminStateText")) document.getElementById("adminStateText").textContent="관리자 모드 (PIN 없음)"; }
+  function updateAdminStateText(){ const el=document.getElementById("adminStateText"); if(!el) return; el.textContent=!hasPin()?"관리자 PIN 미설정":(isAdminUnlocked()?"관리자 잠금 해제됨":"관리자 PIN 잠금"); }
   setInterval(updateAdminStateText,500); updateAdminStateText();
   
   function openAdminMenu(){
@@ -784,21 +797,39 @@ window.sendTelegramAlert = async function(text) {
     document.getElementById("adminNoticeDuration").value = getTodayNoticeDuration();
     renderAdminCloseChecklist();
     renderTemplates();
-    document.getElementById("adminTgChatId").value = localStorage.getItem(LS_TG_CHAT_ID) || "";
+    document.getElementById("adminTgChatId").value = loadJSON('adminChatId', localStorage.getItem(LS_TG_CHAT_ID) || "");
+    const tgLogEl = document.getElementById("tgSystemLogEnabled");
+    if (tgLogEl) tgLogEl.checked = isSystemLogTelegramEnabled();
     adminMenuOverlay.classList.add("show"); updateAdminStateText();
   }
-  document.getElementById("adminMenuClose").addEventListener("click",()=>adminMenuOverlay.classList.remove("show"));
-  document.getElementById("btnLockAdmin").addEventListener("click",()=>{ lockAdmin(); });
-  document.getElementById("goEmp").addEventListener("click",()=>{ adminMenuOverlay.classList.remove("show"); showSection("sec-emp"); });
-  document.getElementById("goLog").addEventListener("click",()=>{ adminMenuOverlay.classList.remove("show"); showSection("sec-log"); });
-  document.getElementById("btnBackFromEmp").addEventListener("click",()=>showSection("sec-att"));
-  document.getElementById("btnBackFromLog").addEventListener("click",()=>showSection("sec-att"));
+  function bindClick(id, handler){ const el=document.getElementById(id); if(el) el.addEventListener("click", handler); }
+  bindClick("adminMenuClose", ()=>adminMenuOverlay.classList.remove("show"));
+  bindClick("btnLockAdmin", ()=>{ lockAdmin(); });
+  bindClick("btnOpenActionLog", ()=>{ renderActionLog(); document.getElementById("actionLogOverlay").classList.add("show"); });
+  bindClick("btnCloseActionLog", ()=>document.getElementById("actionLogOverlay").classList.remove("show"));
+  const tgSystemLogEnabledEl = document.getElementById("tgSystemLogEnabled");
+  if (tgSystemLogEnabledEl) tgSystemLogEnabledEl.addEventListener("change", (e)=>{ setSystemLogTelegramEnabled(e.target.checked); toast(`시스템 로그 텔레그램 전송 ${e.target.checked ? "ON" : "OFF"}`); });
+  bindClick("goEmp", ()=>{ adminMenuOverlay.classList.remove("show"); showSection("sec-emp"); });
+  bindClick("goLog", ()=>{ adminMenuOverlay.classList.remove("show"); showSection("sec-log"); });
+  bindClick("btnBackFromEmp", ()=>showSection("sec-att"));
+  bindClick("btnBackFromLog", ()=>showSection("sec-att"));
   
-  document.getElementById("btnSaveTodayNotice").addEventListener("click",async()=>{ if(await ensureAdmin("공지 저장")){ const content = document.getElementById("adminNoticeInput").innerHTML; const duration = document.getElementById("adminNoticeDuration").value; setTodayNotice(content, duration); toast("저장됨"); } });
-  document.getElementById("btnClearTodayNotice").addEventListener("click",async()=>{ if(await ensureAdmin("공지 지우기")){ clearTodayNotice(); document.getElementById("adminNoticeInput").innerHTML = ""; toast("지워짐"); } });
+  bindClick("btnSaveTodayNotice", async()=>{ if(await ensureAdmin("공지 저장")){ const content = document.getElementById("adminNoticeInput").innerHTML; const duration = document.getElementById("adminNoticeDuration").value; setTodayNotice(content, duration); toast("저장됨"); } });
+  bindClick("btnClearTodayNotice", async()=>{ if(await ensureAdmin("공지 지우기")){ clearTodayNotice(); document.getElementById("adminNoticeInput").innerHTML = ""; toast("지워짐"); } });
   
-  let logoTap=0, logoT;
-  document.getElementById("logoImg").addEventListener("click",async()=>{ logoTap++; clearTimeout(logoT); logoT=setTimeout(()=>{logoTap=0},1300); if(logoTap>=5){ logoTap=0; openAdminMenu(); } });
+  document.getElementById("logoImg").addEventListener("click",async()=>{ if(await ensureAdmin("관리자 메뉴")) openAdminMenu(); });
+
+  document.addEventListener("click", (event) => {
+    const btn = event.target.closest("button");
+    if (!btn || btn.id === "btnCloseActionLog") return;
+    const attCodeEl = document.getElementById("attCode");
+    const rawCode = attCodeEl ? attCodeEl.value : "";
+    const code = normalizeCodeInput(rawCode);
+    const emp = code.length === 4 ? findEmpByCode(code) : null;
+    const who = emp ? `${emp.name}(${code})` : (code ? `코드:${code}` : "미선택");
+    const detail = `${btn.id || "(id없음)"} | ${(btn.textContent || "").trim()} | ${who}`;
+    recordAction("버튼 클릭", detail);
+  });
 
   const noticeOverlay=document.getElementById("noticeOverlay");
   function setRingProgress(p){ const c=2*Math.PI*30; document.getElementById("noticeRing").style.strokeDasharray=`${c}`; document.getElementById("noticeRing").style.strokeDashoffset=`${c*(1-p)}`; }
@@ -884,9 +915,20 @@ window.sendTelegramAlert = async function(text) {
   }
 
   document.getElementById("btnIn").addEventListener("click",async()=>{
-    const c=attCode.value; if(c.length!==4)return toast("알바생을 선택해주세요");
-    const e=findEmpByCode(c); if(!e)return toast("미등록 코드");
-    if(!canClockIn(c))return toast("이미 출근 상태");
+    const c=attCode.value;
+    if(c.length!==4){
+      recordAction("출근 시도 실패", "알바생 미선택");
+      return toast("알바생을 선택해주세요");
+    }
+    const e=findEmpByCode(c);
+    if(!e){
+      recordAction("출근 시도 실패", `미등록 코드(${c})`);
+      return toast("미등록 코드");
+    }
+    if(!canClockIn(c)){
+      recordAction("출근 시도 실패", `${e.name}(${c}) 이미 출근 상태`);
+      return toast("이미 출근 상태");
+    }
     recordAction("출근 시도", `${e.name}(${c})`);
     
     await showNoticeCountdownIfAny();
@@ -905,13 +947,26 @@ window.sendTelegramAlert = async function(text) {
     }
     
     sendTelegramAlert(`[출근] ${e.name}님이 출근했습니다. (${fmtTS(now)})`);
+    recordAction("출근 완료", `${e.name}(${c})`);
     renderAttendancePanel();
   });
   
   document.getElementById("btnOut").addEventListener("click",async()=>{
-    const c=attCode.value; if(c.length!==4)return toast("알바생을 선택해주세요");
-    const e=findEmpByCode(c); if(!e)return toast("미등록 코드");
-    if(!canClockOut(c))return toast("출근 기록 없음");
+    const c=attCode.value;
+    if(c.length!==4){
+      recordAction("퇴근 시도 실패", "알바생 미선택");
+      return toast("알바생을 선택해주세요");
+    }
+    const e=findEmpByCode(c);
+    if(!e){
+      recordAction("퇴근 시도 실패", `미등록 코드(${c})`);
+      return toast("미등록 코드");
+    }
+    if(!canClockOut(c)){
+      recordAction("퇴근 시도 실패", `${e.name}(${c}) 출근 기록 없음`);
+      return toast("출근 기록 없음");
+    }
+    recordAction("퇴근 시도", `${e.name}(${c})`);
     
     let manualNote = await askOutNote();
     let checklistLogStr = "";
@@ -926,6 +981,7 @@ window.sendTelegramAlert = async function(text) {
     toast(`${e.name} 퇴근`); 
 
     sendTelegramAlert(`[퇴근] ${e.name}님이 퇴근했습니다.${manualNote ? `\n특이사항: ${manualNote}` : ''}`);
+    recordAction("퇴근 완료", `${e.name}(${c})`);
     renderAttendancePanel();
   });
 
@@ -965,14 +1021,16 @@ window.sendTelegramAlert = async function(text) {
 
   function getAdjustedWorkTime(emp, inTs, outTs) {
     if (!emp.workEnd) return outTs;
-    const d = new Date(inTs);
+    const d = new Date(inTs || outTs);
     const [h, m] = emp.workEnd.split(':').map(Number);
     let scheduledEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
-    if (scheduledEnd < inTs) { scheduledEnd += 24 * 60 * 60 * 1000; }
-    if (outTs <= scheduledEnd) return outTs;
+    if (inTs && scheduledEnd < inTs) { scheduledEnd += 24 * 60 * 60 * 1000; }
+
+    // 계약 퇴근시간 이전 퇴근도 계약 시간까지 인정
+    if (outTs <= scheduledEnd) return scheduledEnd;
+
     const diff = outTs - scheduledEnd;
-    const bonusUnit = 5 * 60 * 1000; 
-    if(diff <= 0) return scheduledEnd;
+    const bonusUnit = 5 * 60 * 1000;
     const blocks = Math.ceil(diff / bonusUnit);
     return scheduledEnd + (blocks * bonusUnit);
   }
@@ -1192,11 +1250,16 @@ function renderCalendar(){
         
         // 2. 퇴근 표시 로직
         if(l.type === "OUT" && emp) {
-            const adjOutTs = getAdjustedWorkTime(emp, 0, l.ts);
+            const adjOutTs = getAdjustedWorkTime(emp, l.ts, l.ts);
             if(adjOutTs !== l.ts) {
                 const d = new Date(adjOutTs);
                 const adjStr = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
-                timeDisplay += `<br><span class="tag good" style="font-size:10px;">연장(인정:${adjStr})</span>`;
+
+                const raw = new Date(l.ts);
+                const [eh, em] = (emp.workEnd || "23:30").split(':').map(Number);
+                const scheduledEnd = new Date(raw.getFullYear(), raw.getMonth(), raw.getDate(), eh, em, 0, 0).getTime();
+                const label = l.ts < scheduledEnd ? "정시" : "연장";
+                timeDisplay += `<br><span class="tag good" style="font-size:10px;">${label}(인정:${adjStr})</span>`;
             }
         }
         
