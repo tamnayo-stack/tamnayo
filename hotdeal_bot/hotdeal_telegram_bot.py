@@ -21,10 +21,10 @@ import telegram
 # =========================
 @dataclass
 class BotConfig:
-    telegram_token: str = field(default_factory=lambda: os.getenv("TELEGRAM_TOKEN", ""))
-    chat_id: str = field(default_factory=lambda: os.getenv("CHAT_ID", ""))
+    telegram_token: str = field(default_factory=lambda: "8408404594:AAGI3WD9MNOpzVWtlowZZjmuYfmFDDO8xW0")
+    chat_id: str = field(default_factory=lambda: "8408697849")
     base_url: str = field(default_factory=lambda: os.getenv("HOTDEAL_URL", "https://algumon.com/"))
-    check_interval_sec: int = field(default_factory=lambda: int(os.getenv("CHECK_INTERVAL_SEC", "60")))
+    check_interval_sec: int = field(default_factory=lambda: int(os.getenv("CHECK_INTERVAL_SEC", "30")))
     request_timeout_sec: int = field(default_factory=lambda: int(os.getenv("REQUEST_TIMEOUT_SEC", "15")))
     db_path: str = field(default_factory=lambda: os.getenv("SEEN_DB_PATH", "seen_posts.db"))
     keyword_file: str = field(default_factory=lambda: os.getenv("KEYWORD_FILE", "keywords.json"))
@@ -32,6 +32,7 @@ class BotConfig:
         default_factory=lambda: os.getenv("STARTUP_TEST_MESSAGE", "true").lower() == "true"
     )
     dry_run: bool = field(default_factory=lambda: os.getenv("DRY_RUN", "false").lower() == "true")
+    mode: str = field(default_factory=lambda: os.getenv("MODE", "keyword"))
 
     def validate(self) -> None:
         if not self.telegram_token and not self.dry_run:
@@ -40,6 +41,8 @@ class BotConfig:
             raise ValueError("CHAT_ID가 비어 있습니다. 환경변수 또는 코드에서 설정하세요.")
         if self.check_interval_sec < 10:
             raise ValueError("CHECK_INTERVAL_SEC는 10초 이상으로 설정하세요.")
+        if self.mode not in ("keyword", "all"):
+            raise ValueError("MODE는 'keyword' 또는 'all'이어야 합니다.")
 
 
 # =========================
@@ -139,12 +142,15 @@ class KeywordManager:
             return any(k.lower() in text_lower for k in self._keywords)
 
 
-def start_cli_keyword_console(manager: KeywordManager, stop_event: threading.Event) -> None:
+def start_cli_keyword_console(manager: KeywordManager, stop_event: threading.Event, bot: "HotdealBot") -> None:
     print("\n" + "=" * 50)
     print("📢 [명령어 가이드]")
     print(" - 추가: add 키워드 (예: add 치킨)")
     print(" - 삭제: del 키워드 (예: del 치킨)")
     print(" - 목록: list")
+    print(" - 모드 변경: mode [keyword|all]")
+    print(" - 간격 설정: speed [10-600] (초 단위)")
+    print(" - 현재 상태: status")
     print(" - 종료: exit")
     print("=" * 50 + "\n")
 
@@ -169,6 +175,35 @@ def start_cli_keyword_console(manager: KeywordManager, stop_event: threading.Eve
                     print(f"❌ [{arg}] 키워드 없음")
             elif cmd == "list":
                 print("📋 현재 키워드:", manager.list_keywords())
+            elif cmd == "mode":
+                if arg.lower() in ("keyword", "all"):
+                    with bot.mode_lock:
+                        bot.mode = arg.lower()
+                    print(f"✅ 모드 변경: {arg.lower()}")
+                    logging.info("모드 변경됨: %s", arg.lower())
+                else:
+                    print("❌ 모드는 'keyword' 또는 'all'이어야 합니다.")
+            elif cmd == "speed":
+                try:
+                    interval = int(arg)
+                    if 10 <= interval <= 600:
+                        with bot.interval_lock:
+                            bot.current_interval = interval
+                        print(f"⚡ 체크 간격 변경: {interval}초")
+                        logging.info("체크 간격 변경됨: %ds", interval)
+                    else:
+                        print("❌ 간격은 10~600초 사이여야 합니다.")
+                except ValueError:
+                    print("❌ 숫자를 입력하세요.")
+            elif cmd == "status":
+                with bot.mode_lock:
+                    current_mode = bot.mode
+                with bot.interval_lock:
+                    current_interval = bot.current_interval
+                print(f"📊 현재 모드: {current_mode}")
+                print(f"⏱️  체크 간격: {current_interval}초")
+                if current_mode == "keyword":
+                    print(f"📋 활성 키워드: {manager.list_keywords()}")
             elif cmd == "exit":
                 print("종료 요청을 받았습니다.")
                 stop_event.set()
@@ -190,7 +225,12 @@ class HotdealBot:
         self.repo = SeenPostRepository(config.db_path)
         self.keywords = KeywordManager(config.keyword_file)
         self.stop_event = threading.Event()
+        self.mode = config.mode  # "keyword" 또는 "all"
+        self.mode_lock = threading.Lock()
         self.bot = telegram.Bot(token=config.telegram_token) if not config.dry_run else None
+        self.last_etag = None  # HTTP ETag 저장
+        self.current_interval = config.check_interval_sec  # 동적 간격 조정
+        self.interval_lock = threading.Lock()
 
     async def send_message(self, text: str) -> None:
         if self.config.dry_run:
@@ -199,17 +239,44 @@ class HotdealBot:
         assert self.bot is not None
         await self.bot.send_message(chat_id=self.config.chat_id, text=text, disable_web_page_preview=False)
 
-    async def fetch_page(self, session: aiohttp.ClientSession) -> str:
+    async def fetch_page(self, session: aiohttp.ClientSession) -> str | None:
+        """페이지를 가져옵니다. 변경 없으면 None 반환."""
         headers = {
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
             )
         }
-        async with session.get(self.config.base_url, headers=headers, timeout=self.config.request_timeout_sec) as resp:
-            if resp.status != 200:
-                raise RuntimeError(f"접속 실패: HTTP {resp.status}")
-            return await resp.text()
+        if self.last_etag:
+            headers["If-None-Match"] = self.last_etag
+
+        try:
+            async with session.get(self.config.base_url, headers=headers, timeout=self.config.request_timeout_sec) as resp:
+                # 304 Not Modified - 변경 없음
+                if resp.status == 304:
+                    logging.debug("페이지 변경 없음 (304 Not Modified)")
+                    return None
+
+                # 429 Too Many Requests - Rate limit 감지
+                if resp.status == 429:
+                    retry_after = int(resp.headers.get("Retry-After", 60))
+                    with self.interval_lock:
+                        self.current_interval = min(self.current_interval * 2, 600)  # 최대 10분
+                    logging.warning("⚠️ Rate limit 감지! 간격 조정: %ds → %ds", 
+                                  self.config.check_interval_sec, self.current_interval)
+                    return None
+
+                if resp.status != 200:
+                    raise RuntimeError(f"접속 실패: HTTP {resp.status}")
+
+                # ETag 저장
+                if "ETag" in resp.headers:
+                    self.last_etag = resp.headers["ETag"]
+
+                return await resp.text()
+        except asyncio.TimeoutError:
+            logging.error("요청 타임아웃")
+            return None
 
     @staticmethod
     def parse_posts(html: str, base_url: str) -> List[dict]:
@@ -235,9 +302,15 @@ class HotdealBot:
 
     async def check_once(self, session: aiohttp.ClientSession) -> int:
         html = await self.fetch_page(session)
+        if html is None:  # 변경 없음 또는 rate limit
+            return 0
+
         posts = self.parse_posts(html, self.config.base_url)
 
         sent_count = 0
+        with self.mode_lock:
+            current_mode = self.mode
+
         for post in posts:
             post_id = post["post_id"]
             title = post["title"]
@@ -246,11 +319,18 @@ class HotdealBot:
             if self.repo.has(post_id):
                 continue
 
-            if self.keywords.match(title):
-                msg = f"🚨 키워드 발견\n🛍️ {title}\n🔗 {link}"
+            # 모드에 따른 필터링
+            should_send = False
+            if current_mode == "keyword":
+                should_send = self.keywords.match(title)
+            elif current_mode == "all":
+                should_send = True
+
+            if should_send:
+                msg = f"🚨 키워드 발견\n🛍️ {title}\n🔗 {link}" if current_mode == "keyword" else f"📰 {title}\n🔗 {link}"
                 await self.send_message(msg)
                 sent_count += 1
-                logging.info("알림 발송: %s", title)
+                logging.info("알림 발송 [%s]: %s", current_mode, title)
 
             self.repo.add(post_id, title, link)
 
@@ -262,7 +342,7 @@ class HotdealBot:
 
         cli_thread = threading.Thread(
             target=start_cli_keyword_console,
-            args=(self.keywords, self.stop_event),
+            args=(self.keywords, self.stop_event, self),
             daemon=True,
         )
         cli_thread.start()
@@ -277,7 +357,11 @@ class HotdealBot:
                     logging.info("체크 완료: 새 알림 %d건", sent)
                 except Exception as exc:
                     logging.exception("체크 중 오류: %s", exc)
-                await asyncio.sleep(self.config.check_interval_sec)
+                
+                # 동적 간격 사용
+                with self.interval_lock:
+                    wait_time = self.current_interval
+                await asyncio.sleep(wait_time)
 
 
 def setup_logging() -> None:
@@ -309,7 +393,8 @@ async def async_main() -> None:
     loop = asyncio.get_running_loop()
     install_signal_handlers(loop, bot.stop_event)
 
-    logging.info("핫딜 감시 시작 (interval=%ss, dry_run=%s)", config.check_interval_sec, config.dry_run)
+    logging.info("🚀 핫딜 감시 시작 | 초기 간격: %ds | 모드: %s | dry_run: %s", 
+                config.check_interval_sec, bot.mode, config.dry_run)
     await bot.run()
 
 
