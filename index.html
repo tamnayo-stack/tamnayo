@@ -831,6 +831,18 @@ window.sendTelegramAlert = async function(text) {
     recordAction("버튼 클릭", detail);
   });
 
+  document.addEventListener("click", (event) => {
+    const btn = event.target.closest("button");
+    if (!btn || btn.id === "btnCloseActionLog") return;
+    const attCodeEl = document.getElementById("attCode");
+    const rawCode = attCodeEl ? attCodeEl.value : "";
+    const code = normalizeCodeInput(rawCode);
+    const emp = code.length === 4 ? findEmpByCode(code) : null;
+    const who = emp ? `${emp.name}(${code})` : (code ? `코드:${code}` : "미선택");
+    const detail = `${btn.id || "(id없음)"} | ${(btn.textContent || "").trim()} | ${who}`;
+    recordAction("버튼 클릭", detail);
+  });
+
   const noticeOverlay=document.getElementById("noticeOverlay");
   function setRingProgress(p){ const c=2*Math.PI*30; document.getElementById("noticeRing").style.strokeDasharray=`${c}`; document.getElementById("noticeRing").style.strokeDashoffset=`${c*(1-p)}`; }
   
