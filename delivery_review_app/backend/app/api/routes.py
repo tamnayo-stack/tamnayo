@@ -35,7 +35,17 @@ def create_store(payload: StoreCreate, db: Session = Depends(get_db)):
 
 @router.get("/connections", response_model=list[ConnectionRead])
 def list_connections(db: Session = Depends(get_db)):
-    return db.scalars(select(PlatformConnection).order_by(PlatformConnection.id.desc())).all()
+    rows = db.scalars(select(PlatformConnection).order_by(PlatformConnection.id.desc())).all()
+    return [
+        {
+            "id": row.id,
+            "store_id": row.store_id,
+            "platform": row.platform,
+            "login_id": row.account_name,
+            "created_at": row.created_at,
+        }
+        for row in rows
+    ]
 
 
 @router.post("/connections", response_model=ConnectionRead)
@@ -43,13 +53,19 @@ def create_connection(payload: ConnectionCreate, db: Session = Depends(get_db)):
     row = PlatformConnection(
         store_id=payload.store_id,
         platform=payload.platform,
-        account_name=payload.account_name,
-        encrypted_secret=encrypt_value(payload.secret),
+        account_name=payload.login_id,
+        encrypted_secret=encrypt_value(payload.password),
     )
     db.add(row)
     db.commit()
     db.refresh(row)
-    return row
+    return {
+        "id": row.id,
+        "store_id": row.store_id,
+        "platform": row.platform,
+        "login_id": row.account_name,
+        "created_at": row.created_at,
+    }
 
 
 @router.get("/templates", response_model=list[TemplateRead])

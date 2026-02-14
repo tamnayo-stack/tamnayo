@@ -18,19 +18,16 @@ class StoreRead(StoreCreate):
 class ConnectionCreate(BaseModel):
     store_id: int
     platform: str
-    account_name: str
-    secret: str
+    login_id: str
+    password: str
 
 
 class ConnectionRead(BaseModel):
     id: int
     store_id: int
     platform: str
-    account_name: str
+    login_id: str
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class TemplateCreate(BaseModel):
