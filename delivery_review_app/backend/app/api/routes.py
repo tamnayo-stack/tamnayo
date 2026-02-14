@@ -8,7 +8,7 @@ from app.db.session import get_db
 from app.models.entities import PlatformConnection, Reply, ReplyJob, ReplyStatus, Review, Store, Template
 from app.schemas.common import BulkReplyCreate, ConnectionCreate, ConnectionRead, StoreCreate, StoreRead, TemplateCreate, TemplateRead
 from app.services.encryption import encrypt_value
-from app.services.review_sync import sync_all_connections
+from app.services.review_sync import sync_all_connections, sync_connection_reviews
 from app.services.template_engine import render_template
 
 router = APIRouter()
@@ -43,6 +43,7 @@ def list_connections(db: Session = Depends(get_db)):
             "platform": row.platform,
             "login_id": row.account_name,
             "created_at": row.created_at,
+            "synced_reviews": 0,
         }
         for row in rows
     ]
@@ -59,12 +60,16 @@ def create_connection(payload: ConnectionCreate, db: Session = Depends(get_db)):
     db.add(row)
     db.commit()
     db.refresh(row)
+
+    synced_reviews = sync_connection_reviews(db, row)
+
     return {
         "id": row.id,
         "store_id": row.store_id,
         "platform": row.platform,
         "login_id": row.account_name,
         "created_at": row.created_at,
+        "synced_reviews": synced_reviews,
     }
 
 

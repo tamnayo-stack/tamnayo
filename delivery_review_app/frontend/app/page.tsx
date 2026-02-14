@@ -10,7 +10,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
 type Store = { id: number; name: string };
 type Template = { id: number; name: string };
-type Connection = { id: number; store_id: number; platform: string; login_id: string; created_at: string };
+type Connection = { id: number; store_id: number; platform: string; login_id: string; created_at: string; synced_reviews?: number };
 
 export default function Home() {
   const [stores, setStores] = useState<Store[]>([]);
@@ -26,6 +26,7 @@ export default function Home() {
   const [platform, setPlatform] = useState(platforms[0]);
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
+  const [connectionMsg, setConnectionMsg] = useState('');
 
   const load = async () => {
     const [s, t, c, r] = await Promise.all([
@@ -64,11 +65,17 @@ export default function Home() {
 
   const saveConnection = async () => {
     if (!storeId || !loginId || !password) return;
-    await fetch(`${API}/connections`, {
+    const res = await fetch(`${API}/connections`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ store_id: storeId, platform, login_id: loginId, password })
     });
+    if (!res.ok) {
+      setConnectionMsg('연동 실패: 계정 정보를 확인하세요.');
+      return;
+    }
+    const row = await res.json();
+    setConnectionMsg(`연동 완료: 리뷰 ${row.synced_reviews ?? 0}건 즉시 동기화됨`);
     setLoginId('');
     setPassword('');
     await load();
@@ -99,8 +106,9 @@ export default function Home() {
           </label>
         </div>
         <button onClick={saveConnection} style={{ marginTop: 12, background: '#cf7f31', color: '#fff', border: 0, padding: '8px 14px', borderRadius: 8 }}>
-          연결하기
+          로그인 후 연동
         </button>
+        {connectionMsg && <p style={{ marginTop: 8, color: '#0a7d2e' }}>{connectionMsg}</p>}
 
         <div style={{ marginTop: 16, borderTop: '1px solid #eee', paddingTop: 12 }}>
           <strong>연동 계정 목록</strong>

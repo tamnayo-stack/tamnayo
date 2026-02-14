@@ -28,6 +28,7 @@ class ConnectionRead(BaseModel):
     platform: str
     login_id: str
     created_at: datetime
+    synced_reviews: int = 0
 
 
 class TemplateCreate(BaseModel):
