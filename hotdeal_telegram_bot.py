@@ -403,7 +403,7 @@ class HotdealBot:
 
     async def run(self) -> None:
         if self.config.startup_test_message:
-            await self.send_message("🔔 [알림] 핫딜 봇이 정상 시작되었습니다. (all 모드 고정)")
+            await self.send_message("🔔 [알림] 핫딜 봇이 정상 시작되었습니다.")
 
         cli_thread = threading.Thread(target=self.run_console, daemon=True)
         cli_thread.start()
