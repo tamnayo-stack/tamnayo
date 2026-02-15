@@ -2,24 +2,27 @@ import asyncio
 import json
 import logging
 import os
+import re
 import signal
 import sqlite3
 import sys
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Literal, Optional
 from urllib.parse import urljoin, urlparse
 
 import aiohttp
 from bs4 import BeautifulSoup
 import telegram
 
+LinkMode = Literal["all", "algo", "origin"]
+
 
 @dataclass
 class BotConfig:
-    telegram_token: str = field(default_factory=lambda: os.getenv("TELEGRAM_TOKEN", ""))
-    chat_id: str = field(default_factory=lambda: os.getenv("CHAT_ID", ""))
+    telegram_token: str = field(default_factory=lambda: os.getenv("TELEGRAM_TOKEN", "8408404594:AAGI3WD9MNOpzVWtlowZZjmuYfmFDDO8xW0"))
+    chat_id: str = field(default_factory=lambda: os.getenv("CHAT_ID", "8408697849"))
     base_url: str = field(default_factory=lambda: os.getenv("HOTDEAL_URL", "https://algumon.com/"))
     check_interval_sec: int = field(default_factory=lambda: int(os.getenv("CHECK_INTERVAL_SEC", "60")))
     request_timeout_sec: int = field(default_factory=lambda: int(os.getenv("REQUEST_TIMEOUT_SEC", "15")))
@@ -32,6 +35,8 @@ class BotConfig:
     include_origin_link: bool = field(
         default_factory=lambda: os.getenv("INCLUDE_ORIGIN_LINK", "true").lower() == "true"
     )
+    link_mode: LinkMode = field(default_factory=lambda: os.getenv("ALERT_MODE", "origin").lower())
+    keyword_alert_repeat: int = field(default_factory=lambda: int(os.getenv("KEYWORD_ALERT_REPEAT", "3")))
 
     def validate(self) -> None:
         if not self.telegram_token and not self.dry_run:
@@ -40,6 +45,10 @@ class BotConfig:
             raise ValueError("CHAT_ID가 비어 있습니다. 환경변수 또는 코드에서 설정하세요.")
         if self.check_interval_sec < 10:
             raise ValueError("CHECK_INTERVAL_SEC는 10초 이상으로 설정하세요.")
+        if self.link_mode not in {"all", "algo", "origin"}:
+            raise ValueError("ALERT_MODE는 all/algo/origin 중 하나여야 합니다.")
+        if self.keyword_alert_repeat < 1:
+            raise ValueError("KEYWORD_ALERT_REPEAT는 1 이상이어야 합니다.")
 
 
 class SeenPostRepository:
@@ -82,7 +91,7 @@ class KeywordManager:
     def __init__(self, keyword_file: str, default_keywords: Iterable[str] | None = None):
         self.keyword_file = keyword_file
         self._lock = threading.Lock()
-        self._keywords = set(default_keywords or {"4070", "특가", "오류", "대란"})
+        self._keywords = set(default_keywords or set())
         self._load()
 
     def _load(self) -> None:
@@ -127,52 +136,10 @@ class KeywordManager:
             self._save()
             return True
 
-    def match(self, text: str) -> bool:
+    def matched_keywords(self, text: str) -> List[str]:
         text_lower = text.lower()
         with self._lock:
-            return any(k.lower() in text_lower for k in self._keywords)
-
-
-def start_cli_keyword_console(manager: KeywordManager, stop_event: threading.Event) -> None:
-    print("\n" + "=" * 50)
-    print("📢 [명령어 가이드]")
-    print(" - 추가: add 키워드 (예: add 치킨)")
-    print(" - 삭제: del 키워드 (예: del 치킨)")
-    print(" - 목록: list")
-    print(" - 종료: exit")
-    print("=" * 50 + "\n")
-
-    while not stop_event.is_set():
-        try:
-            command = input().strip()
-            if not command:
-                continue
-            parts = command.split(maxsplit=1)
-            cmd = parts[0].lower()
-            arg = parts[1] if len(parts) > 1 else ""
-
-            if cmd == "add":
-                if manager.add(arg):
-                    print(f"✅ [{arg}] 추가됨")
-                else:
-                    print("⚠️ 추가 실패(빈 값이거나 이미 존재)")
-            elif cmd == "del":
-                if manager.remove(arg):
-                    print(f"🗑️ [{arg}] 삭제됨")
-                else:
-                    print(f"❌ [{arg}] 키워드 없음")
-            elif cmd == "list":
-                print("📋 현재 키워드:", manager.list_keywords())
-            elif cmd == "exit":
-                print("종료 요청을 받았습니다.")
-                stop_event.set()
-            else:
-                print("알 수 없는 명령어입니다.")
-        except EOFError:
-            stop_event.set()
-            return
-        except Exception as exc:
-            print(f"명령어 에러: {exc}")
+            return [k for k in sorted(self._keywords) if k.lower() in text_lower]
 
 
 class HotdealBot:
@@ -183,6 +150,78 @@ class HotdealBot:
         self.stop_event = threading.Event()
         self.bot = telegram.Bot(token=config.telegram_token) if not config.dry_run else None
         self.base_host = urlparse(config.base_url).netloc.lower()
+        self._mode_lock = threading.Lock()
+        self._link_mode: LinkMode = config.link_mode
+
+    def get_link_mode(self) -> LinkMode:
+        with self._mode_lock:
+            return self._link_mode
+
+    def set_link_mode(self, mode: str) -> bool:
+        mode = mode.strip().lower()
+        if mode not in {"all", "algo", "origin"}:
+            return False
+        with self._mode_lock:
+            self._link_mode = mode  # type: ignore[assignment]
+        return True
+
+    def print_console_help(self) -> None:
+        print("\n" + "=" * 50)
+        print("📢 [명령어 가이드]")
+        print(" - 추가: add 키워드 (예: add 치킨)")
+        print(" - 삭제: del 키워드 (예: del 치킨)")
+        print(" - 목록: list")
+        print(" - 링크모드: linkmode all|algo|origin")
+        print("   · origin(추천): 원문/구매링크 우선, 없으면 알구몬")
+        print("   · algo: 알구몬 링크만")
+        print("   · all: 원문 + 알구몬 둘 다")
+        print(" - 상태: status")
+        print(" - 종료: exit")
+        print("=" * 50 + "\n")
+
+    def run_console(self) -> None:
+        self.print_console_help()
+        while not self.stop_event.is_set():
+            try:
+                command = input().strip()
+                if not command:
+                    continue
+                parts = command.split(maxsplit=1)
+                cmd = parts[0].lower()
+                arg = parts[1] if len(parts) > 1 else ""
+
+                if cmd == "add":
+                    if self.keywords.add(arg):
+                        print(f"✅ [{arg}] 추가됨")
+                    else:
+                        print("⚠️ 추가 실패(빈 값이거나 이미 존재)")
+                elif cmd == "del":
+                    if self.keywords.remove(arg):
+                        print(f"🗑️ [{arg}] 삭제됨")
+                    else:
+                        print(f"❌ [{arg}] 키워드 없음")
+                elif cmd == "list":
+                    print("📋 현재 키워드:", self.keywords.list_keywords())
+                elif cmd == "linkmode":
+                    if self.set_link_mode(arg):
+                        print(f"✅ 링크 모드 변경: {self.get_link_mode()}")
+                    else:
+                        print("❌ linkmode 값 오류. all/algo/origin 중 하나를 입력하세요.")
+                elif cmd == "status":
+                    print(
+                        f"ℹ️ all모드(기본), linkmode={self.get_link_mode()}, "
+                        f"keyword_alert_repeat={self.config.keyword_alert_repeat}, keywords={self.keywords.list_keywords()}"
+                    )
+                elif cmd == "exit":
+                    print("종료 요청을 받았습니다.")
+                    self.stop_event.set()
+                else:
+                    print("알 수 없는 명령어입니다.")
+            except EOFError:
+                self.stop_event.set()
+                return
+            except Exception as exc:
+                print(f"명령어 에러: {exc}")
 
     async def send_message(self, text: str) -> None:
         if self.config.dry_run:
@@ -260,16 +299,136 @@ class HotdealBot:
                     return abs_url
         return None
 
-    async def resolve_origin_link(self, session: aiohttp.ClientSession, post_link: str) -> Optional[str]:
+    @staticmethod
+    def _clean_text(value: str) -> str:
+        return re.sub(r"\s+", " ", value).strip()
+
+    def parse_deal_fields(self, html: str, page_url: str) -> dict:
+        soup = BeautifulSoup(html, "html.parser")
+        result = {
+            "origin_link": self.parse_origin_link(html, page_url),
+            "price": None,
+            "shipping": None,
+            "seller": None,
+            "content": None,
+        }
+
+        label_aliases = {
+            "price": ("가격", "판매가", "금액"),
+            "shipping": ("배송", "배송비", "배송/직배", "직배"),
+            "seller": ("판매처", "쇼핑몰", "몰", "스토어"),
+            "origin_link": ("링크", "구매링크", "원문링크", "url"),
+        }
+
+        for row in soup.select("tr"):
+            key_cell = row.select_one("th, dt, strong, .tit, .label")
+            val_cell = row.select_one("td, dd, .value, .txt")
+            if not key_cell or not val_cell:
+                continue
+
+            key_text = self._clean_text(key_cell.get_text(" ", strip=True)).lower()
+            value_text = self._clean_text(val_cell.get_text(" ", strip=True))
+            if not value_text:
+                continue
+
+            for field_name, aliases in label_aliases.items():
+                if result.get(field_name):
+                    continue
+                if any(alias.lower() in key_text for alias in aliases):
+                    result[field_name] = value_text
+                    if field_name == "origin_link":
+                        candidate = val_cell.select_one("a[href]")
+                        if candidate:
+                            href = (candidate.get("href") or "").strip()
+                            abs_url = urljoin(page_url, href)
+                            if self._is_external_link(abs_url):
+                                result["origin_link"] = abs_url
+
+        if not result["origin_link"]:
+            result["origin_link"] = self.parse_origin_link(html, page_url)
+
+        for selector in [".xe_content", ".rd_body", ".content", "article", ".board_read"]:
+            section = soup.select_one(selector)
+            if not section:
+                continue
+            snippet = self._clean_text(section.get_text(" ", strip=True))
+            if snippet:
+                result["content"] = snippet[:220]
+                break
+
+        return result
+
+    async def resolve_deal_fields(self, session: aiohttp.ClientSession, post_link: str) -> dict:
         if not self.config.include_origin_link:
-            return None
+            return {"origin_link": None, "price": None, "shipping": None, "seller": None, "content": None}
 
         try:
             detail_html = await self.fetch_html(session, post_link)
-            return self.parse_origin_link(detail_html, post_link)
+            return self.parse_deal_fields(detail_html, post_link)
         except Exception as exc:
-            logging.debug("원문 링크 추출 실패 (%s): %s", post_link, exc)
-            return None
+            logging.debug("상세 정보 추출 실패 (%s): %s", post_link, exc)
+            return {"origin_link": None, "price": None, "shipping": None, "seller": None, "content": None}
+
+    def build_alert_message(self, title: str, algo_link: str, deal: dict) -> str:
+        mode = self.get_link_mode()
+        lines = ["🚨 핫딜 발견", f"🛍️ {title}"]
+
+        if deal.get("seller"):
+            lines.append(f"🏪 판매처: {deal['seller']}")
+        if deal.get("price"):
+            lines.append(f"💰 가격: {deal['price']}")
+        if deal.get("shipping"):
+            lines.append(f"🚚 배송: {deal['shipping']}")
+        if deal.get("content"):
+            lines.append(f"📝 내용: {deal['content']}")
+
+        origin_link = deal.get("origin_link")
+        if mode == "algo":
+            lines.append(f"🔗 알구몬: {algo_link}")
+            return "\n".join(lines)
+
+        if mode == "origin":
+            if origin_link:
+                lines.append(f"🛒 원문/구매링크: {origin_link}")
+            else:
+                lines.append(f"🔗 알구몬: {algo_link}")
+            return "\n".join(lines)
+
+        if origin_link:
+            lines.append(f"🛒 구매/원문링크: {origin_link}")
+            lines.append(f"🔗 알구몬: {algo_link}")
+        else:
+            lines.append(f"🔗 알구몬: {algo_link}")
+        return "\n".join(lines)
+
+    def detect_keyword_hits(self, title: str, deal: dict) -> List[str]:
+        haystack = " ".join(
+            [
+                title,
+                str(deal.get("seller") or ""),
+                str(deal.get("price") or ""),
+                str(deal.get("shipping") or ""),
+                str(deal.get("content") or ""),
+                str(deal.get("origin_link") or ""),
+            ]
+        )
+        return self.keywords.matched_keywords(haystack)
+
+    async def maybe_send_keyword_alert_burst(self, title: str, base_message: str, matched_keywords: List[str]) -> None:
+        if not matched_keywords:
+            return
+
+        repeat = max(1, self.config.keyword_alert_repeat)
+        if repeat <= 1:
+            return
+
+        for idx in range(2, repeat + 1):
+            extra_message = (
+                f"🚨 [키워드 감지 {idx}/{repeat}] {', '.join(matched_keywords)}\n"
+                f"🛍️ {title}\n"
+                f"{base_message}"
+            )
+            await self.send_message(extra_message)
 
     async def check_once(self, session: aiohttp.ClientSession) -> int:
         html = await self.fetch_html(session, self.config.base_url)
@@ -284,16 +443,18 @@ class HotdealBot:
             if self.repo.has(post_id):
                 continue
 
-            if self.keywords.match(title):
-                origin_link = await self.resolve_origin_link(session, algo_link)
-                if origin_link:
-                    msg = f"🚨 키워드 발견\n🛍️ {title}\n🔗 알구몬: {algo_link}\n🛒 원문/구매링크: {origin_link}"
-                else:
-                    msg = f"🚨 키워드 발견\n🛍️ {title}\n🔗 알구몬: {algo_link}"
+            deal = await self.resolve_deal_fields(session, algo_link)
+            message = self.build_alert_message(title, algo_link, deal)
+            await self.send_message(message)
+            sent_count += 1
 
-                await self.send_message(msg)
-                sent_count += 1
-                logging.info("알림 발송: %s", title)
+            matched_keywords = self.detect_keyword_hits(title, deal)
+            await self.maybe_send_keyword_alert_burst(title, message, matched_keywords)
+
+            if matched_keywords:
+                logging.info("키워드 감지: %s / %s", title, matched_keywords)
+            else:
+                logging.info("일반 알림 발송: %s", title)
 
             self.repo.add(post_id, title, algo_link)
 
@@ -301,13 +462,9 @@ class HotdealBot:
 
     async def run(self) -> None:
         if self.config.startup_test_message:
-            await self.send_message("🔔 [알림] 핫딜 봇이 정상 시작되었습니다.")
+            await self.send_message("🔔 [알림] 핫딜 봇이 정상 시작되었습니다. (기본 all 모드)")
 
-        cli_thread = threading.Thread(
-            target=start_cli_keyword_console,
-            args=(self.keywords, self.stop_event),
-            daemon=True,
-        )
+        cli_thread = threading.Thread(target=self.run_console, daemon=True)
         cli_thread.start()
 
         timeout = aiohttp.ClientTimeout(total=self.config.request_timeout_sec)
@@ -352,7 +509,13 @@ async def async_main() -> None:
     loop = asyncio.get_running_loop()
     install_signal_handlers(loop, bot.stop_event)
 
-    logging.info("핫딜 감시 시작 (interval=%ss, dry_run=%s)", config.check_interval_sec, config.dry_run)
+    logging.info(
+        "핫딜 감시 시작 (interval=%ss, dry_run=%s, all_mode=true, linkmode=%s, keyword_alert_repeat=%s)",
+        config.check_interval_sec,
+        config.dry_run,
+        config.link_mode,
+        config.keyword_alert_repeat,
+    )
     await bot.run()
 
 
