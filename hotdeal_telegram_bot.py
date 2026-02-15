@@ -163,14 +163,11 @@ class HotdealBot:
         return True
 
     def print_console_help(self) -> None:
-        print("\n" + "=" * 54)
+        print("\n" + "=" * 46)
         print("📢 [명령어 가이드]")
-        print(" - add 키워드      (예: add 치킨)")
-        print(" - del 키워드      (예: del 치킨)")
-        print(" - sec 숫자        (예: sec 20) -> 체크 주기(초)")
-        print(" - status")
+        print(" - sec 숫자   (예: sec 20) -> 체크 주기(초)")
         print(" - exit")
-        print("=" * 54 + "\n")
+        print("=" * 46 + "\n")
 
     def run_console(self) -> None:
         self.print_console_help()
@@ -183,27 +180,11 @@ class HotdealBot:
                 cmd = parts[0].lower()
                 arg = parts[1] if len(parts) > 1 else ""
 
-                if cmd == "add":
-                    if self.keywords.add(arg):
-                        print(f"✅ [{arg}] 추가됨")
-                    else:
-                        print("⚠️ 추가 실패(빈 값이거나 이미 존재)")
-                elif cmd == "del":
-                    if self.keywords.remove(arg):
-                        print(f"🗑️ [{arg}] 삭제됨")
-                    else:
-                        print(f"❌ [{arg}] 키워드 없음")
-                elif cmd == "sec":
+                if cmd == "sec":
                     if self.set_interval_sec(arg):
                         print(f"✅ 체크 주기 변경: {self.get_interval_sec()}초")
                     else:
                         print("❌ sec 값 오류. 5 이상의 정수를 입력하세요.")
-                elif cmd == "status":
-                    print(
-                        f"ℹ️ all모드(고정), interval={self.get_interval_sec()}초, "
-                        f"keyword_alert_repeat={self.config.keyword_alert_repeat}, "
-                        f"keywords={self.keywords.list_keywords()}"
-                    )
                 elif cmd == "exit":
                     print("종료 요청을 받았습니다.")
                     self.stop_event.set()
