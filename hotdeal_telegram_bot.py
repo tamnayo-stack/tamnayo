@@ -16,8 +16,6 @@ import aiohttp
 from bs4 import BeautifulSoup
 import telegram
 
-LEGACY_DEFAULT_KEYWORDS = {"4070", "대란", "오류", "특가"}
-
 
 @dataclass
 class BotConfig:
