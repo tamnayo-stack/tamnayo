@@ -140,7 +140,7 @@
 
     /* Z-Index 및 팝업 설정 */
     #adminMenuOverlay { z-index: 1000 !important; }
-    #actionLogOverlay, #empEditOverlay, #logEditOverlay, #logAddOverlay { z-index: 2000 !important; }
+    #empEditOverlay, #logEditOverlay, #logAddOverlay { z-index: 2000 !important; }
     #noticeOverlay, #closeCheckOverlay, #outNoteOverlay, .toast { z-index: 5000 !important; }
     #pinOverlay { z-index: 9999 !important; }
     
@@ -337,7 +337,6 @@
       <button class="btn primary" id="goEmp">알바생 관리</button>
       <button class="btn primary" id="goLog">근태 조회</button>
       <button class="btn warn" id="btnExportCsv2">CSV 내보내기</button>
-      <button class="btn" id="btnOpenActionLog">시스템 로그</button>
       <button class="btn" id="btnLockAdmin">관리자 메뉴 닫기</button>
     </div>
     
@@ -351,7 +350,7 @@
     <div class="note" style="margin-top:4px;">* 자동찾기: 봇에게 먼저 아무 말이나 보내고 누르세요.</div>
     <label class="row" style="margin-top:8px; gap:8px; align-items:center;">
       <input id="tgSystemLogEnabled" type="checkbox" />
-      <span class="muted" style="font-size:12px;">시스템 로그(버튼 클릭/출퇴근 시도) 텔레그램 전송</span>
+      <span class="muted" style="font-size:12px;">중요 알림 텔레그램 전송</span>
     </label>
     
     <div class="hr"></div>
@@ -401,24 +400,6 @@
     <div class="row" style="margin-top:10px;">
       <button class="btn primary" id="btnSaveTodayNotice">오늘 공지 저장</button>
       <button class="btn" id="btnClearTodayNotice">오늘 공지 비우기</button>
-    </div>
-  </div>
-</div>
-
-
-<div class="modalOverlay" id="actionLogOverlay" style="z-index: 2000;">
-  <div class="modal" style="width: 100%; max-width: 700px;">
-    <h3>시스템 로그 (터치 기록)</h3>
-    <div class="muted">최근 100개의 터치/동작 기록입니다.</div>
-    <div class="hr"></div>
-    <div style="max-height:500px; overflow-y:auto;">
-      <table style="width:100%;">
-        <thead><tr><th>시간</th><th>동작</th><th>상세</th></tr></thead>
-        <tbody id="actionLogTable"></tbody>
-      </table>
-    </div>
-    <div style="margin-top:10px; text-align:right;">
-      <button class="btn" id="btnCloseActionLog">닫기</button>
     </div>
   </div>
 </div>
@@ -658,14 +639,9 @@ window.sendTelegramAlert = async function(text) {
   window.handleImageUpload = function(input) { if (input.files && input.files[0]) { const reader = new FileReader(); reader.onload = function(e) { document.execCommand('insertImage', false, e.target.result); }; reader.readAsDataURL(input.files[0]); } input.value = ''; };
   
   window.recordAction = function(action, detail) {
-    const now = Date.now();
-    const logs = loadJSON('ACTION_LOGS', []);
-    logs.push({ ts: now, time: fmtTS(now), action: action, detail: detail });
-    if(logs.length > 200) logs.shift();
-    saveJSON('ACTION_LOGS', logs);
-
     if (isSystemLogTelegramEnabled()) {
-      sendTelegramAlert(`[시스템로그] ${fmtTS(now)}\n${action}\n${detail || '-'}`);
+      const now = Date.now();
+      sendTelegramAlert(`[${fmtTS(now)}] ${action}\n${detail || '-'}`);
     }
   };
 
@@ -751,12 +727,7 @@ window.sendTelegramAlert = async function(text) {
     if(id==="sec-log"){ renderLogFilterOptions(); renderLogAll(); }
     recordAction("화면 이동", id);
   }
-  function renderActionLog(){
-    const rows = (loadJSON('ACTION_LOGS', []) || []).slice(-100).reverse();
-    document.getElementById("actionLogTable").innerHTML = rows.length
-      ? rows.map(x=>`<tr><td>${escapeHtml(x.time || fmtTS(x.ts || Date.now()))}</td><td>${escapeHtml(x.action || "-")}</td><td>${escapeHtml(x.detail || "-")}</td></tr>`).join("")
-      : `<tr><td colspan="3" class="muted">로그 없음</td></tr>`;
-  }
+
 
   function tickClock(){
     const d=new Date(); document.getElementById("nowTime").textContent=`${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
@@ -781,10 +752,8 @@ window.sendTelegramAlert = async function(text) {
   function bindClick(id, handler){ const el=document.getElementById(id); if(el) el.addEventListener("click", handler); }
   bindClick("adminMenuClose", ()=>adminMenuOverlay.classList.remove("show"));
   bindClick("btnLockAdmin", ()=>{ lockAdmin(); });
-  bindClick("btnOpenActionLog", ()=>{ renderActionLog(); document.getElementById("actionLogOverlay").classList.add("show"); });
-  bindClick("btnCloseActionLog", ()=>document.getElementById("actionLogOverlay").classList.remove("show"));
   const tgSystemLogEnabledEl = document.getElementById("tgSystemLogEnabled");
-  if (tgSystemLogEnabledEl) tgSystemLogEnabledEl.addEventListener("change", (e)=>{ setSystemLogTelegramEnabled(e.target.checked); toast(`시스템 로그 텔레그램 전송 ${e.target.checked ? "ON" : "OFF"}`); });
+  if (tgSystemLogEnabledEl) tgSystemLogEnabledEl.addEventListener("change", (e)=>{ setSystemLogTelegramEnabled(e.target.checked); toast(`텔레그램 알림 ${e.target.checked ? "ON" : "OFF"}`); });
   bindClick("goEmp", ()=>{ adminMenuOverlay.classList.remove("show"); showSection("sec-emp"); });
   bindClick("goLog", ()=>{ adminMenuOverlay.classList.remove("show"); showSection("sec-log"); });
   bindClick("btnBackFromEmp", ()=>showSection("sec-att"));
@@ -798,7 +767,7 @@ window.sendTelegramAlert = async function(text) {
 
   document.addEventListener("click", (event) => {
     const btn = event.target.closest("button");
-    if (!btn || btn.id === "btnCloseActionLog") return;
+    if (!btn) return;
     const attCodeEl = document.getElementById("attCode");
     const rawCode = attCodeEl ? attCodeEl.value : "";
     const code = normalizeCodeInput(rawCode);
