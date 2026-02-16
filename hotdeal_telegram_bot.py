@@ -95,7 +95,11 @@ class KeywordManager:
                 payload = json.load(f)
             loaded = payload.get("keywords", [])
             if isinstance(loaded, list):
-                self._keywords = {str(item).strip() for item in loaded if str(item).strip()}
+                loaded_set = {str(item).strip() for item in loaded if str(item).strip()}
+                # 과거 기본 키워드가 파일에 남아있어도 자동 제거
+                self._keywords = loaded_set - LEGACY_DEFAULT_KEYWORDS
+                if loaded_set != self._keywords:
+                    self._save()
         except Exception as exc:
             logging.warning("키워드 파일 로드 실패: %s", exc)
 
