@@ -1059,12 +1059,18 @@ window.sendTelegramAlert = async function(text) {
   let calYear=new Date().getFullYear(), calMonth=new Date().getMonth()+1;
   function getDayKey(y,m,d){ return `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`; }
 
-  function getAdjustedWorkTime(emp, inTs, outTs) {
-    if (!emp.workEnd) return outTs;
+  function getScheduledEndTime(emp, inTs, outTs) {
+    if (!emp || !emp.workEnd) return outTs;
     const d = new Date(inTs || outTs);
     const [h, m] = emp.workEnd.split(':').map(Number);
     let scheduledEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
     if (inTs && scheduledEnd < inTs) { scheduledEnd += 24 * 60 * 60 * 1000; }
+    return scheduledEnd;
+  }
+
+  function getAdjustedWorkTime(emp, inTs, outTs) {
+    if (!emp.workEnd) return outTs;
+    const scheduledEnd = getScheduledEndTime(emp, inTs, outTs);
 
     // 계약 퇴근시간 이전 퇴근도 계약 시간까지 인정
     if (outTs <= scheduledEnd) return scheduledEnd;
@@ -1256,6 +1262,10 @@ function renderCalendar(){
   // [수정] 근태 기록 표시 함수 (지각 판정 로직 수정)
   function renderLogAll(){
     const f=document.getElementById("logFilterEmp").value, all=getLogs(), list=f?all.filter(l=>l.code===f):all;
+    const shiftByOutKey = new Map();
+    getShiftPairs(f).forEach(p => {
+      shiftByOutKey.set(`${p.code}|${p.outTs}`, p);
+    });
     document.getElementById("logTotal").textContent=list.length;
     
     document.getElementById("logTable").innerHTML=list.slice().reverse().map(l=> {
@@ -1285,15 +1295,15 @@ function renderCalendar(){
         
         // 2. 퇴근 표시 로직
         if(l.type === "OUT" && emp) {
-            const adjOutTs = getAdjustedWorkTime(emp, l.ts, l.ts);
+            const matchedPair = shiftByOutKey.get(`${l.code}|${l.ts}`);
+            const inTsForAdjust = matchedPair ? matchedPair.inTs : l.ts;
+            const adjOutTs = getAdjustedWorkTime(emp, inTsForAdjust, l.ts);
             if(adjOutTs !== l.ts) {
                 const d = new Date(adjOutTs);
                 const adjStr = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
 
-                const raw = new Date(l.ts);
-                const [eh, em] = (emp.workEnd || "23:30").split(':').map(Number);
-                const scheduledEnd = new Date(raw.getFullYear(), raw.getMonth(), raw.getDate(), eh, em, 0, 0).getTime();
-                const label = l.ts < scheduledEnd ? "정시" : "연장";
+                const scheduledEnd = getScheduledEndTime(emp, inTsForAdjust, l.ts);
+                const label = adjOutTs > scheduledEnd ? "연장" : "정시";
                 timeDisplay += `<br><span class="tag good" style="font-size:10px;">${label}(인정:${adjStr})</span>`;
             }
         }
@@ -1351,3 +1361,5 @@ function renderCalendar(){
     }
   })();
 </script>
+
+
