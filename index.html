@@ -1090,6 +1090,11 @@ window.sendTelegramAlert = async function(text) {
     return emp ? emp.wage : 0;
   }
 
+  function roundPayWon(v) {
+    // 급여는 보기/정산 편의를 위해 10원 단위 반올림
+    return Math.round((Number(v) || 0) / 10) * 10;
+  }
+
   function getShiftPairs(filterCode = "") {
     const logs = getLogs().filter(l=>!filterCode || l.code===filterCode).sort((a,b)=>a.ts-b.ts);
     const openInByCode = {};
@@ -1120,7 +1125,7 @@ window.sendTelegramAlert = async function(text) {
       if(adjOutTs > adjInTs) {
         const d=adjOutTs-adjInTs;
         ms+=d;
-        pay+=Math.floor((d/3600000)*wage);
+        pay+=roundPayWon((d/3600000)*wage);
       }
     });
 
@@ -1155,7 +1160,7 @@ window.sendTelegramAlert = async function(text) {
        if(weeklyHours >= 15) {
           const avgWage = weeklyPay / weeklyHours;
           const juhyuHours = (Math.min(weeklyHours, 40) / 40) * 8;
-          totalJuhyu += Math.floor(juhyuHours * avgWage);
+          totalJuhyu += roundPayWon(juhyuHours * avgWage);
        }
      });
 
@@ -1238,7 +1243,7 @@ function renderCalendar(){
         const ms = adjOutTs - adjInTs;
         const dk = dateKey(p.inTs);
         const wage = resolveWageByDate(emp, dk);
-        totalBase += Math.floor((ms / 3600000) * wage);
+        totalBase += roundPayWon((ms / 3600000) * wage);
       });
 
       const sundaysInMonth = [];
