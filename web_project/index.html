@@ -1068,11 +1068,20 @@ window.sendTelegramAlert = async function(text) {
     return scheduledEnd;
   }
 
-  function getAdjustedWorkTime(emp, inTs, outTs) {
+  function isEarlyLeaveNote(note) {
+    const txt = String(note || "").toLowerCase();
+    if (!txt.trim()) return false;
+    return ["조기", "조퇴", "아파", "병원", "컨디션", "몸살", "early"].some(k => txt.includes(k));
+  }
+
+  function getAdjustedWorkTime(emp, inTs, outTs, note = "") {
     if (!emp.workEnd) return outTs;
     const scheduledEnd = getScheduledEndTime(emp, inTs, outTs);
 
-    // 계약 퇴근시간 이전 퇴근도 계약 시간까지 인정
+    // 조기퇴근 메모가 있으면 실제 퇴근시간으로 계산
+    if (outTs <= scheduledEnd && isEarlyLeaveNote(note)) return outTs;
+
+    // 일반적인 경우 계약 퇴근시간 이전 퇴근도 계약 시간까지 인정
     if (outTs <= scheduledEnd) return scheduledEnd;
 
     const diff = outTs - scheduledEnd;
@@ -1106,7 +1115,7 @@ window.sendTelegramAlert = async function(text) {
         return;
       }
       if (l.type === "OUT" && openInByCode[l.code]) {
-        pairs.push({ code:l.code, inTs:openInByCode[l.code].ts, outTs:l.ts, emp:findEmpByCode(l.code) });
+        pairs.push({ code:l.code, inTs:openInByCode[l.code].ts, outTs:l.ts, emp:findEmpByCode(l.code), outNote: l.note || "" });
         delete openInByCode[l.code];
       }
     });
@@ -1121,7 +1130,7 @@ window.sendTelegramAlert = async function(text) {
     pairs.forEach(p => {
       const wage = resolveWageByDate(p.emp, dk);
       const adjInTs = getAdjustedStartTime(p.emp, p.inTs);
-      const adjOutTs = getAdjustedWorkTime(p.emp, p.inTs, p.outTs);
+      const adjOutTs = getAdjustedWorkTime(p.emp, p.inTs, p.outTs, p.outNote);
       if(adjOutTs > adjInTs) {
         const d=adjOutTs-adjInTs;
         ms+=d;
@@ -1146,7 +1155,7 @@ window.sendTelegramAlert = async function(text) {
 
        pairs.forEach(p => {
          const adjInTs = getAdjustedStartTime(emp, p.inTs);
-         const adjOutTs = getAdjustedWorkTime(emp, p.inTs, p.outTs);
+         const adjOutTs = getAdjustedWorkTime(emp, p.inTs, p.outTs, p.outNote);
          if(adjOutTs <= adjInTs) return;
 
          const durationMs = adjOutTs - adjInTs;
@@ -1238,7 +1247,7 @@ function renderCalendar(){
       const pairs = getShiftPairs(emp.code).filter(p => dateKey(p.inTs).startsWith(targetPrefix));
       pairs.forEach(p => {
         const adjInTs = getAdjustedStartTime(emp, p.inTs);
-        const adjOutTs = getAdjustedWorkTime(emp, p.inTs, p.outTs);
+        const adjOutTs = getAdjustedWorkTime(emp, p.inTs, p.outTs, p.outNote);
         if(adjOutTs <= adjInTs) return;
         const ms = adjOutTs - adjInTs;
         const dk = dateKey(p.inTs);
@@ -1302,12 +1311,15 @@ function renderCalendar(){
         if(l.type === "OUT" && emp) {
             const matchedPair = shiftByOutKey.get(`${l.code}|${l.ts}`);
             const inTsForAdjust = matchedPair ? matchedPair.inTs : l.ts;
-            const adjOutTs = getAdjustedWorkTime(emp, inTsForAdjust, l.ts);
-            if(adjOutTs !== l.ts) {
-                const d = new Date(adjOutTs);
-                const adjStr = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+            const scheduledEnd = getScheduledEndTime(emp, inTsForAdjust, l.ts);
+            const isEarlyLeave = l.ts <= scheduledEnd && isEarlyLeaveNote(l.note);
+            const adjOutTs = getAdjustedWorkTime(emp, inTsForAdjust, l.ts, l.note);
+            const d = new Date(adjOutTs);
+            const adjStr = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
 
-                const scheduledEnd = getScheduledEndTime(emp, inTsForAdjust, l.ts);
+            if (isEarlyLeave) {
+                timeDisplay += `<br><span class="tag out" style="font-size:10px;">조기퇴근(인정:${adjStr})</span>`;
+            } else if(adjOutTs !== l.ts) {
                 const label = adjOutTs > scheduledEnd ? "연장" : "정시";
                 timeDisplay += `<br><span class="tag good" style="font-size:10px;">${label}(인정:${adjStr})</span>`;
             }
