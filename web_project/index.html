@@ -281,6 +281,7 @@
         <label class="muted" style="display:flex; align-items:center; gap:8px;">알바생 필터<select id="logFilterEmp" style="min-width:180px;"></select></label>
         <div class="spacer"></div>
         <button class="btn small" id="btnAddShift">근무 추가</button>
+        <button class="btn small good" id="btnImportCsv">CSV 불러오기</button>
         <button class="btn small warn" id="btnExportCsv">CSV 내보내기</button>
       </div>
       <div class="hr"></div>
@@ -1347,6 +1348,99 @@ function renderCalendar(){
   function exportCsv(){ const f=document.getElementById("logFilterEmp").value, l=getLogs().filter(x=>!f||x.code===f); const csv="id,type,code,name,ts,time,note\n"+l.map(x=>`${x.id},${x.type},${x.code},"${x.name}",${x.ts},"${fmtTS(x.ts)}","${(x.note||"").replace(/"/g,'""')}"`).join("\n"); downloadFile(`근태_${todayKey()}.csv`,csv,"text/csv;charset=utf-8"); }
   document.getElementById("btnExportCsv").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
   document.getElementById("btnExportCsv2").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
+  // =========================================================================
+// [수정 시작: CSV 데이터 병합 (Import) 로직 - 코드 간소화 금지]
+// =========================================================================
+
+// 1. 버튼 클릭 시 숨겨진 input을 대신 클릭해주는 연결
+document.getElementById("btnImportCsv").addEventListener("click", async () => {
+    if(await ensureAdmin("CSV 불러오기")) {
+        document.getElementById("csvFileInput").click();
+    }
+});
+
+// 2. 파일이 선택되었을 때 실행되는 메인 로직
+document.getElementById("csvFileInput").addEventListener("change", function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const text = e.target.result;
+        try {
+            // CSV 텍스트 정제 (유령 문자 제거 및 줄바꿈 처리)
+            const cleanContent = String(text || "").replace(/^\ufeff/, ""); 
+            const lines = cleanContent.split(/\r?\n/);
+            const validLines = lines.filter(function(line) { return line.trim() !== ""; });
+            
+            if (validLines.length <= 1) {
+                toast("데이터가 없거나 잘못된 형식입니다.", "danger");
+                return;
+            }
+
+            // 헤더 제외하고 데이터 파싱
+            const dataRows = validLines.slice(1);
+            let importedCount = 0;
+            const existingLogs = getLogs();
+            
+            // 기존 데이터와 충돌을 막기 위해 현재 가장 높은 ID 값을 찾음
+            let maxId = 0;
+            for(const log of existingLogs) {
+                if(Number(log.id) > maxId) maxId = Number(log.id);
+            }
+
+            dataRows.forEach(function(line) {
+                const columns = line.split(",");
+                // 컬럼 개수가 부족하면 건너뜀 (안전 장치)
+                if (columns.length < 5) return; 
+
+                // 간소화 없이 각 변수를 꼼꼼히 파싱
+                const type = columns[1] ? columns[1].trim() : "";
+                let code = columns[2] ? columns[2].trim() : "";
+                code = pad4(normalizeCodeInput(code)); // 사번을 4자리 숫자로 통일 (예: 1 -> 0001)
+                const name = columns[3] ? columns[3].replace(/"/g, "").trim() : "";
+                const ts = columns[4] ? Number(columns[4].trim()) : Date.now();
+                const note = columns[6] ? columns[6].replace(/"/g, "").trim() : "";
+
+                // 기존 데이터에 같은 시간(ts)과 같은 사번(code)의 기록이 있는지 중복 검사
+                const isDuplicate = existingLogs.some(log => log.ts === ts && log.code === code);
+                
+                // 중복이 아니면 새로운 ID를 부여하여 추가
+                if (!isDuplicate) {
+                    maxId += 1;
+                    existingLogs.push({
+                        id: maxId,
+                        type: type,
+                        code: code,
+                        name: name,
+                        ts: ts,
+                        note: note
+                    });
+                    importedCount++;
+                }
+            });
+
+            // 변경된 전체 로그 리스트를 안전하게 저장 (이전에 고친 update 방식 사용)
+            setLogs(existingLogs);
+            
+            // 파일 입력창 초기화 (같은 파일 다시 선택 가능하도록)
+            document.getElementById("csvFileInput").value = "";
+
+            // UI 갱신
+            toast(`총 ${importedCount}건의 새 데이터가 추가되었습니다.`);
+            renderLogAll();
+            renderAttendancePanel();
+
+        } catch (error) {
+            console.error("CSV 파싱 에러:", error);
+            toast("파일을 읽는 중 에러가 발생했습니다.", "danger");
+        }
+    };
+    reader.readAsText(file);
+});
+// =========================================================================
+// [수정 끝]
+// =========================================================================
   
   function renderAdminCloseChecklist(){ const lst=document.getElementById("adminCloseChecklistList"), items=getCloseChecklist(); lst.innerHTML=items.map((t,i)=>`<div class="admCLRow"><div class="idx">${i+1}</div><input class="admCLInput" value="${escapeHtml(t)}" /><button class="btn small" onclick="delCLItem(${i})">삭제</button></div>`).join(""); }
   window.delCLItem=async(i)=>{ const l=getCloseChecklist(); l.splice(i,1); setCloseChecklist(l); renderAdminCloseChecklist(); };
