@@ -160,8 +160,7 @@
     .calTime{ font-size: 13px; font-weight: 800; color: var(--text); display:block; }
     .calPay{ font-size: 11px; color: var(--good); font-weight: 700; display:block; margin-top:2px; }
     .calDay:hover{ background: #f8f9fa !important; }
-    .calDay.selected{ border-color: var(--warn); background: rgba(243,156,18,.10) !important; }
-    #logTable tr{ cursor: pointer; }
+    .calDay.selected{ border-color: var(--warn); background: rgba(243,156,18,.12) !important; }
 
     .totalWageBox { background: var(--panel2); border: 2px solid var(--accent); border-radius: 14px; padding: 16px; text-align:center; margin-bottom: 14px; display:flex; flex-direction:column; align-items:center; gap:4px; }
     .totalWageLabel { color: var(--muted); font-size: 13px; font-weight: 800; }
@@ -280,6 +279,7 @@
       <div class="hr"></div>
       <div class="row" style="margin-bottom:10px; gap:10px; flex-wrap:wrap;">
         <span class="pill">전체 기록: <strong id="logTotal">0</strong>건</span>
+        <span class="pill" id="logDateFilterPill" style="display:none;">선택 날짜: <strong id="logDateFilterText">-</strong> <button class="btn small" id="btnClearDateFilter" style="margin-left:8px; padding:4px 8px;">해제</button></span>
         <label class="muted" style="display:flex; align-items:center; gap:8px;">알바생 필터<select id="logFilterEmp" style="min-width:180px;"></select></label>
         <div class="spacer"></div>
         <button class="btn small" id="btnAddShift">근무 추가</button>
@@ -1028,7 +1028,10 @@ window.sendTelegramAlert = async function(text) {
   });
 
   function renderRecent(){
-    document.getElementById("recentTable").innerHTML=getLogs().slice(-15).reverse().map(l=>`<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name)}</td><td>정상출근</td></tr>`).join("")||`<tr><td colspan="4" class="muted">기록 없음</td></tr>`;
+    document.getElementById("recentTable").innerHTML=getLogs().slice(-15).reverse().map(l=>{
+      const statusText = l.type === "IN" ? "정상출근" : "정상퇴근";
+      return `<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name)}</td><td>${statusText}</td></tr>`;
+    }).join("")||`<tr><td colspan="4" class="muted">기록 없음</td></tr>`;
   }
   function renderQuickButtons(){
     const div=document.getElementById("quickButtons"), emps=getEmployees();
@@ -1215,6 +1218,7 @@ function renderCalendar(){
       div.className = "calDay";
       const k = getDayKey(calYear, calMonth, d); 
       if(k === todayKey()) div.classList.add("today");
+      if(selectedLogDate === k) div.classList.add("selected");
 
       const isHol = isHoliday(k);
       const st = calcDayStats(k, tFilter);
@@ -1231,9 +1235,7 @@ function renderCalendar(){
       if(st.has) inner += `<div class="calData"><span class="calTime">${st.h > 0 ? st.h + 'h ' : ''}${st.m}m</span>${st.pay > 0 ? `<span class="calPay">${st.pay.toLocaleString()}원</span>` : ''}</div>`;
       
       div.innerHTML = inner;
-      div.dataset.date = k;
-      if (selectedLogDate === k) div.classList.add("selected");
-      div.addEventListener("click", () => {
+      div.addEventListener("click", ()=>{
         selectedLogDate = (selectedLogDate === k) ? "" : k;
         renderLogAll();
       });
@@ -1242,8 +1244,9 @@ function renderCalendar(){
     updateMonthlyWageEstimate(); // 월별 예상 급여 갱신
   }
   
-  document.getElementById("calPrevBtn").addEventListener("click",()=>{ calMonth--; if(calMonth<1){calMonth=12;calYear--;} renderCalendar(); });
-  document.getElementById("calNextBtn").addEventListener("click",()=>{ calMonth++; if(calMonth>12){calMonth=1;calYear++;} renderCalendar(); });
+  document.getElementById("calPrevBtn").addEventListener("click",()=>{ calMonth--; if(calMonth<1){calMonth=12;calYear--;} selectedLogDate=""; renderLogAll(); });
+  document.getElementById("calNextBtn").addEventListener("click",()=>{ calMonth++; if(calMonth>12){calMonth=1;calYear++;} selectedLogDate=""; renderLogAll(); });
+  document.getElementById("btnClearDateFilter").addEventListener("click", ()=>{ selectedLogDate=""; renderLogAll(); });
 
   function updateMonthlyWageEstimate() {
     const tEmp = document.getElementById("logFilterEmp").value;
@@ -1286,7 +1289,17 @@ function renderCalendar(){
   function renderLogAll(){
     const f=document.getElementById("logFilterEmp").value, all=getLogs();
     let list=f?all.filter(l=>l.code===f):all;
-    if(selectedLogDate) list=list.filter(l=>dateKey(l.ts)===selectedLogDate);
+    if(selectedLogDate) list = list.filter(l=>dateKey(l.ts)===selectedLogDate);
+
+    const datePill = document.getElementById("logDateFilterPill");
+    const dateTxt = document.getElementById("logDateFilterText");
+    if(selectedLogDate){
+      datePill.style.display = "inline-flex";
+      dateTxt.textContent = selectedLogDate;
+    } else {
+      datePill.style.display = "none";
+      dateTxt.textContent = "-";
+    }
     const shiftByOutKey = new Map();
     getShiftPairs(f).forEach(p => {
       shiftByOutKey.set(`${p.code}|${p.outTs}`, p);
@@ -1337,12 +1350,8 @@ function renderCalendar(){
         }
         
         const noteTag = l.note ? (l.note.includes("[마감체크]") ? `<span class="tag good">마감✅</span>` : (l.note.length>10?l.note.slice(0,10)+"...":l.note)) : "";
-        return `<tr data-log-id="${l.id}"><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name||"")}</td><td>${timeDisplay}</td><td>${noteTag}</td></tr>`;
+        return `<tr style="cursor:pointer;" onclick="window.editLog(${l.id})" title="클릭해서 수정"><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name||"")}</td><td>${timeDisplay}</td><td>${noteTag}</td></tr>`;
     }).join("")||`<tr><td colspan="5" class="muted">기록 없음</td></tr>`;
-
-    document.querySelectorAll("#logTable tr[data-log-id]").forEach(tr=>{
-      tr.addEventListener("click",()=>window.editLog(Number(tr.dataset.logId)));
-    });
     
     const ons=getOutNotes().slice().reverse().filter(x=>!f||x.code===f);
     document.getElementById("outNoteTable").innerHTML=ons.map((x,i)=>`<tr><td>${ons.length-i}</td><td>${x.date}</td><td>${x.code}</td><td>${escapeHtml(x.name)}</td><td>${fmtTS(x.ts)}</td><td>${escapeHtml(x.text)}</td></tr>`).join("");
