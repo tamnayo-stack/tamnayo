@@ -1352,15 +1352,30 @@ function renderCalendar(){
 // [수정 시작: CSV 데이터 병합 (Import) 로직 - 코드 간소화 금지]
 // =========================================================================
 
-// 1. 버튼 클릭 시 숨겨진 input을 대신 클릭해주는 연결
-document.getElementById("btnImportCsv").addEventListener("click", async () => {
-    if(await ensureAdmin("CSV 불러오기")) {
-        document.getElementById("csvFileInput").click();
-    }
-});
+// 1. 숨겨진 파일 선택창(input)이 HTML에 없으면 자바스크립트가 직접 만듭니다. (에러 완벽 방지)
+let csvFileInput = document.getElementById("csvFileInput");
+if (!csvFileInput) {
+    csvFileInput = document.createElement("input");
+    csvFileInput.type = "file";
+    csvFileInput.id = "csvFileInput";
+    csvFileInput.accept = ".csv";
+    csvFileInput.style.display = "none";
+    document.body.appendChild(csvFileInput);
+    console.log("CSV 파일 선택용 input 태그가 자동 생성되었습니다.");
+}
 
-// 2. 파일이 선택되었을 때 실행되는 메인 로직
-document.getElementById("csvFileInput").addEventListener("change", function(event) {
+// 2. 버튼 클릭 시 숨겨진 input을 대신 클릭해주는 연결
+const btnImportCsv = document.getElementById("btnImportCsv");
+if (btnImportCsv) {
+    btnImportCsv.addEventListener("click", async () => {
+        if(await ensureAdmin("CSV 불러오기")) {
+            csvFileInput.click(); // 여기서 나던 null 에러가 이제 발생하지 않습니다.
+        }
+    });
+}
+
+// 3. 파일이 선택되었을 때 실행되는 메인 로직
+csvFileInput.addEventListener("change", function(event) {
     const file = event.target.files[0];
     if (!file) return;
 
@@ -1397,13 +1412,15 @@ document.getElementById("csvFileInput").addEventListener("change", function(even
                 // 간소화 없이 각 변수를 꼼꼼히 파싱
                 const type = columns[1] ? columns[1].trim() : "";
                 let code = columns[2] ? columns[2].trim() : "";
-                code = pad4(normalizeCodeInput(code)); // 사번을 4자리 숫자로 통일 (예: 1 -> 0001)
+                code = pad4(normalizeCodeInput(code)); // 사번을 4자리 숫자로 통일
                 const name = columns[3] ? columns[3].replace(/"/g, "").trim() : "";
                 const ts = columns[4] ? Number(columns[4].trim()) : Date.now();
                 const note = columns[6] ? columns[6].replace(/"/g, "").trim() : "";
 
                 // 기존 데이터에 같은 시간(ts)과 같은 사번(code)의 기록이 있는지 중복 검사
-                const isDuplicate = existingLogs.some(log => log.ts === ts && log.code === code);
+                const isDuplicate = existingLogs.some(function(log) {
+                    return log.ts === ts && log.code === code;
+                });
                 
                 // 중복이 아니면 새로운 ID를 부여하여 추가
                 if (!isDuplicate) {
@@ -1420,11 +1437,11 @@ document.getElementById("csvFileInput").addEventListener("change", function(even
                 }
             });
 
-            // 변경된 전체 로그 리스트를 안전하게 저장 (이전에 고친 update 방식 사용)
+            // 변경된 전체 로그 리스트를 안전하게 저장 (이전에 고친 update 방식 적용됨)
             setLogs(existingLogs);
             
             // 파일 입력창 초기화 (같은 파일 다시 선택 가능하도록)
-            document.getElementById("csvFileInput").value = "";
+            csvFileInput.value = "";
 
             // UI 갱신
             toast(`총 ${importedCount}건의 새 데이터가 추가되었습니다.`);
