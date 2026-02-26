@@ -284,6 +284,7 @@
         <label class="muted" style="display:flex; align-items:center; gap:8px;">알바생 필터<select id="logFilterEmp" style="min-width:180px;"></select></label>
         <div class="spacer"></div>
         <button class="btn small" id="btnAddShift">근무 추가</button>
+        <button class="btn small" id="btnImportCsv">CSV 업로드</button>
         <button class="btn small warn" id="btnExportCsv">CSV 내보내기</button>
       </div>
       <div class="hr"></div>
@@ -339,6 +340,7 @@
     <div class="menuGrid">
       <button class="btn primary" id="goEmp">알바생 관리</button>
       <button class="btn primary" id="goLog">근태 조회</button>
+      <button class="btn" id="btnImportCsv2">CSV 업로드</button>
       <button class="btn warn" id="btnExportCsv2">CSV 내보내기</button>
       <button class="btn" id="btnOpenActionLog">시스템 로그</button>
       <button class="btn" id="btnLockAdmin">관리자 메뉴 닫기</button>
@@ -570,6 +572,7 @@
 </div>
 
 <input id="restoreInput" type="file" accept="application/json" style="display:none;" />
+<input id="csvUploadInput" type="file" accept=".csv,text/csv" style="display:none;" />
 
 <script type="module">
   // [중요] getToday 함수를 가장 먼저 정의해서 에러 방지
@@ -643,7 +646,7 @@ window.sendTelegramAlert = async function(text) {
   // [Firebase 및 기본 설정]
   // -------------------------------------------------------------
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+  import { getDatabase, ref, update, remove, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
   const firebaseConfig = { apiKey: "AIzaSyAbdEqVxEOcA3qFEcYEH9yuvNRx_CTMxhE", authDomain: "tamna-hr.firebaseapp.com", projectId: "tamna-hr", storageBucket: "tamna-hr.firebasestorage.app", messagingSenderId: "766306504997", appId: "1:766306504997:web:3e4e77bc14101cd6660acc" };
   const app = initializeApp(firebaseConfig);
@@ -709,13 +712,15 @@ window.sendTelegramAlert = async function(text) {
     try {
       const snapshot = JSON.parse(JSON.stringify(SERVER_CACHE || {}));
       delete snapshot[DAILY_BACKUP_META_KEY];
-      await set(ref(db, `${DAILY_BACKUP_PATH}/${today}`), {
-        createdAt: nowTS(),
-        date: today,
-        data: snapshot
+      await update(ref(db, DAILY_BACKUP_PATH), {
+        [today]: {
+          createdAt: nowTS(),
+          date: today,
+          data: snapshot
+        }
       });
       SERVER_CACHE[DAILY_BACKUP_META_KEY] = today;
-      await set(ref(db, `tamnaData/${DAILY_BACKUP_META_KEY}`), today);
+      await update(ref(db, "tamnaData"), { [DAILY_BACKUP_META_KEY]: today });
       console.log(`[백업] ${today} 자동 백업 완료`);
     } catch (e) {
       console.error("일일 자동 백업 실패:", e);
@@ -755,7 +760,7 @@ window.sendTelegramAlert = async function(text) {
   window.saveJSON = async function(key, val) {
     if (!SERVER_CACHE || typeof SERVER_CACHE !== "object") SERVER_CACHE = {};
     SERVER_CACHE[key] = val;
-    await set(ref(db, `tamnaData/${key}`), val);
+    await update(ref(db, "tamnaData"), { [key]: val });
   };
   window.loadJSON = function(key, fallback) {
     return Object.prototype.hasOwnProperty.call(SERVER_CACHE, key) ? SERVER_CACHE[key] : fallback;
@@ -1406,9 +1411,16 @@ function renderCalendar(){
 
   function downloadFile(fn,txt,mime){ const b=new Blob([txt],{type:mime}), a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download=fn; document.body.appendChild(a); a.click(); a.remove(); }
   function exportCsv(){ const f=document.getElementById("logFilterEmp").value, l=getLogs().filter(x=>!f||x.code===f); const csv="id,type,code,name,ts,time,note\n"+l.map(x=>`${x.id},${x.type},${x.code},"${x.name}",${x.ts},"${fmtTS(x.ts)}","${(x.note||"").replace(/"/g,'""')}"`).join("\n"); downloadFile(`근태_${todayKey()}.csv`,csv,"text/csv;charset=utf-8"); }
+  document.getElementById("btnImportCsv")?.addEventListener("click",async()=>{ if(await ensureAdmin()) document.getElementById("csvUploadInput")?.click(); });
+  document.getElementById("btnImportCsv2")?.addEventListener("click",async()=>{ if(await ensureAdmin()) document.getElementById("csvUploadInput")?.click(); });
+  document.getElementById("csvUploadInput")?.addEventListener("change",(e)=>{
+    const f = e.target.files && e.target.files[0];
+    if(f) toast(`CSV 선택됨: ${f.name}`);
+    e.target.value = "";
+  });
   document.getElementById("btnExportCsv").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
   document.getElementById("btnExportCsv2").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
-  document.getElementById("btnResetAll")?.addEventListener("click",async()=>{ if(await ensureAdmin() && confirm("전체 초기화(복구불가)?")){ localStorage.clear(); await set(ref(db, 'tamnaData'), null); location.reload(); } });
+  document.getElementById("btnResetAll")?.addEventListener("click",async()=>{ if(await ensureAdmin() && confirm("전체 초기화(복구불가)?")){ localStorage.clear(); await remove(ref(db, 'tamnaData')); location.reload(); } });
 
   function renderAdminCloseChecklist(){ const lst=document.getElementById("adminCloseChecklistList"), items=getCloseChecklist(); lst.innerHTML=items.map((t,i)=>`<div class="admCLRow"><div class="idx">${i+1}</div><input class="admCLInput" value="${escapeHtml(t)}" /><button class="btn small" onclick="delCLItem(${i})">삭제</button></div>`).join(""); }
   window.delCLItem=async(i)=>{ const l=getCloseChecklist(); l.splice(i,1); setCloseChecklist(l); renderAdminCloseChecklist(); };
