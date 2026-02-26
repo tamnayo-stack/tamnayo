@@ -155,6 +155,8 @@
     .calDay{ min-height: 80px; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 6px 8px; display:flex; flex-direction:column; gap:4px; position:relative; }
     .calDay.empty{ background:none !important; border:none; }
     .calDay.today{ border-color: var(--accent); background: rgba(52,152,219,.05) !important; }
+    .calDay.selected{ border-color: var(--warn); background: rgba(243,156,18,.10) !important; }
+    .logRow{ cursor:pointer; }
     .calNum{ font-size:14px; font-weight:800; color:var(--muted); }
     .calData{ margin-top: auto; text-align:right; }
     .calTime{ font-size: 13px; font-weight: 800; color: var(--text); display:block; }
@@ -1215,6 +1217,12 @@ function renderCalendar(){
       div.className = "calDay";
       const k = getDayKey(calYear, calMonth, d); 
       if(k === todayKey()) div.classList.add("today");
+      if(k === selectedLogDate) div.classList.add("selected");
+      div.addEventListener("click", () => {
+        selectedLogDate = selectedLogDate === k ? "" : k;
+        renderCalendar();
+        renderLogAll();
+      });
 
       const isHol = isHoliday(k);
       const st = calcDayStats(k, tFilter);
@@ -1301,7 +1309,7 @@ function renderCalendar(){
       else { datePill.style.display="none"; dateText.textContent="-"; }
     }
     
-    document.getElementById("logTable").innerHTML=list.slice().reverse().map(l=> {
+    document.getElementById("logTable").innerHTML=dateFiltered.slice().reverse().map(l=> {
         let timeDisplay = fmtTS(l.ts);
         const emp = findEmpByCode(l.code);
         
