@@ -173,6 +173,7 @@
     
     .date-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #e3f2fd; color: var(--accent); border-radius: 20px; font-size: 13px; font-weight: 700; margin: 2px; }
     .date-pill button { background: none; border: none; color: var(--accent); font-weight: 900; font-size: 12px; cursor: pointer; padding: 0; }
+
     /* 달력 선택 및 표 클릭 효과 추가 */
     .calDay.selected { border: 2px solid var(--accent) !important; background: rgba(52,152,219,.15) !important; }
     #logTable tr { cursor: pointer; transition: background 0.1s; }
@@ -411,7 +412,6 @@
   </div>
 </div>
 
-
 <div class="modalOverlay" id="actionLogOverlay" style="z-index: 2000;">
   <div class="modal" style="width: 100%; max-width: 700px;">
     <h3>시스템 로그 (터치 기록)</h3>
@@ -573,7 +573,6 @@
 </div>
 
 <script type="module">
-  // [중요] getToday 함수를 가장 먼저 정의해서 에러 방지
   window.getToday = function() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -581,17 +580,13 @@
   let SERVER_CACHE = {}; 
   let logAddDates = []; 
 
-  // [추가] 달력 날짜 필터링 상태
   let selectedLogDate = null;
   window.toggleLogDateFilter = function(dateStr) {
-      if(selectedLogDate === dateStr) selectedLogDate = null; // 같은 날짜 누르면 해제
+      if(selectedLogDate === dateStr) selectedLogDate = null;
       else selectedLogDate = dateStr;
-      renderLogAll(); // 상태 변경 후 즉시 표 새로고침 (이 함수 안에서 달력도 다시 그림)
+      renderLogAll(); 
   };
 
-  // -------------------------------------------------------------
-  // [텔레그램 연동 코드 유지]
-  // -------------------------------------------------------------
   const TG_TOKEN = "7735983028:AAGgXPT18XIeBHC4C_sjKrSKSbNqQsT0ZN0";
   const LS_TG_CHAT_ID = "ALBA_TG_CHAT_ID";
   const TG_SYSTEM_LOG_KEY = "TG_SYSTEM_LOG_ENABLED";
@@ -600,41 +595,31 @@
   function isSystemLogTelegramEnabled() {
     return !!window.loadJSON?.(TG_SYSTEM_LOG_KEY, false);
   }
-
   function setSystemLogTelegramEnabled(enabled) {
     window.saveJSON?.(TG_SYSTEM_LOG_KEY, !!enabled);
   }
 
-  // 관리자 메뉴에서 ID 저장 버튼용 함수
-window.saveTgId = function() {
+  window.saveTgId = function() {
     const v = document.getElementById("adminTgChatId").value.trim();
     if (!v) return alert("ID를 입력하세요.");
-    
-    // [수정] 기기가 아닌 서버(Firebase)에 저장
     window.saveJSON('adminChatId', v); 
     alert("텔레그램 ID가 서버에 저장되었습니다. 이제 모든 기기에서 알림이 옵니다.");
-};
+  };
 
-window.sendTelegramAlert = async function(text) {
-    // [수정] localStorage 대신 서버 데이터(SERVER_CACHE)에서 불러옴
+  window.sendTelegramAlert = async function(text) {
     const chatId = window.loadJSON('adminChatId', null); 
-    const TG_TOKEN = "7735983028:AAGgXPT18XIeBHC4C_sjKrSKSbNqQsT0ZN0"; 
-
     if (!chatId) {
         console.log("텔레그램 Chat ID가 설정되지 않았습니다.");
         return;
     }
-
     try {
         await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ chat_id: chatId, text: text })
         });
-    } catch (e) {
-        console.error("텔레그램 알림 전송 실패:", e);
-    }
-};
+    } catch (e) { console.error("텔레그램 알림 전송 실패:", e); }
+  };
 
   document.getElementById("btnAutoTgId").addEventListener("click", async () => {
       try {
@@ -651,20 +636,13 @@ window.sendTelegramAlert = async function(text) {
       } catch(e) { alert("오류: " + e.message); }
   });
 
-  // -------------------------------------------------------------
-  // [Firebase 및 기본 설정]
-  // -------------------------------------------------------------
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getDatabase, ref, update, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
   const firebaseConfig = { apiKey: "AIzaSyAbdEqVxEOcA3qFEcYEH9yuvNRx_CTMxhE", authDomain: "tamna-hr.firebaseapp.com", projectId: "tamna-hr", storageBucket: "tamna-hr.firebasestorage.app", messagingSenderId: "766306504997", appId: "1:766306504997:web:3e4e77bc14101cd6660acc" };
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
-  let SERVER_CACHE = {}; 
-  let logAddDates = []; 
 
-  // [공휴일 데이터]
-  // 하드코딩은 백업으로만 두고, 기본은 공휴일 API(Nager.Date)로 동기화합니다.
   const HOLIDAY_CACHE_KEY = "HOLIDAY_CACHE_V1";
   const HOLIDAYS_FALLBACK = ["2024-01-01","2024-02-09","2024-02-10","2024-02-11","2024-02-12","2024-03-01","2024-04-10","2024-05-05","2024-05-06","2024-05-15","2024-06-06","2024-08-15","2024-09-16","2024-09-17","2024-09-18","2024-10-03","2024-10-09","2024-12-25","2025-01-01","2025-01-28","2025-01-29","2025-01-30","2025-03-01","2025-05-05","2025-05-06","2025-06-06","2025-08-15","2025-10-03","2025-10-05","2025-10-06","2025-10-07","2025-10-08","2025-10-09","2025-12-25","2026-01-01","2026-02-16","2026-02-17","2026-02-18","2026-03-01","2026-05-05","2026-05-24","2026-05-25","2026-06-06","2026-08-15","2026-09-24","2026-09-25","2026-09-26","2026-10-03","2026-10-09","2026-12-25"];
   let HOLIDAY_CACHE = {};
@@ -674,18 +652,15 @@ window.sendTelegramAlert = async function(text) {
     const y = String(year);
     return HOLIDAYS_FALLBACK.filter(d => d.startsWith(`${y}-`));
   }
-
   function getHolidayListByYear(year) {
     const y = String(year);
     if (Array.isArray(HOLIDAY_CACHE[y]) && HOLIDAY_CACHE[y].length) return HOLIDAY_CACHE[y];
     return getFallbackHolidaysByYear(y);
   }
-
   function isHoliday(dateStr) {
     const y = String(dateStr).slice(0, 4);
     return getHolidayListByYear(y).includes(dateStr);
   }
-
   async function syncHolidayYear(year) {
     const y = String(year);
     if (HOLIDAY_LOADING.has(y)) return;
@@ -706,7 +681,6 @@ window.sendTelegramAlert = async function(text) {
     }
   }
 
-  // [에디터 기능 유지]
   window.execCmd = function(command, value = null) { document.execCommand(command, false, value); };
   window.insertTable = function() { const html = `<table style="width:100%; border-collapse:collapse; margin:8px 0;"><tbody><tr><td style="border:1px solid #dcdde1; padding:8px;">항목</td><td style="border:1px solid #dcdde1; padding:8px;">내용</td></tr></tbody></table><br/>`; document.execCommand('insertHTML', false, html); };
   window.handleImageUpload = function(input) { if (input.files && input.files[0]) { const reader = new FileReader(); reader.onload = function(e) { document.execCommand('insertImage', false, e.target.result); }; reader.readAsDataURL(input.files[0]); } input.value = ''; };
@@ -740,7 +714,7 @@ window.sendTelegramAlert = async function(text) {
     }
   });
 
-    window.saveJSON = async function(key, val) {
+  window.saveJSON = async function(key, val) {
       SERVER_CACHE[key] = val;
       await update(ref(db, 'tamnaData'), { [key]: val });
   };
@@ -802,7 +776,6 @@ window.sendTelegramAlert = async function(text) {
   function lockAdmin(){ adminUnlocked = false; document.getElementById("adminMenuOverlay").classList.remove("show"); }
   async function ensureAdmin(r="관리자 기능"){
     const savedPin = String(loadJSON(ADMIN_PIN_KEY, "") || "").trim();
-
     if(!savedPin){
       const created = prompt("관리자 PIN이 없습니다. 사용할 PIN을 등록하세요 (4자리 이상)");
       if(created === null) return false;
@@ -813,13 +786,10 @@ window.sendTelegramAlert = async function(text) {
       toast("관리자 PIN 등록 완료");
       return true;
     }
-
     if(adminUnlocked) return true;
-
     const input = prompt(`${r} PIN 입력`);
     if(input === null) return false;
     if(String(input).trim() !== savedPin){ toast("PIN 불일치"); return false; }
-
     adminUnlocked = true;
     return true;
   }
@@ -950,18 +920,15 @@ window.sendTelegramAlert = async function(text) {
   attCode.addEventListener("input",onCodeChanged);
   document.getElementById("btnClearCode").addEventListener("click",()=>{attCode.value="";onCodeChanged();});
 
-  // [수정] 출근 시간 보정 계산 함수
   function getAdjustedStartTime(emp, inTs) {
     if (!emp.workStart) return inTs;
     const d = new Date(inTs);
     const [h, m] = emp.workStart.split(':').map(Number);
     const scheduledStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
     
-    // 1. 일찍 온 경우: 스케줄 시간으로 인정
     if (inTs < scheduledStart) {
         return scheduledStart;
     }
-    // 2. 지각인 경우 (10분 단위 패널티)
     if (inTs > scheduledStart) {
         const diff = inTs - scheduledStart;
         const penaltyUnit = 10 * 60 * 1000; 
@@ -991,13 +958,12 @@ window.sendTelegramAlert = async function(text) {
     await showNoticeCountdownIfAny();
     addLog({code:c,name:e.name,type:"IN"}); 
     
-    // 지각 여부 확인 (화면 표시용)
     const now = Date.now();
     const d = new Date(now);
     const [h, m] = e.workStart.split(':').map(Number);
     const scheduledStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
 
-    if(now > scheduledStart + 1000) { // 1초 여유
+    if(now > scheduledStart + 1000) { 
         toast("지각으로 인한 10분 페널티가 적용됩니다.", "danger");
     } else {
         toast(`${e.name} 출근 완료`);
@@ -1055,7 +1021,6 @@ window.sendTelegramAlert = async function(text) {
   }
   function renderAttendancePanel(){ renderRecent(); renderQuickButtons(); onCodeChanged(); }
 
-  /* Employee & Edit Logic preserved */
   function nextAvailableCode(){ const s=new Set(getEmployees().map(e=>Number(e.code))); for(let i=1;i<=9999;i++)if(!s.has(i))return pad4(i); return pad4(getNextEmpId()); }
   function addEmployee(name,memo,ws,we,st,wage,wageW){ const emps=getEmployees(), code=nextAvailableCode(); emps.push({code, name, memo, workStart:ws, workEnd:we, shiftType:st, wage:Number(wage)||0, wageWeekend:Number(wageW)||0, createdAt:nowTS()}); setEmployees(emps); setNextEmpId(Math.max(getNextEmpId(),Number(code)+1)); }
   function updateEmployee(code,patch){ const emps=getEmployees(), idx=emps.findIndex(e=>e.code===code); if(idx>=0){ emps[idx]={...emps[idx],...patch}; setEmployees(emps); } }
@@ -1088,10 +1053,7 @@ window.sendTelegramAlert = async function(text) {
   function getAdjustedWorkTime(emp, inTs, outTs) {
     if (!emp.workEnd) return outTs;
     const scheduledEnd = getScheduledEndTime(emp, inTs, outTs);
-
-    // 계약 퇴근시간 이전 퇴근도 계약 시간까지 인정
     if (outTs <= scheduledEnd) return scheduledEnd;
-
     const diff = outTs - scheduledEnd;
     const bonusUnit = 5 * 60 * 1000;
     const blocks = Math.ceil(diff / bonusUnit);
@@ -1107,34 +1069,22 @@ window.sendTelegramAlert = async function(text) {
     return emp ? emp.wage : 0;
   }
 
-  function roundPayWon(v) {
-    // 급여는 보기/정산 편의를 위해 10원 단위 반올림
-    return Math.round((Number(v) || 0) / 10) * 10;
-  }
+  function roundPayWon(v) { return Math.round((Number(v) || 0) / 10) * 10; }
 
   function getShiftPairs(filterCode = "") {
     const logs = getLogs().filter(l=>!filterCode || l.code===filterCode).sort((a,b)=>a.ts-b.ts);
     const openInByCode = {};
     const pairs = [];
-
     logs.forEach(l => {
-      if (l.type === "IN") {
-        openInByCode[l.code] = l;
-        return;
-      }
-      if (l.type === "OUT" && openInByCode[l.code]) {
-        pairs.push({ code:l.code, inTs:openInByCode[l.code].ts, outTs:l.ts, emp:findEmpByCode(l.code) });
-        delete openInByCode[l.code];
-      }
+      if (l.type === "IN") { openInByCode[l.code] = l; return; }
+      if (l.type === "OUT" && openInByCode[l.code]) { pairs.push({ code:l.code, inTs:openInByCode[l.code].ts, outTs:l.ts, emp:findEmpByCode(l.code) }); delete openInByCode[l.code]; }
     });
-
     return pairs;
   }
 
   function calcDayStats(dk, tCode){
     const pairs = getShiftPairs(tCode).filter(p => dateKey(p.inTs) === dk);
     let ms=0, pay=0;
-
     pairs.forEach(p => {
       const wage = resolveWageByDate(p.emp, dk);
       const adjInTs = getAdjustedStartTime(p.emp, p.inTs);
@@ -1145,7 +1095,6 @@ window.sendTelegramAlert = async function(text) {
         pay+=roundPayWon((d/3600000)*wage);
       }
     });
-
     return { h:Math.floor(ms/3600000), m:Math.floor((ms%3600000)/60000), pay, has:pairs.length>0 };
   }
 
@@ -1155,24 +1104,20 @@ window.sendTelegramAlert = async function(text) {
      const startTs = startDate.setHours(0,0,0,0);
      const employees = getEmployees().filter(e => !filterCode || e.code === filterCode);
      let totalJuhyu = 0;
-
      employees.forEach(emp => {
        const pairs = getShiftPairs(emp.code).filter(p => p.inTs >= startTs && p.inTs <= endTs);
        let weeklyMs = 0;
        let weeklyPay = 0;
-
        pairs.forEach(p => {
          const adjInTs = getAdjustedStartTime(emp, p.inTs);
          const adjOutTs = getAdjustedWorkTime(emp, p.inTs, p.outTs);
          if(adjOutTs <= adjInTs) return;
-
          const durationMs = adjOutTs - adjInTs;
          weeklyMs += durationMs;
          const dk = dateKey(p.inTs);
          const currentWage = resolveWageByDate(emp, dk);
          weeklyPay += (durationMs / 3600000) * currentWage;
        });
-
        const weeklyHours = weeklyMs / 3600000;
        if(weeklyHours >= 15) {
           const avgWage = weeklyPay / weeklyHours;
@@ -1180,12 +1125,9 @@ window.sendTelegramAlert = async function(text) {
           totalJuhyu += roundPayWon(juhyuHours * avgWage);
        }
      });
-
      return totalJuhyu;
   }
 
-
-// [수정] 달력 렌더링 (날짜 클릭 필터링 추가)
   function renderCalendar(){
     const g = document.getElementById("calendarView"); 
     if(!g) return;
@@ -1219,7 +1161,6 @@ window.sendTelegramAlert = async function(text) {
       const k = getDayKey(calYear, calMonth, d); 
       if(k === todayKey()) div.classList.add("today");
       
-      // [추가] 선택된 날짜에 selected 클래스 부여
       if(k === selectedLogDate) div.classList.add("selected");
 
       const isHol = isHoliday(k);
@@ -1236,7 +1177,6 @@ window.sendTelegramAlert = async function(text) {
       
       div.innerHTML = inner;
       
-      // [추가] 날짜 셀 클릭 시 필터링 함수 호출
       div.style.cursor = "pointer";
       div.addEventListener("click", () => {
           window.toggleLogDateFilter(k);
@@ -1279,7 +1219,6 @@ window.sendTelegramAlert = async function(text) {
     document.getElementById("totalWageDetail").textContent = `(기본 ${totalBase.toLocaleString()} + 주휴 ${totalJuhyu.toLocaleString()})`;
   }
 
-
   function renderLogFilterOptions(){
     const sel=document.getElementById("logFilterEmp"), old=sel.value;
     sel.innerHTML=`<option value="">전체 알바생</option>`+getEmployees().map(e=>`<option value="${e.code}">${e.code} ${escapeHtml(e.name)}</option>`).join("");
@@ -1287,11 +1226,9 @@ window.sendTelegramAlert = async function(text) {
   }
   document.getElementById("logFilterEmp").addEventListener("change",renderLogAll);
 
-// [수정] 근태 기록 표시 함수 (행 클릭 수정 및 날짜 필터링 적용)
   function renderLogAll(){
     const f=document.getElementById("logFilterEmp").value, all=getLogs();
     
-    // 선택된 알바생과 선택된 달력 날짜를 동시 필터링
     const list=all.filter(l=> {
         let matchEmp = f ? l.code===f : true;
         let matchDate = selectedLogDate ? dateKey(l.ts) === selectedLogDate : true;
@@ -1308,7 +1245,6 @@ window.sendTelegramAlert = async function(text) {
         let timeDisplay = fmtTS(l.ts);
         const emp = findEmpByCode(l.code);
         
-        // 1. 출근 표시 로직
         if(l.type === "IN" && emp && emp.workStart) {
             const adjInTs = getAdjustedStartTime(emp, l.ts);
             const d = new Date(l.ts);
@@ -1324,7 +1260,6 @@ window.sendTelegramAlert = async function(text) {
             }
         }
         
-        // 2. 퇴근 표시 로직
         if(l.type === "OUT" && emp) {
             const matchedPair = shiftByOutKey.get(`${l.code}|${l.ts}`);
             const inTsForAdjust = matchedPair ? matchedPair.inTs : l.ts;
@@ -1340,14 +1275,144 @@ window.sendTelegramAlert = async function(text) {
         }
         
         const noteTag = l.note ? (l.note.includes("[마감체크]") ? `<span class="tag good">마감✅</span>` : (l.note.length>10?l.note.slice(0,10)+"...":l.note)) : "";
-        // [변경] tr 클릭 시 editLog 호출되도록 변경하고, 기존 수정 버튼 열(td)은 삭제
         return `<tr onclick="window.editLog(${l.id})" title="클릭하여 수정"><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name||"")}</td><td>${timeDisplay}</td><td>${noteTag}</td></tr>`;
     }).join("")||`<tr><td colspan="5" class="muted">기록 없음</td></tr>`;
     
-    // 특이사항 및 체크리스트도 달력 날짜에 맞춰 필터링
     const ons=getOutNotes().slice().reverse().filter(x=> (!f||x.code===f) && (!selectedLogDate || x.date===selectedLogDate));
     document.getElementById("outNoteTable").innerHTML=ons.map((x,i)=>`<tr><td>${ons.length-i}</td><td>${x.date}</td><td>${x.code}</td><td>${escapeHtml(x.name)}</td><td>${fmtTS(x.ts)}</td><td>${escapeHtml(x.text)}</td></tr>`).join("");
     const cls=getCloseCheckLogs().slice().reverse().filter(x=> (!f||x.code===f) && (!selectedLogDate || x.date===selectedLogDate));
     document.getElementById("closeCheckTable").innerHTML=cls.map((x,i)=>`<tr><td>${cls.length-i}</td><td>${x.date}</td><td>${x.code}</td><td>${escapeHtml(x.name)}</td><td>${fmtTS(x.ts)}</td><td>${escapeHtml((x.items||[]).join("/"))}</td></tr>`).join("");
-    if(typeof renderCalendar === 'function') renderCalendar(); // 달력 업데이트 호출
+    if(typeof renderCalendar === 'function') renderCalendar(); 
   }
+
+  window.editLog=async(id)=>{ if(!await ensureAdmin("수정"))return; const l=getLogs().find(x=>x.id===id); if(!l)return; document.getElementById("logEditCode").value=l.code; document.getElementById("logEditName").value=l.name||""; document.getElementById("logEditType").value=l.type; 
+  const d = new Date(l.ts);
+  const timeStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+  document.getElementById("logEditTs").value = timeStr;
+  document.getElementById("logEditNote").value=l.note||""; document.getElementById("logEditSave").onclick=()=>{ const ts=new Date(document.getElementById("logEditTs").value).getTime(); if(!ts)return toast("시간 확인"); const logs=getLogs(), idx=logs.findIndex(x=>x.id===id); if(idx>=0){ logs[idx]={...logs[idx], type:document.getElementById("logEditType").value, ts, note:document.getElementById("logEditNote").value}; setLogs(logs); } document.getElementById("logEditOverlay").classList.remove("show"); toast("수정됨"); renderLogAll(); renderAttendancePanel(); }; document.getElementById("logEditDelete").onclick=()=>{ if(confirm("삭제?")){ setLogs(getLogs().filter(x=>x.id!==id)); document.getElementById("logEditOverlay").classList.remove("show"); toast("삭제됨"); renderLogAll(); renderAttendancePanel(); } }; document.getElementById("logEditOverlay").classList.add("show"); };
+  document.getElementById("logEditCancel").addEventListener("click",()=>document.getElementById("logEditOverlay").classList.remove("show"));
+
+  document.getElementById("btnAddShift").addEventListener("click",async()=>{ if(!await ensureAdmin("추가"))return; const emps=getEmployees(); if(!emps.length)return toast("알바생 없음"); document.getElementById("logAddEmp").innerHTML=emps.map(e=>`<option value="${e.code}">${e.code} ${e.name}</option>`).join(""); logAddDates = []; document.getElementById("selectedDateList").innerHTML = `<span class="muted" style="font-size:12px; padding:4px;">날짜를 담아주세요</span>`; document.getElementById("logAddOverlay").classList.add("show"); });
+  document.getElementById("btnPushDate").addEventListener("click", () => { const dVal = document.getElementById("logAddDate").value; if(!dVal) return toast("날짜 선택"); if(logAddDates.includes(dVal)) return toast("중복 날짜"); logAddDates.push(dVal); renderSelectedDates(); });
+  function renderSelectedDates() { const box = document.getElementById("selectedDateList"); if(logAddDates.length === 0) { box.innerHTML = `<span class="muted" style="font-size:12px; padding:4px;">날짜를 담아주세요</span>`; return; } box.innerHTML = logAddDates.map(d => `<span class="date-pill">${d} <button onclick="removeDate('${d}')">x</button></span>`).join(""); }
+  window.removeDate = function(d) { logAddDates = logAddDates.filter(x => x !== d); renderSelectedDates(); };
+  document.getElementById("logAddSave").addEventListener("click",()=>{ const c=document.getElementById("logAddEmp").value; const e=findEmpByCode(c); const md=document.getElementById("logAddMode").value; const inT=document.getElementById("logAddInTime").value; const outT=document.getElementById("logAddOutTime").value; const note=document.getElementById("logAddNote").value; let targetDates = [...logAddDates]; if(targetDates.length === 0) { const singleDate = document.getElementById("logAddDate").value; if(singleDate) targetDates.push(singleDate); } if(targetDates.length === 0) return toast("날짜 없음");
+    targetDates.forEach(dt => { const mkTs=(t)=>new Date(`${dt}T${t}`).getTime(); if(md==="SHIFT"){ addLog({code:c,name:e.name,type:"IN",note:note||"수동"}); const l=getLogs(); l[l.length-1].ts=mkTs(inT); setLogs(l); addLog({code:c,name:e.name,type:"OUT",note:note||"수동"}); const l2=getLogs(); l2[l2.length-1].ts=mkTs(outT); setLogs(l2); } else if(md==="IN"){ addLog({code:c,name:e.name,type:"IN",note:note||"수동"}); const l=getLogs(); l[l.length-1].ts=mkTs(inT); setLogs(l); } else{ addLog({code:c,name:e.name,type:"OUT",note:note||"수동"}); const l=getLogs(); l[l.length-1].ts=mkTs(outT); setLogs(l); } }); document.getElementById("logAddOverlay").classList.remove("show"); toast("추가 완료"); renderLogAll(); renderAttendancePanel(); 
+  });
+  document.getElementById("logAddCancel").addEventListener("click",()=>document.getElementById("logAddOverlay").classList.remove("show"));
+
+  function downloadFile(fn,txt,mime){ const b=new Blob([txt],{type:mime}), a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download=fn; document.body.appendChild(a); a.click(); a.remove(); }
+  function exportCsv(){ const f=document.getElementById("logFilterEmp").value, l=getLogs().filter(x=>!f||x.code===f); const csv="id,type,code,name,ts,time,note\n"+l.map(x=>`${x.id},${x.type},${x.code},"${x.name}",${x.ts},"${fmtTS(x.ts)}","${(x.note||"").replace(/"/g,'""')}"`).join("\n"); downloadFile(`근태_${todayKey()}.csv`,csv,"text/csv;charset=utf-8"); }
+  document.getElementById("btnExportCsv").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
+  document.getElementById("btnExportCsv2").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
+
+  let csvFileInput = document.getElementById("csvFileInput");
+  if (!csvFileInput) {
+      csvFileInput = document.createElement("input");
+      csvFileInput.type = "file";
+      csvFileInput.id = "csvFileInput";
+      csvFileInput.accept = ".csv";
+      csvFileInput.style.display = "none";
+      document.body.appendChild(csvFileInput);
+  }
+
+  const btnImportCsv = document.getElementById("btnImportCsv");
+  if (btnImportCsv) {
+      btnImportCsv.addEventListener("click", async () => {
+          if(await ensureAdmin("CSV 불러오기")) {
+              csvFileInput.click(); 
+          }
+      });
+  }
+
+  csvFileInput.addEventListener("change", function(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+          const text = e.target.result;
+          try {
+              const cleanContent = String(text || "").replace(/^\ufeff/, ""); 
+              const lines = cleanContent.split(/\r?\n/);
+              const validLines = lines.filter(function(line) { return line.trim() !== ""; });
+              
+              if (validLines.length <= 1) {
+                  toast("데이터가 없거나 잘못된 형식입니다.", "danger");
+                  return;
+              }
+
+              const dataRows = validLines.slice(1);
+              let importedCount = 0;
+              const existingLogs = getLogs();
+              
+              let maxId = 0;
+              for(const log of existingLogs) {
+                  if(Number(log.id) > maxId) maxId = Number(log.id);
+              }
+
+              dataRows.forEach(function(line) {
+                  const columns = line.split(",");
+                  if (columns.length < 5) return; 
+
+                  const type = columns[1] ? columns[1].trim() : "";
+                  let code = columns[2] ? columns[2].trim() : "";
+                  code = pad4(normalizeCodeInput(code)); 
+                  const name = columns[3] ? columns[3].replace(/"/g, "").trim() : "";
+                  const ts = columns[4] ? Number(columns[4].trim()) : Date.now();
+                  const note = columns[6] ? columns[6].replace(/"/g, "").trim() : "";
+
+                  const isDuplicate = existingLogs.some(function(log) {
+                      return log.ts === ts && log.code === code;
+                  });
+                  
+                  if (!isDuplicate) {
+                      maxId += 1;
+                      existingLogs.push({
+                          id: maxId,
+                          type: type,
+                          code: code,
+                          name: name,
+                          ts: ts,
+                          note: note
+                      });
+                      importedCount++;
+                  }
+              });
+
+              setLogs(existingLogs);
+              csvFileInput.value = "";
+
+              toast(`총 ${importedCount}건의 새 데이터가 추가되었습니다.`);
+              renderLogAll();
+              renderAttendancePanel();
+
+          } catch (error) {
+              console.error("CSV 파싱 에러:", error);
+              toast("파일을 읽는 중 에러가 발생했습니다.", "danger");
+          }
+      };
+      reader.readAsText(file);
+  });
+  
+  function renderAdminCloseChecklist(){ const lst=document.getElementById("adminCloseChecklistList"), items=getCloseChecklist(); lst.innerHTML=items.map((t,i)=>`<div class="admCLRow"><div class="idx">${i+1}</div><input class="admCLInput" value="${escapeHtml(t)}" /><button class="btn small" onclick="delCLItem(${i})">삭제</button></div>`).join(""); }
+  window.delCLItem=async(i)=>{ const l=getCloseChecklist(); l.splice(i,1); setCloseChecklist(l); renderAdminCloseChecklist(); };
+  document.getElementById("btnAddCloseChecklistItem").addEventListener("click",()=>{ const v=document.getElementById("adminCloseNewItem").value.trim(); if(!v)return; const l=getCloseChecklist(); l.push(v); setCloseChecklist(l); document.getElementById("adminCloseNewItem").value=""; renderAdminCloseChecklist(); });
+  document.getElementById("btnSaveCloseChecklist").addEventListener("click",()=>{ const l=Array.from(document.querySelectorAll(".admCLInput")).map(i=>i.value.trim()).filter(Boolean); setCloseChecklist(l); toast("저장됨"); renderAdminCloseChecklist(); });
+  document.getElementById("btnResetCloseChecklist").addEventListener("click",()=>{ window.saveJSON(LS_KEYS.CLOSE_CHECKLIST, null); renderAdminCloseChecklist(); });
+
+  (async () => {
+    try {
+      renderAttendancePanel();
+      if (typeof updateAdminStateText === 'function') updateAdminStateText();
+      renderEmployees();
+      renderLogFilterOptions();
+      renderLogAll();
+      console.log("탐나는피자 시스템 재가동 완료");
+    } catch (e) {
+      console.error("로딩 에러:", e);
+    }
+  })();
+</script>
+</body>
+</html>
