@@ -654,6 +654,8 @@ window.sendTelegramAlert = async function(text) {
   // [공휴일 데이터]
   // 하드코딩은 백업으로만 두고, 기본은 공휴일 API(Nager.Date)로 동기화합니다.
   const HOLIDAY_CACHE_KEY = "HOLIDAY_CACHE_V1";
+  const DAILY_BACKUP_META_KEY = "SYSTEM_LAST_BACKUP_DATE";
+  const DAILY_BACKUP_PATH = "tamnaBackups";
   const HOLIDAYS_FALLBACK = ["2024-01-01","2024-02-09","2024-02-10","2024-02-11","2024-02-12","2024-03-01","2024-04-10","2024-05-05","2024-05-06","2024-05-15","2024-06-06","2024-08-15","2024-09-16","2024-09-17","2024-09-18","2024-10-03","2024-10-09","2024-12-25","2025-01-01","2025-01-28","2025-01-29","2025-01-30","2025-03-01","2025-05-05","2025-05-06","2025-06-06","2025-08-15","2025-10-03","2025-10-05","2025-10-06","2025-10-07","2025-10-08","2025-10-09","2025-12-25","2026-01-01","2026-02-16","2026-02-17","2026-02-18","2026-03-01","2026-05-05","2026-05-24","2026-05-25","2026-06-06","2026-08-15","2026-09-24","2026-09-25","2026-09-26","2026-10-03","2026-10-09","2026-12-25"];
   let HOLIDAY_CACHE = {};
   const HOLIDAY_LOADING = new Set();
@@ -699,6 +701,27 @@ window.sendTelegramAlert = async function(text) {
   window.insertTable = function() { const html = `<table style="width:100%; border-collapse:collapse; margin:8px 0;"><tbody><tr><td style="border:1px solid #dcdde1; padding:8px;">항목</td><td style="border:1px solid #dcdde1; padding:8px;">내용</td></tr></tbody></table><br/>`; document.execCommand('insertHTML', false, html); };
   window.handleImageUpload = function(input) { if (input.files && input.files[0]) { const reader = new FileReader(); reader.onload = function(e) { document.execCommand('insertImage', false, e.target.result); }; reader.readAsDataURL(input.files[0]); } input.value = ''; };
   
+  async function ensureDailyBackup() {
+    const today = todayKey();
+    const lastBackupDate = String(loadJSON(DAILY_BACKUP_META_KEY, "") || "");
+    if (lastBackupDate === today) return;
+
+    try {
+      const snapshot = JSON.parse(JSON.stringify(SERVER_CACHE || {}));
+      delete snapshot[DAILY_BACKUP_META_KEY];
+      await set(ref(db, `${DAILY_BACKUP_PATH}/${today}`), {
+        createdAt: nowTS(),
+        date: today,
+        data: snapshot
+      });
+      SERVER_CACHE[DAILY_BACKUP_META_KEY] = today;
+      await set(ref(db, `tamnaData/${DAILY_BACKUP_META_KEY}`), today);
+      console.log(`[백업] ${today} 자동 백업 완료`);
+    } catch (e) {
+      console.error("일일 자동 백업 실패:", e);
+    }
+  }
+
   window.recordAction = function(action, detail) {
     const now = Date.now();
     const logs = loadJSON('ACTION_LOGS', []);
@@ -717,6 +740,7 @@ window.sendTelegramAlert = async function(text) {
       SERVER_CACHE = data;
       try {
         HOLIDAY_CACHE = loadJSON(HOLIDAY_CACHE_KEY, HOLIDAY_CACHE) || HOLIDAY_CACHE;
+        ensureDailyBackup();
         if(typeof renderAttendancePanel === 'function') renderAttendancePanel();
         if(typeof renderLogAll === 'function') { renderLogFilterOptions(); renderLogAll(); }
         if(typeof renderEmployees === 'function') renderEmployees();
