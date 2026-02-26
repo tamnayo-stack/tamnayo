@@ -1411,12 +1411,71 @@ function renderCalendar(){
 
   function downloadFile(fn,txt,mime){ const b=new Blob([txt],{type:mime}), a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download=fn; document.body.appendChild(a); a.click(); a.remove(); }
   function exportCsv(){ const f=document.getElementById("logFilterEmp").value, l=getLogs().filter(x=>!f||x.code===f); const csv="id,type,code,name,ts,time,note\n"+l.map(x=>`${x.id},${x.type},${x.code},"${x.name}",${x.ts},"${fmtTS(x.ts)}","${(x.note||"").replace(/"/g,'""')}"`).join("\n"); downloadFile(`근태_${todayKey()}.csv`,csv,"text/csv;charset=utf-8"); }
+  function parseCsvRow(line){
+    const out=[]; let cur=""; let q=false;
+    for(let i=0;i<line.length;i++){
+      const ch=line[i];
+      if(ch==='"'){
+        if(q && line[i+1]==='"'){ cur+='"'; i++; }
+        else q=!q;
+      }else if(ch===',' && !q){ out.push(cur); cur=""; }
+      else cur+=ch;
+    }
+    out.push(cur);
+    return out;
+  }
+
+  function importLogsFromCsvText(text){
+    const lines=String(text||"").replace(/^﻿/,"").split(/
+?
+/).filter(Boolean);
+    if(lines.length<2) return {added:0, skipped:0};
+
+    const existing=getLogs();
+    let nextId=existing.reduce((m,x)=>Math.max(m, Number(x.id)||0),0)+1;
+    const dupKey=new Set(existing.map(x=>`${x.code}|${x.type}|${x.ts}`));
+
+    let added=0, skipped=0;
+    const incoming=[];
+
+    for(let i=1;i<lines.length;i++){
+      const cols=parseCsvRow(lines[i]);
+      if(cols.length<7){ skipped++; continue; }
+      const [,type,code,name,ts,,note]=cols;
+      const t=String(type||"").trim().toUpperCase();
+      const c=String(code||"").trim();
+      const n=String(name||"").trim();
+      const tsNum=Number(ts);
+      if((t!=="IN"&&t!=="OUT") || !/^\d{4}$/.test(c) || !Number.isFinite(tsNum)){ skipped++; continue; }
+      const key=`${c}|${t}|${tsNum}`;
+      if(dupKey.has(key)){ skipped++; continue; }
+      dupKey.add(key);
+      incoming.push({id:nextId++, code:c, name:n, type:t, ts:tsNum, note:String(note||"")});
+      added++;
+    }
+
+    if(incoming.length){
+      const merged=existing.concat(incoming).sort((a,b)=>(a.ts-b.ts)||((Number(a.id)||0)-(Number(b.id)||0)));
+      setLogs(merged);
+    }
+    return {added, skipped};
+  }
+
   document.getElementById("btnImportCsv")?.addEventListener("click",async()=>{ if(await ensureAdmin()) document.getElementById("csvUploadInput")?.click(); });
   document.getElementById("btnImportCsv2")?.addEventListener("click",async()=>{ if(await ensureAdmin()) document.getElementById("csvUploadInput")?.click(); });
-  document.getElementById("csvUploadInput")?.addEventListener("change",(e)=>{
+  document.getElementById("csvUploadInput")?.addEventListener("change",async(e)=>{
     const f = e.target.files && e.target.files[0];
-    if(f) toast(`CSV 선택됨: ${f.name}`);
-    e.target.value = "";
+    if(!f){ e.target.value=""; return; }
+    try{
+      const text=await f.text();
+      const res=importLogsFromCsvText(text);
+      toast(`CSV 반영: 추가 ${res.added}건 / 제외 ${res.skipped}건`);
+      renderLogAll();
+      renderAttendancePanel();
+    }catch(err){
+      console.error(err);
+      toast("CSV 불러오기 실패", "danger");
+    }finally{ e.target.value = ""; }
   });
   document.getElementById("btnExportCsv").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
   document.getElementById("btnExportCsv2").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
