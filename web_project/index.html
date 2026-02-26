@@ -1425,10 +1425,8 @@ function renderCalendar(){
     return out;
   }
 
-  function importLogsFromCsvText(text){
-    const lines=String(text||"").replace(/^﻿/,"").split(/
-?
-/).filter(Boolean);
+function importLogsFromCsvText(text){
+  const lines=String(text||"").replace(/^\uFEFF/,"").split(/\r?\n/).filter(Boolean);
     if(lines.length<2) return {added:0, skipped:0};
 
     const existing=getLogs();
