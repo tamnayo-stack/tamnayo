@@ -155,8 +155,6 @@
     .calDay{ min-height: 80px; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 6px 8px; display:flex; flex-direction:column; gap:4px; position:relative; }
     .calDay.empty{ background:none !important; border:none; }
     .calDay.today{ border-color: var(--accent); background: rgba(52,152,219,.05) !important; }
-    .calDay.selected{ border-color: var(--warn); background: rgba(243,156,18,.10) !important; }
-    .logRow{ cursor:pointer; }
     .calNum{ font-size:14px; font-weight:800; color:var(--muted); }
     .calData{ margin-top: auto; text-align:right; }
     .calTime{ font-size: 13px; font-weight: 800; color: var(--text); display:block; }
@@ -1217,12 +1215,6 @@ function renderCalendar(){
       div.className = "calDay";
       const k = getDayKey(calYear, calMonth, d); 
       if(k === todayKey()) div.classList.add("today");
-      if(k === selectedLogDate) div.classList.add("selected");
-      div.addEventListener("click", () => {
-        selectedLogDate = selectedLogDate === k ? "" : k;
-        renderCalendar();
-        renderLogAll();
-      });
 
       const isHol = isHoliday(k);
       const st = calcDayStats(k, tFilter);
@@ -1296,11 +1288,12 @@ function renderCalendar(){
     const f=document.getElementById("logFilterEmp").value, all=getLogs();
     let list=f?all.filter(l=>l.code===f):all;
     if(selectedLogDate) list=list.filter(l=>dateKey(l.ts)===selectedLogDate);
+    const dateFiltered = list;
     const shiftByOutKey = new Map();
     getShiftPairs(f).forEach(p => {
       shiftByOutKey.set(`${p.code}|${p.outTs}`, p);
     });
-    document.getElementById("logTotal").textContent=list.length;
+    document.getElementById("logTotal").textContent=dateFiltered.length;
 
     const datePill=document.getElementById("logDateFilterPill");
     const dateText=document.getElementById("logDateFilterText");
