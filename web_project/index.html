@@ -728,7 +728,11 @@ window.sendTelegramAlert = async function(text) {
     }
   });
 
-  window.saveJSON = async function(key, val) { SERVER_CACHE[key] = val; await set(ref(db, 'tamnaData'), SERVER_CACHE); };
+  window.saveJSON = async function(key, val) {
+    if (!SERVER_CACHE || typeof SERVER_CACHE !== "object") SERVER_CACHE = {};
+    SERVER_CACHE[key] = val;
+    await set(ref(db, `tamnaData/${key}`), val);
+  };
   window.loadJSON = function(key, fallback) {
     return Object.prototype.hasOwnProperty.call(SERVER_CACHE, key) ? SERVER_CACHE[key] : fallback;
   };
