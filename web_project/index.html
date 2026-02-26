@@ -160,6 +160,8 @@
     .calTime{ font-size: 13px; font-weight: 800; color: var(--text); display:block; }
     .calPay{ font-size: 11px; color: var(--good); font-weight: 700; display:block; margin-top:2px; }
     .calDay:hover{ background: #f8f9fa !important; }
+    .calDay.selected{ border-color: var(--warn); background: rgba(243,156,18,.10) !important; }
+    #logTable tr{ cursor: pointer; }
 
     .totalWageBox { background: var(--panel2); border: 2px solid var(--accent); border-radius: 14px; padding: 16px; text-align:center; margin-bottom: 14px; display:flex; flex-direction:column; align-items:center; gap:4px; }
     .totalWageLabel { color: var(--muted); font-size: 13px; font-weight: 800; }
@@ -221,7 +223,7 @@
         <h2>최근 기록 (최신 15개)</h2>
         <div style="overflow:auto; max-height: 520px;">
           <table>
-            <thead><tr><th style="width:90px;">유형</th><th style="width:90px;">코드</th><th class="nameCell">이름</th><th style="width:200px;">시간</th></tr></thead>
+            <thead><tr><th style="width:90px;">유형</th><th style="width:90px;">코드</th><th class="nameCell">이름</th><th style="width:200px;">출근여부</th></tr></thead>
             <tbody id="recentTable"></tbody>
           </table>
         </div>
@@ -302,7 +304,7 @@
       
       <div style="overflow:auto; max-height: 540px;">
         <table>
-          <thead><tr><th style="width:110px;">유형</th><th style="width:90px;">코드</th><th class="nameCell" style="width:160px;">이름</th><th style="width:220px;">시간</th><th>비고</th><th style="width:90px;">수정</th></tr></thead>
+          <thead><tr><th style="width:110px;">유형</th><th style="width:90px;">코드</th><th class="nameCell" style="width:160px;">이름</th><th style="width:220px;">시간</th><th>비고</th></tr></thead>
           <tbody id="logTable"></tbody>
         </table>
       </div>
@@ -1026,7 +1028,7 @@ window.sendTelegramAlert = async function(text) {
   });
 
   function renderRecent(){
-    document.getElementById("recentTable").innerHTML=getLogs().slice(-15).reverse().map(l=>`<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name)}</td><td>${fmtTS(l.ts)}</td></tr>`).join("")||`<tr><td colspan="4" class="muted">기록 없음</td></tr>`;
+    document.getElementById("recentTable").innerHTML=getLogs().slice(-15).reverse().map(l=>`<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name)}</td><td>정상출근</td></tr>`).join("")||`<tr><td colspan="4" class="muted">기록 없음</td></tr>`;
   }
   function renderQuickButtons(){
     const div=document.getElementById("quickButtons"), emps=getEmployees();
@@ -1057,6 +1059,7 @@ window.sendTelegramAlert = async function(text) {
   document.getElementById("empEditCancel").addEventListener("click",()=>document.getElementById("empEditOverlay").classList.remove("show"));
 
   let calYear=new Date().getFullYear(), calMonth=new Date().getMonth()+1;
+  let selectedLogDate = "";
   function getDayKey(y,m,d){ return `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`; }
 
   function getScheduledEndTime(emp, inTs, outTs) {
@@ -1228,6 +1231,12 @@ function renderCalendar(){
       if(st.has) inner += `<div class="calData"><span class="calTime">${st.h > 0 ? st.h + 'h ' : ''}${st.m}m</span>${st.pay > 0 ? `<span class="calPay">${st.pay.toLocaleString()}원</span>` : ''}</div>`;
       
       div.innerHTML = inner;
+      div.dataset.date = k;
+      if (selectedLogDate === k) div.classList.add("selected");
+      div.addEventListener("click", () => {
+        selectedLogDate = (selectedLogDate === k) ? "" : k;
+        renderLogAll();
+      });
       g.appendChild(div);
     }
     updateMonthlyWageEstimate(); // 월별 예상 급여 갱신
@@ -1275,7 +1284,9 @@ function renderCalendar(){
 
   // [수정] 근태 기록 표시 함수 (지각 판정 로직 수정)
   function renderLogAll(){
-    const f=document.getElementById("logFilterEmp").value, all=getLogs(), list=f?all.filter(l=>l.code===f):all;
+    const f=document.getElementById("logFilterEmp").value, all=getLogs();
+    let list=f?all.filter(l=>l.code===f):all;
+    if(selectedLogDate) list=list.filter(l=>dateKey(l.ts)===selectedLogDate);
     const shiftByOutKey = new Map();
     getShiftPairs(f).forEach(p => {
       shiftByOutKey.set(`${p.code}|${p.outTs}`, p);
@@ -1326,8 +1337,12 @@ function renderCalendar(){
         }
         
         const noteTag = l.note ? (l.note.includes("[마감체크]") ? `<span class="tag good">마감✅</span>` : (l.note.length>10?l.note.slice(0,10)+"...":l.note)) : "";
-        return `<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name||"")}</td><td>${timeDisplay}</td><td>${noteTag}</td><td><button class="btn small" onclick="window.editLog(${l.id})">수정</button></td></tr>`;
-    }).join("")||`<tr><td colspan="6" class="muted">기록 없음</td></tr>`;
+        return `<tr data-log-id="${l.id}"><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name||"")}</td><td>${timeDisplay}</td><td>${noteTag}</td></tr>`;
+    }).join("")||`<tr><td colspan="5" class="muted">기록 없음</td></tr>`;
+
+    document.querySelectorAll("#logTable tr[data-log-id]").forEach(tr=>{
+      tr.addEventListener("click",()=>window.editLog(Number(tr.dataset.logId)));
+    });
     
     const ons=getOutNotes().slice().reverse().filter(x=>!f||x.code===f);
     document.getElementById("outNoteTable").innerHTML=ons.map((x,i)=>`<tr><td>${ons.length-i}</td><td>${x.date}</td><td>${x.code}</td><td>${escapeHtml(x.name)}</td><td>${fmtTS(x.ts)}</td><td>${escapeHtml(x.text)}</td></tr>`).join("");
