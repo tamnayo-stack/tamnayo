@@ -160,6 +160,8 @@
     .calTime{ font-size: 13px; font-weight: 800; color: var(--text); display:block; }
     .calPay{ font-size: 11px; color: var(--good); font-weight: 700; display:block; margin-top:2px; }
     .calDay:hover{ background: #f8f9fa !important; }
+    .calDay.selected{ border-color: var(--warn); background: rgba(243,156,18,.10) !important; }
+    #logTable tr{ cursor: pointer; }
 
     .totalWageBox { background: var(--panel2); border: 2px solid var(--accent); border-radius: 14px; padding: 16px; text-align:center; margin-bottom: 14px; display:flex; flex-direction:column; align-items:center; gap:4px; }
     .totalWageLabel { color: var(--muted); font-size: 13px; font-weight: 800; }
@@ -221,7 +223,7 @@
         <h2>최근 기록 (최신 15개)</h2>
         <div style="overflow:auto; max-height: 520px;">
           <table>
-            <thead><tr><th style="width:90px;">유형</th><th style="width:90px;">코드</th><th class="nameCell">이름</th><th style="width:200px;">시간</th></tr></thead>
+            <thead><tr><th style="width:90px;">유형</th><th style="width:90px;">코드</th><th class="nameCell">이름</th><th style="width:200px;">출근여부</th></tr></thead>
             <tbody id="recentTable"></tbody>
           </table>
         </div>
@@ -278,6 +280,7 @@
       <div class="hr"></div>
       <div class="row" style="margin-bottom:10px; gap:10px; flex-wrap:wrap;">
         <span class="pill">전체 기록: <strong id="logTotal">0</strong>건</span>
+        <span class="pill" id="logDateFilterPill" style="display:none;">선택 날짜: <strong id="logDateFilterText">-</strong> <button class="btn small" id="btnClearDateFilter" style="margin-left:8px; padding:4px 8px;">해제</button></span>
         <label class="muted" style="display:flex; align-items:center; gap:8px;">알바생 필터<select id="logFilterEmp" style="min-width:180px;"></select></label>
         <div class="spacer"></div>
         <button class="btn small" id="btnAddShift">근무 추가</button>
@@ -302,7 +305,7 @@
       
       <div style="overflow:auto; max-height: 540px;">
         <table>
-          <thead><tr><th style="width:110px;">유형</th><th style="width:90px;">코드</th><th class="nameCell" style="width:160px;">이름</th><th style="width:220px;">시간</th><th>비고</th><th style="width:90px;">수정</th></tr></thead>
+          <thead><tr><th style="width:110px;">유형</th><th style="width:90px;">코드</th><th class="nameCell" style="width:160px;">이름</th><th style="width:220px;">시간</th><th>비고</th></tr></thead>
           <tbody id="logTable"></tbody>
         </table>
       </div>
@@ -579,7 +582,6 @@
   // [텔레그램 연동 코드 유지]
   // -------------------------------------------------------------
   const TG_TOKEN = "7735983028:AAGgXPT18XIeBHC4C_sjKrSKSbNqQsT0ZN0";
-  const LS_TG_CHAT_ID = "ALBA_TG_CHAT_ID";
   const TG_SYSTEM_LOG_KEY = "TG_SYSTEM_LOG_ENABLED";
   const ADMIN_PIN_KEY = "ADMIN_PIN";
 
@@ -631,8 +633,8 @@ window.sendTelegramAlert = async function(text) {
               const lastMsg = data.result[data.result.length - 1];
               const myId = lastMsg.message.chat.id;
               document.getElementById("adminTgChatId").value = myId;
-              localStorage.setItem(LS_TG_CHAT_ID, myId);
-              alert(`ID 찾음: ${myId}`);
+              await saveJSON('adminChatId', String(myId));
+              alert("ID 찾음(서버 저장): " + myId);
           } else { alert("메시지 없음. 봇에게 말을 건 뒤 다시 시도하세요."); }
       } catch(e) { alert("오류: " + e.message); }
   });
@@ -837,7 +839,7 @@ window.sendTelegramAlert = async function(text) {
     document.getElementById("adminNoticeDuration").value = getTodayNoticeDuration();
     renderAdminCloseChecklist();
     renderTemplates();
-    document.getElementById("adminTgChatId").value = loadJSON('adminChatId', localStorage.getItem(LS_TG_CHAT_ID) || "");
+    document.getElementById("adminTgChatId").value = loadJSON('adminChatId', "");
     const tgLogEl = document.getElementById("tgSystemLogEnabled");
     if (tgLogEl) tgLogEl.checked = isSystemLogTelegramEnabled();
     adminMenuOverlay.classList.add("show"); updateAdminStateText();
@@ -1026,7 +1028,7 @@ window.sendTelegramAlert = async function(text) {
   });
 
   function renderRecent(){
-    document.getElementById("recentTable").innerHTML=getLogs().slice(-15).reverse().map(l=>`<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name)}</td><td>${fmtTS(l.ts)}</td></tr>`).join("")||`<tr><td colspan="4" class="muted">기록 없음</td></tr>`;
+    document.getElementById("recentTable").innerHTML=getLogs().slice(-15).reverse().map(l=>`<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name)}</td><td>정상출근</td></tr>`).join("")||`<tr><td colspan="4" class="muted">기록 없음</td></tr>`;
   }
   function renderQuickButtons(){
     const div=document.getElementById("quickButtons"), emps=getEmployees();
@@ -1057,6 +1059,7 @@ window.sendTelegramAlert = async function(text) {
   document.getElementById("empEditCancel").addEventListener("click",()=>document.getElementById("empEditOverlay").classList.remove("show"));
 
   let calYear=new Date().getFullYear(), calMonth=new Date().getMonth()+1;
+  let selectedLogDate = "";
   function getDayKey(y,m,d){ return `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`; }
 
   function getScheduledEndTime(emp, inTs, outTs) {
@@ -1068,11 +1071,20 @@ window.sendTelegramAlert = async function(text) {
     return scheduledEnd;
   }
 
-  function getAdjustedWorkTime(emp, inTs, outTs) {
+  function isEarlyLeaveNote(note) {
+    const txt = String(note || "").toLowerCase();
+    if (!txt.trim()) return false;
+    return ["조기", "조퇴", "아파", "병원", "컨디션", "몸살", "early"].some(k => txt.includes(k));
+  }
+
+  function getAdjustedWorkTime(emp, inTs, outTs, note = "") {
     if (!emp.workEnd) return outTs;
     const scheduledEnd = getScheduledEndTime(emp, inTs, outTs);
 
-    // 계약 퇴근시간 이전 퇴근도 계약 시간까지 인정
+    // 조기퇴근 메모가 있으면 실제 퇴근시간으로 계산
+    if (outTs <= scheduledEnd && isEarlyLeaveNote(note)) return outTs;
+
+    // 일반적인 경우 계약 퇴근시간 이전 퇴근도 계약 시간까지 인정
     if (outTs <= scheduledEnd) return scheduledEnd;
 
     const diff = outTs - scheduledEnd;
@@ -1106,7 +1118,7 @@ window.sendTelegramAlert = async function(text) {
         return;
       }
       if (l.type === "OUT" && openInByCode[l.code]) {
-        pairs.push({ code:l.code, inTs:openInByCode[l.code].ts, outTs:l.ts, emp:findEmpByCode(l.code) });
+        pairs.push({ code:l.code, inTs:openInByCode[l.code].ts, outTs:l.ts, emp:findEmpByCode(l.code), outNote: l.note || "" });
         delete openInByCode[l.code];
       }
     });
@@ -1121,7 +1133,7 @@ window.sendTelegramAlert = async function(text) {
     pairs.forEach(p => {
       const wage = resolveWageByDate(p.emp, dk);
       const adjInTs = getAdjustedStartTime(p.emp, p.inTs);
-      const adjOutTs = getAdjustedWorkTime(p.emp, p.inTs, p.outTs);
+      const adjOutTs = getAdjustedWorkTime(p.emp, p.inTs, p.outTs, p.outNote);
       if(adjOutTs > adjInTs) {
         const d=adjOutTs-adjInTs;
         ms+=d;
@@ -1146,7 +1158,7 @@ window.sendTelegramAlert = async function(text) {
 
        pairs.forEach(p => {
          const adjInTs = getAdjustedStartTime(emp, p.inTs);
-         const adjOutTs = getAdjustedWorkTime(emp, p.inTs, p.outTs);
+         const adjOutTs = getAdjustedWorkTime(emp, p.inTs, p.outTs, p.outNote);
          if(adjOutTs <= adjInTs) return;
 
          const durationMs = adjOutTs - adjInTs;
@@ -1219,13 +1231,20 @@ function renderCalendar(){
       if(st.has) inner += `<div class="calData"><span class="calTime">${st.h > 0 ? st.h + 'h ' : ''}${st.m}m</span>${st.pay > 0 ? `<span class="calPay">${st.pay.toLocaleString()}원</span>` : ''}</div>`;
       
       div.innerHTML = inner;
+      div.dataset.date = k;
+      if (selectedLogDate === k) div.classList.add("selected");
+      div.addEventListener("click", () => {
+        selectedLogDate = (selectedLogDate === k) ? "" : k;
+        renderLogAll();
+      });
       g.appendChild(div);
     }
     updateMonthlyWageEstimate(); // 월별 예상 급여 갱신
   }
   
-  document.getElementById("calPrevBtn").addEventListener("click",()=>{ calMonth--; if(calMonth<1){calMonth=12;calYear--;} renderCalendar(); });
-  document.getElementById("calNextBtn").addEventListener("click",()=>{ calMonth++; if(calMonth>12){calMonth=1;calYear++;} renderCalendar(); });
+  document.getElementById("calPrevBtn").addEventListener("click",()=>{ calMonth--; if(calMonth<1){calMonth=12;calYear--;} selectedLogDate=""; renderLogAll(); });
+  document.getElementById("calNextBtn").addEventListener("click",()=>{ calMonth++; if(calMonth>12){calMonth=1;calYear++;} selectedLogDate=""; renderLogAll(); });
+  document.getElementById("btnClearDateFilter")?.addEventListener("click", ()=>{ selectedLogDate=""; renderLogAll(); });
 
   function updateMonthlyWageEstimate() {
     const tEmp = document.getElementById("logFilterEmp").value;
@@ -1238,7 +1257,7 @@ function renderCalendar(){
       const pairs = getShiftPairs(emp.code).filter(p => dateKey(p.inTs).startsWith(targetPrefix));
       pairs.forEach(p => {
         const adjInTs = getAdjustedStartTime(emp, p.inTs);
-        const adjOutTs = getAdjustedWorkTime(emp, p.inTs, p.outTs);
+        const adjOutTs = getAdjustedWorkTime(emp, p.inTs, p.outTs, p.outNote);
         if(adjOutTs <= adjInTs) return;
         const ms = adjOutTs - adjInTs;
         const dk = dateKey(p.inTs);
@@ -1266,14 +1285,24 @@ function renderCalendar(){
 
   // [수정] 근태 기록 표시 함수 (지각 판정 로직 수정)
   function renderLogAll(){
-    const f=document.getElementById("logFilterEmp").value, all=getLogs(), list=f?all.filter(l=>l.code===f):all;
+    const f=document.getElementById("logFilterEmp").value, all=getLogs();
+    let list=f?all.filter(l=>l.code===f):all;
+    if(selectedLogDate) list=list.filter(l=>dateKey(l.ts)===selectedLogDate);
+    const dateFiltered = list;
     const shiftByOutKey = new Map();
     getShiftPairs(f).forEach(p => {
       shiftByOutKey.set(`${p.code}|${p.outTs}`, p);
     });
-    document.getElementById("logTotal").textContent=list.length;
+    document.getElementById("logTotal").textContent=dateFiltered.length;
+
+    const datePill=document.getElementById("logDateFilterPill");
+    const dateText=document.getElementById("logDateFilterText");
+    if(datePill && dateText){
+      if(selectedLogDate){ datePill.style.display="inline-flex"; dateText.textContent=selectedLogDate; }
+      else { datePill.style.display="none"; dateText.textContent="-"; }
+    }
     
-    document.getElementById("logTable").innerHTML=list.slice().reverse().map(l=> {
+    document.getElementById("logTable").innerHTML=dateFiltered.slice().reverse().map(l=> {
         let timeDisplay = fmtTS(l.ts);
         const emp = findEmpByCode(l.code);
         
@@ -1302,20 +1331,27 @@ function renderCalendar(){
         if(l.type === "OUT" && emp) {
             const matchedPair = shiftByOutKey.get(`${l.code}|${l.ts}`);
             const inTsForAdjust = matchedPair ? matchedPair.inTs : l.ts;
-            const adjOutTs = getAdjustedWorkTime(emp, inTsForAdjust, l.ts);
-            if(adjOutTs !== l.ts) {
-                const d = new Date(adjOutTs);
-                const adjStr = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+            const scheduledEnd = getScheduledEndTime(emp, inTsForAdjust, l.ts);
+            const isEarlyLeave = l.ts <= scheduledEnd && isEarlyLeaveNote(l.note);
+            const adjOutTs = getAdjustedWorkTime(emp, inTsForAdjust, l.ts, l.note);
+            const d = new Date(adjOutTs);
+            const adjStr = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
 
-                const scheduledEnd = getScheduledEndTime(emp, inTsForAdjust, l.ts);
+            if (isEarlyLeave) {
+                timeDisplay += `<br><span class="tag out" style="font-size:10px;">조기퇴근(인정:${adjStr})</span>`;
+            } else if(adjOutTs !== l.ts) {
                 const label = adjOutTs > scheduledEnd ? "연장" : "정시";
                 timeDisplay += `<br><span class="tag good" style="font-size:10px;">${label}(인정:${adjStr})</span>`;
             }
         }
         
         const noteTag = l.note ? (l.note.includes("[마감체크]") ? `<span class="tag good">마감✅</span>` : (l.note.length>10?l.note.slice(0,10)+"...":l.note)) : "";
-        return `<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name||"")}</td><td>${timeDisplay}</td><td>${noteTag}</td><td><button class="btn small" onclick="window.editLog(${l.id})">수정</button></td></tr>`;
-    }).join("")||`<tr><td colspan="6" class="muted">기록 없음</td></tr>`;
+        return `<tr data-log-id="${l.id}"><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name||"")}</td><td>${timeDisplay}</td><td>${noteTag}</td></tr>`;
+    }).join("")||`<tr><td colspan="5" class="muted">기록 없음</td></tr>`;
+
+    document.querySelectorAll("#logTable tr[data-log-id]").forEach(tr=>{
+      tr.addEventListener("click",()=>window.editLog(Number(tr.dataset.logId)));
+    });
     
     const ons=getOutNotes().slice().reverse().filter(x=>!f||x.code===f);
     document.getElementById("outNoteTable").innerHTML=ons.map((x,i)=>`<tr><td>${ons.length-i}</td><td>${x.date}</td><td>${x.code}</td><td>${escapeHtml(x.name)}</td><td>${fmtTS(x.ts)}</td><td>${escapeHtml(x.text)}</td></tr>`).join("");
@@ -1344,7 +1380,7 @@ function renderCalendar(){
   function exportCsv(){ const f=document.getElementById("logFilterEmp").value, l=getLogs().filter(x=>!f||x.code===f); const csv="id,type,code,name,ts,time,note\n"+l.map(x=>`${x.id},${x.type},${x.code},"${x.name}",${x.ts},"${fmtTS(x.ts)}","${(x.note||"").replace(/"/g,'""')}"`).join("\n"); downloadFile(`근태_${todayKey()}.csv`,csv,"text/csv;charset=utf-8"); }
   document.getElementById("btnExportCsv").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
   document.getElementById("btnExportCsv2").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
-  document.getElementById("btnResetAll").addEventListener("click",async()=>{ if(await ensureAdmin() && confirm("전체 초기화(복구불가)?")){ localStorage.clear(); await set(ref(db, 'tamnaData'), null); location.reload(); } });
+  document.getElementById("btnResetAll")?.addEventListener("click",async()=>{ if(await ensureAdmin() && confirm("전체 초기화(복구불가)?")){ localStorage.clear(); await set(ref(db, 'tamnaData'), null); location.reload(); } });
 
   function renderAdminCloseChecklist(){ const lst=document.getElementById("adminCloseChecklistList"), items=getCloseChecklist(); lst.innerHTML=items.map((t,i)=>`<div class="admCLRow"><div class="idx">${i+1}</div><input class="admCLInput" value="${escapeHtml(t)}" /><button class="btn small" onclick="delCLItem(${i})">삭제</button></div>`).join(""); }
   window.delCLItem=async(i)=>{ const l=getCloseChecklist(); l.splice(i,1); setCloseChecklist(l); renderAdminCloseChecklist(); };
