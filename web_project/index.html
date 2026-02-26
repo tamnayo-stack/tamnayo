@@ -173,6 +173,10 @@
     
     .date-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #e3f2fd; color: var(--accent); border-radius: 20px; font-size: 13px; font-weight: 700; margin: 2px; }
     .date-pill button { background: none; border: none; color: var(--accent); font-weight: 900; font-size: 12px; cursor: pointer; padding: 0; }
+    /* 달력 선택 및 표 클릭 효과 추가 */
+    .calDay.selected { border: 2px solid var(--accent) !important; background: rgba(52,152,219,.15) !important; }
+    #logTable tr { cursor: pointer; transition: background 0.1s; }
+    #logTable tr:hover { background: #f8f9fa; }
   </style>
 </head>
 
@@ -221,7 +225,7 @@
         <h2>최근 기록 (최신 15개)</h2>
         <div style="overflow:auto; max-height: 520px;">
           <table>
-            <thead><tr><th style="width:90px;">유형</th><th style="width:90px;">코드</th><th class="nameCell">이름</th><th style="width:200px;">시간</th></tr></thead>
+            <thead><tr><th style="width:90px;">유형</th><th style="width:90px;">코드</th><th class="nameCell">이름</th><th style="width:200px;">출근여부</th></tr></thead>
             <tbody id="recentTable"></tbody>
           </table>
         </div>
@@ -304,7 +308,7 @@
       
       <div style="overflow:auto; max-height: 540px;">
         <table>
-          <thead><tr><th style="width:110px;">유형</th><th style="width:90px;">코드</th><th class="nameCell" style="width:160px;">이름</th><th style="width:220px;">시간</th><th>비고</th><th style="width:90px;">수정</th></tr></thead>
+          <thead><tr><th style="width:110px;">유형</th><th style="width:90px;">코드</th><th class="nameCell" style="width:160px;">이름</th><th style="width:220px;">시간</th><th>비고</th></tr></thead>
           <tbody id="logTable"></tbody>
         </table>
       </div>
@@ -568,13 +572,21 @@
   </div>
 </div>
 
-<input id="restoreInput" type="file" accept="application/json" style="display:none;" />
-
 <script type="module">
   // [중요] getToday 함수를 가장 먼저 정의해서 에러 방지
   window.getToday = function() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  };
+  let SERVER_CACHE = {}; 
+  let logAddDates = []; 
+
+  // [추가] 달력 날짜 필터링 상태
+  let selectedLogDate = null;
+  window.toggleLogDateFilter = function(dateStr) {
+      if(selectedLogDate === dateStr) selectedLogDate = null; // 같은 날짜 누르면 해제
+      else selectedLogDate = dateStr;
+      renderLogAll(); // 상태 변경 후 즉시 표 새로고침 (이 함수 안에서 달력도 다시 그림)
   };
 
   // -------------------------------------------------------------
@@ -633,7 +645,7 @@ window.sendTelegramAlert = async function(text) {
               const lastMsg = data.result[data.result.length - 1];
               const myId = lastMsg.message.chat.id;
               document.getElementById("adminTgChatId").value = myId;
-              localStorage.setItem(LS_TG_CHAT_ID, myId);
+              window.saveJSON('adminChatId', String(myId));
               alert(`ID 찾음: ${myId}`);
           } else { alert("메시지 없음. 봇에게 말을 건 뒤 다시 시도하세요."); }
       } catch(e) { alert("오류: " + e.message); }
@@ -1031,7 +1043,7 @@ window.sendTelegramAlert = async function(text) {
   });
 
   function renderRecent(){
-    document.getElementById("recentTable").innerHTML=getLogs().slice(-15).reverse().map(l=>`<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name)}</td><td>${fmtTS(l.ts)}</td></tr>`).join("")||`<tr><td colspan="4" class="muted">기록 없음</td></tr>`;
+    document.getElementById("recentTable").innerHTML=getLogs().slice(-15).reverse().map(l=>`<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name)}</td><td><strong style="color:${l.type==="IN"?'var(--good)':'var(--bad)'}">${l.type==="IN"?"정상출근":"정상퇴근"}</strong></td></tr>`).join("")||`<tr><td colspan="4" class="muted">기록 없음</td></tr>`;
   }
   function renderQuickButtons(){
     const div=document.getElementById("quickButtons"), emps=getEmployees();
@@ -1173,17 +1185,17 @@ window.sendTelegramAlert = async function(text) {
   }
 
 
-function renderCalendar(){
+// [수정] 달력 렌더링 (날짜 클릭 필터링 추가)
+  function renderCalendar(){
     const g = document.getElementById("calendarView"); 
     if(!g) return;
     document.getElementById("calTitle").textContent = `${calYear}. ${String(calMonth).padStart(2,"0")}`;
     g.innerHTML = "";
 
-    // 1. 요일 헤더 추가 (일~토)
     const days = ['일', '월', '화', '수', '목', '금', '토'];
     days.forEach(day => {
       const d = document.createElement("div");
-      d.className = "calCellHeader"; // 소스 내 정의된 헤더 스타일
+      d.className = "calCellHeader"; 
       d.textContent = day;
       if(day === '일') d.style.color = 'var(--bad)';
       if(day === '토') d.style.color = 'var(--accent)';
@@ -1195,38 +1207,44 @@ function renderCalendar(){
     const tFilter = document.getElementById("logFilterEmp").value;
     syncHolidayYear(calYear);
 
-    // 2. 시작 요일 맞추기 위한 빈 칸 생성
     for(let i=0; i<start; i++){ 
       const d = document.createElement("div"); 
       d.className = "calDay empty"; 
       g.appendChild(d); 
     }
 
-    // 3. 날짜별 데이터 렌더링
     for(let d=1; d<=end; d++){
       const div = document.createElement("div"); 
       div.className = "calDay";
       const k = getDayKey(calYear, calMonth, d); 
       if(k === todayKey()) div.classList.add("today");
+      
+      // [추가] 선택된 날짜에 selected 클래스 부여
+      if(k === selectedLogDate) div.classList.add("selected");
 
       const isHol = isHoliday(k);
       const st = calcDayStats(k, tFilter);
       
       let inner = `<div class="calNum" style="${isHol ? 'color:var(--bad);' : ''}">${d}${isHol ? '(휴)' : ''}</div>`;
       
-      // 일요일 주휴수당 표시
       if(new Date(calYear, calMonth-1, d).getDay() === 0) { 
          const juhyu = getWeeklyJuhyuSum(new Date(calYear, calMonth-1, d), tFilter);
          if(juhyu > 0) inner += `<span class="tag juhyu">주휴💰 +${juhyu.toLocaleString()}</span>`;
       }
 
-      // 근무 기록 표시
       if(st.has) inner += `<div class="calData"><span class="calTime">${st.h > 0 ? st.h + 'h ' : ''}${st.m}m</span>${st.pay > 0 ? `<span class="calPay">${st.pay.toLocaleString()}원</span>` : ''}</div>`;
       
       div.innerHTML = inner;
+      
+      // [추가] 날짜 셀 클릭 시 필터링 함수 호출
+      div.style.cursor = "pointer";
+      div.addEventListener("click", () => {
+          window.toggleLogDateFilter(k);
+      });
+
       g.appendChild(div);
     }
-    updateMonthlyWageEstimate(); // 월별 예상 급여 갱신
+    updateMonthlyWageEstimate(); 
   }
   
   document.getElementById("calPrevBtn").addEventListener("click",()=>{ calMonth--; if(calMonth<1){calMonth=12;calYear--;} renderCalendar(); });
@@ -1269,9 +1287,17 @@ function renderCalendar(){
   }
   document.getElementById("logFilterEmp").addEventListener("change",renderLogAll);
 
-  // [수정] 근태 기록 표시 함수 (지각 판정 로직 수정)
+// [수정] 근태 기록 표시 함수 (행 클릭 수정 및 날짜 필터링 적용)
   function renderLogAll(){
-    const f=document.getElementById("logFilterEmp").value, all=getLogs(), list=f?all.filter(l=>l.code===f):all;
+    const f=document.getElementById("logFilterEmp").value, all=getLogs();
+    
+    // 선택된 알바생과 선택된 달력 날짜를 동시 필터링
+    const list=all.filter(l=> {
+        let matchEmp = f ? l.code===f : true;
+        let matchDate = selectedLogDate ? dateKey(l.ts) === selectedLogDate : true;
+        return matchEmp && matchDate;
+    });
+
     const shiftByOutKey = new Map();
     getShiftPairs(f).forEach(p => {
       shiftByOutKey.set(`${p.code}|${p.outTs}`, p);
@@ -1282,23 +1308,18 @@ function renderCalendar(){
         let timeDisplay = fmtTS(l.ts);
         const emp = findEmpByCode(l.code);
         
-        // 1. 출근 표시 로직 수정
+        // 1. 출근 표시 로직
         if(l.type === "IN" && emp && emp.workStart) {
             const adjInTs = getAdjustedStartTime(emp, l.ts);
-            
             const d = new Date(l.ts);
             const [h, m] = emp.workStart.split(':').map(Number);
             const scheduledStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0).getTime();
-
             const adjDate = new Date(adjInTs);
             const adjStr = `${String(adjDate.getHours()).padStart(2,"0")}:${String(adjDate.getMinutes()).padStart(2,"0")}`;
 
-            // 실제 출근(l.ts)이 예정시간(scheduledStart)보다 늦은 경우 -> 지각
             if(l.ts > scheduledStart) {
                 timeDisplay += `<br><span class="tag out" style="font-size:10px;">지각(인정:${adjStr})</span>`;
-            } 
-            // 일찍 왔거나 정시인 경우 -> 정시(초록색)으로 표시하되, 인정 시간은 보여줌
-            else {
+            } else {
                 timeDisplay += `<br><span class="tag good" style="font-size:10px;">정시(인정:${adjStr})</span>`;
             }
         }
@@ -1319,164 +1340,14 @@ function renderCalendar(){
         }
         
         const noteTag = l.note ? (l.note.includes("[마감체크]") ? `<span class="tag good">마감✅</span>` : (l.note.length>10?l.note.slice(0,10)+"...":l.note)) : "";
-        return `<tr><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name||"")}</td><td>${timeDisplay}</td><td>${noteTag}</td><td><button class="btn small" onclick="window.editLog(${l.id})">수정</button></td></tr>`;
-    }).join("")||`<tr><td colspan="6" class="muted">기록 없음</td></tr>`;
+        // [변경] tr 클릭 시 editLog 호출되도록 변경하고, 기존 수정 버튼 열(td)은 삭제
+        return `<tr onclick="window.editLog(${l.id})" title="클릭하여 수정"><td><span class="tag ${l.type.toLowerCase()}">${l.type==="IN"?"출근":"퇴근"}</span></td><td>${l.code}</td><td class="nameCell">${escapeHtml(l.name||"")}</td><td>${timeDisplay}</td><td>${noteTag}</td></tr>`;
+    }).join("")||`<tr><td colspan="5" class="muted">기록 없음</td></tr>`;
     
-    const ons=getOutNotes().slice().reverse().filter(x=>!f||x.code===f);
+    // 특이사항 및 체크리스트도 달력 날짜에 맞춰 필터링
+    const ons=getOutNotes().slice().reverse().filter(x=> (!f||x.code===f) && (!selectedLogDate || x.date===selectedLogDate));
     document.getElementById("outNoteTable").innerHTML=ons.map((x,i)=>`<tr><td>${ons.length-i}</td><td>${x.date}</td><td>${x.code}</td><td>${escapeHtml(x.name)}</td><td>${fmtTS(x.ts)}</td><td>${escapeHtml(x.text)}</td></tr>`).join("");
-    const cls=getCloseCheckLogs().slice().reverse().filter(x=>!f||x.code===f);
+    const cls=getCloseCheckLogs().slice().reverse().filter(x=> (!f||x.code===f) && (!selectedLogDate || x.date===selectedLogDate));
     document.getElementById("closeCheckTable").innerHTML=cls.map((x,i)=>`<tr><td>${cls.length-i}</td><td>${x.date}</td><td>${x.code}</td><td>${escapeHtml(x.name)}</td><td>${fmtTS(x.ts)}</td><td>${escapeHtml((x.items||[]).join("/"))}</td></tr>`).join("");
-    renderCalendar();
+    if(typeof renderCalendar === 'function') renderCalendar(); // 달력 업데이트 호출
   }
-
-  window.editLog=async(id)=>{ if(!await ensureAdmin("수정"))return; const l=getLogs().find(x=>x.id===id); if(!l)return; document.getElementById("logEditCode").value=l.code; document.getElementById("logEditName").value=l.name||""; document.getElementById("logEditType").value=l.type; 
-  const d = new Date(l.ts);
-  const timeStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
-  document.getElementById("logEditTs").value = timeStr;
-  document.getElementById("logEditNote").value=l.note||""; document.getElementById("logEditSave").onclick=()=>{ const ts=new Date(document.getElementById("logEditTs").value).getTime(); if(!ts)return toast("시간 확인"); const logs=getLogs(), idx=logs.findIndex(x=>x.id===id); if(idx>=0){ logs[idx]={...logs[idx], type:document.getElementById("logEditType").value, ts, note:document.getElementById("logEditNote").value}; setLogs(logs); } document.getElementById("logEditOverlay").classList.remove("show"); toast("수정됨"); renderLogAll(); renderAttendancePanel(); }; document.getElementById("logEditDelete").onclick=()=>{ if(confirm("삭제?")){ setLogs(getLogs().filter(x=>x.id!==id)); document.getElementById("logEditOverlay").classList.remove("show"); toast("삭제됨"); renderLogAll(); renderAttendancePanel(); } }; document.getElementById("logEditOverlay").classList.add("show"); };
-  document.getElementById("logEditCancel").addEventListener("click",()=>document.getElementById("logEditOverlay").classList.remove("show"));
-
-  document.getElementById("btnAddShift").addEventListener("click",async()=>{ if(!await ensureAdmin("추가"))return; const emps=getEmployees(); if(!emps.length)return toast("알바생 없음"); document.getElementById("logAddEmp").innerHTML=emps.map(e=>`<option value="${e.code}">${e.code} ${e.name}</option>`).join(""); logAddDates = []; document.getElementById("selectedDateList").innerHTML = `<span class="muted" style="font-size:12px; padding:4px;">날짜를 담아주세요</span>`; document.getElementById("logAddOverlay").classList.add("show"); });
-  document.getElementById("btnPushDate").addEventListener("click", () => { const dVal = document.getElementById("logAddDate").value; if(!dVal) return toast("날짜 선택"); if(logAddDates.includes(dVal)) return toast("중복 날짜"); logAddDates.push(dVal); renderSelectedDates(); });
-  function renderSelectedDates() { const box = document.getElementById("selectedDateList"); if(logAddDates.length === 0) { box.innerHTML = `<span class="muted" style="font-size:12px; padding:4px;">날짜를 담아주세요</span>`; return; } box.innerHTML = logAddDates.map(d => `<span class="date-pill">${d} <button onclick="removeDate('${d}')">x</button></span>`).join(""); }
-  window.removeDate = function(d) { logAddDates = logAddDates.filter(x => x !== d); renderSelectedDates(); };
-  document.getElementById("logAddSave").addEventListener("click",()=>{ const c=document.getElementById("logAddEmp").value; const e=findEmpByCode(c); const md=document.getElementById("logAddMode").value; const inT=document.getElementById("logAddInTime").value; const outT=document.getElementById("logAddOutTime").value; const note=document.getElementById("logAddNote").value; let targetDates = [...logAddDates]; if(targetDates.length === 0) { const singleDate = document.getElementById("logAddDate").value; if(singleDate) targetDates.push(singleDate); } if(targetDates.length === 0) return toast("날짜 없음");
-    targetDates.forEach(dt => { const mkTs=(t)=>new Date(`${dt}T${t}`).getTime(); if(md==="SHIFT"){ addLog({code:c,name:e.name,type:"IN",note:note||"수동"}); const l=getLogs(); l[l.length-1].ts=mkTs(inT); setLogs(l); addLog({code:c,name:e.name,type:"OUT",note:note||"수동"}); const l2=getLogs(); l2[l2.length-1].ts=mkTs(outT); setLogs(l2); } else if(md==="IN"){ addLog({code:c,name:e.name,type:"IN",note:note||"수동"}); const l=getLogs(); l[l.length-1].ts=mkTs(inT); setLogs(l); } else{ addLog({code:c,name:e.name,type:"OUT",note:note||"수동"}); const l=getLogs(); l[l.length-1].ts=mkTs(outT); setLogs(l); } }); document.getElementById("logAddOverlay").classList.remove("show"); toast("추가 완료"); renderLogAll(); renderAttendancePanel(); 
-  });
-  document.getElementById("logAddCancel").addEventListener("click",()=>document.getElementById("logAddOverlay").classList.remove("show"));
-
-  function downloadFile(fn,txt,mime){ const b=new Blob([txt],{type:mime}), a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download=fn; document.body.appendChild(a); a.click(); a.remove(); }
-  function exportCsv(){ const f=document.getElementById("logFilterEmp").value, l=getLogs().filter(x=>!f||x.code===f); const csv="id,type,code,name,ts,time,note\n"+l.map(x=>`${x.id},${x.type},${x.code},"${x.name}",${x.ts},"${fmtTS(x.ts)}","${(x.note||"").replace(/"/g,'""')}"`).join("\n"); downloadFile(`근태_${todayKey()}.csv`,csv,"text/csv;charset=utf-8"); }
-  document.getElementById("btnExportCsv").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
-  document.getElementById("btnExportCsv2").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
-  // =========================================================================
-// [수정 시작: CSV 데이터 병합 (Import) 로직 - 코드 간소화 금지]
-// =========================================================================
-
-// 1. 숨겨진 파일 선택창(input)이 HTML에 없으면 자바스크립트가 직접 만듭니다. (에러 완벽 방지)
-let csvFileInput = document.getElementById("csvFileInput");
-if (!csvFileInput) {
-    csvFileInput = document.createElement("input");
-    csvFileInput.type = "file";
-    csvFileInput.id = "csvFileInput";
-    csvFileInput.accept = ".csv";
-    csvFileInput.style.display = "none";
-    document.body.appendChild(csvFileInput);
-    console.log("CSV 파일 선택용 input 태그가 자동 생성되었습니다.");
-}
-
-// 2. 버튼 클릭 시 숨겨진 input을 대신 클릭해주는 연결
-const btnImportCsv = document.getElementById("btnImportCsv");
-if (btnImportCsv) {
-    btnImportCsv.addEventListener("click", async () => {
-        if(await ensureAdmin("CSV 불러오기")) {
-            csvFileInput.click(); // 여기서 나던 null 에러가 이제 발생하지 않습니다.
-        }
-    });
-}
-
-// 3. 파일이 선택되었을 때 실행되는 메인 로직
-csvFileInput.addEventListener("change", function(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const text = e.target.result;
-        try {
-            // CSV 텍스트 정제 (유령 문자 제거 및 줄바꿈 처리)
-            const cleanContent = String(text || "").replace(/^\ufeff/, ""); 
-            const lines = cleanContent.split(/\r?\n/);
-            const validLines = lines.filter(function(line) { return line.trim() !== ""; });
-            
-            if (validLines.length <= 1) {
-                toast("데이터가 없거나 잘못된 형식입니다.", "danger");
-                return;
-            }
-
-            // 헤더 제외하고 데이터 파싱
-            const dataRows = validLines.slice(1);
-            let importedCount = 0;
-            const existingLogs = getLogs();
-            
-            // 기존 데이터와 충돌을 막기 위해 현재 가장 높은 ID 값을 찾음
-            let maxId = 0;
-            for(const log of existingLogs) {
-                if(Number(log.id) > maxId) maxId = Number(log.id);
-            }
-
-            dataRows.forEach(function(line) {
-                const columns = line.split(",");
-                // 컬럼 개수가 부족하면 건너뜀 (안전 장치)
-                if (columns.length < 5) return; 
-
-                // 간소화 없이 각 변수를 꼼꼼히 파싱
-                const type = columns[1] ? columns[1].trim() : "";
-                let code = columns[2] ? columns[2].trim() : "";
-                code = pad4(normalizeCodeInput(code)); // 사번을 4자리 숫자로 통일
-                const name = columns[3] ? columns[3].replace(/"/g, "").trim() : "";
-                const ts = columns[4] ? Number(columns[4].trim()) : Date.now();
-                const note = columns[6] ? columns[6].replace(/"/g, "").trim() : "";
-
-                // 기존 데이터에 같은 시간(ts)과 같은 사번(code)의 기록이 있는지 중복 검사
-                const isDuplicate = existingLogs.some(function(log) {
-                    return log.ts === ts && log.code === code;
-                });
-                
-                // 중복이 아니면 새로운 ID를 부여하여 추가
-                if (!isDuplicate) {
-                    maxId += 1;
-                    existingLogs.push({
-                        id: maxId,
-                        type: type,
-                        code: code,
-                        name: name,
-                        ts: ts,
-                        note: note
-                    });
-                    importedCount++;
-                }
-            });
-
-            // 변경된 전체 로그 리스트를 안전하게 저장 (이전에 고친 update 방식 적용됨)
-            setLogs(existingLogs);
-            
-            // 파일 입력창 초기화 (같은 파일 다시 선택 가능하도록)
-            csvFileInput.value = "";
-
-            // UI 갱신
-            toast(`총 ${importedCount}건의 새 데이터가 추가되었습니다.`);
-            renderLogAll();
-            renderAttendancePanel();
-
-        } catch (error) {
-            console.error("CSV 파싱 에러:", error);
-            toast("파일을 읽는 중 에러가 발생했습니다.", "danger");
-        }
-    };
-    reader.readAsText(file);
-});
-// =========================================================================
-// [수정 끝]
-// =========================================================================
-  
-  function renderAdminCloseChecklist(){ const lst=document.getElementById("adminCloseChecklistList"), items=getCloseChecklist(); lst.innerHTML=items.map((t,i)=>`<div class="admCLRow"><div class="idx">${i+1}</div><input class="admCLInput" value="${escapeHtml(t)}" /><button class="btn small" onclick="delCLItem(${i})">삭제</button></div>`).join(""); }
-  window.delCLItem=async(i)=>{ const l=getCloseChecklist(); l.splice(i,1); setCloseChecklist(l); renderAdminCloseChecklist(); };
-  document.getElementById("btnAddCloseChecklistItem").addEventListener("click",()=>{ const v=document.getElementById("adminCloseNewItem").value.trim(); if(!v)return; const l=getCloseChecklist(); l.push(v); setCloseChecklist(l); document.getElementById("adminCloseNewItem").value=""; renderAdminCloseChecklist(); });
-  document.getElementById("btnSaveCloseChecklist").addEventListener("click",()=>{ const l=Array.from(document.querySelectorAll(".admCLInput")).map(i=>i.value.trim()).filter(Boolean); setCloseChecklist(l); toast("저장됨"); renderAdminCloseChecklist(); });
-  document.getElementById("btnResetCloseChecklist").addEventListener("click",()=>{ localStorage.removeItem(LS_KEYS.CLOSE_CHECKLIST); renderAdminCloseChecklist(); });
-
-// [삭제한 자리에 이 코드만 남겨주세요]
-  (async () => {
-    try {
-      renderAttendancePanel();
-      if (typeof updateAdminStateText === 'function') updateAdminStateText();
-      renderEmployees();
-      renderLogFilterOptions();
-      renderLogAll();
-      console.log("탐나는피자 시스템 재가동 완료");
-    } catch (e) {
-      console.error("로딩 에러:", e);
-    }
-  })();
-</script>
