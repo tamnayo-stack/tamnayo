@@ -641,7 +641,7 @@ window.sendTelegramAlert = async function(text) {
   // [Firebase 및 기본 설정]
   // -------------------------------------------------------------
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+  import { getDatabase, ref, update, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
   const firebaseConfig = { apiKey: "AIzaSyAbdEqVxEOcA3qFEcYEH9yuvNRx_CTMxhE", authDomain: "tamna-hr.firebaseapp.com", projectId: "tamna-hr", storageBucket: "tamna-hr.firebasestorage.app", messagingSenderId: "766306504997", appId: "1:766306504997:web:3e4e77bc14101cd6660acc" };
   const app = initializeApp(firebaseConfig);
@@ -726,7 +726,10 @@ window.sendTelegramAlert = async function(text) {
     }
   });
 
-  window.saveJSON = async function(key, val) { SERVER_CACHE[key] = val; await set(ref(db, 'tamnaData'), SERVER_CACHE); };
+    window.saveJSON = async function(key, val) {
+      SERVER_CACHE[key] = val;
+      await update(ref(db, 'tamnaData'), { [key]: val });
+  };
   window.loadJSON = function(key, fallback) {
     return Object.prototype.hasOwnProperty.call(SERVER_CACHE, key) ? SERVER_CACHE[key] : fallback;
   };
