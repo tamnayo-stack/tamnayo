@@ -1344,8 +1344,7 @@ function renderCalendar(){
   function exportCsv(){ const f=document.getElementById("logFilterEmp").value, l=getLogs().filter(x=>!f||x.code===f); const csv="id,type,code,name,ts,time,note\n"+l.map(x=>`${x.id},${x.type},${x.code},"${x.name}",${x.ts},"${fmtTS(x.ts)}","${(x.note||"").replace(/"/g,'""')}"`).join("\n"); downloadFile(`근태_${todayKey()}.csv`,csv,"text/csv;charset=utf-8"); }
   document.getElementById("btnExportCsv").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
   document.getElementById("btnExportCsv2").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
-  document.getElementById("btnResetAll").addEventListener("click",async()=>{ if(await ensureAdmin() && confirm("전체 초기화(복구불가)?")){ localStorage.clear(); await set(ref(db, 'tamnaData'), null); location.reload(); } });
-
+  
   function renderAdminCloseChecklist(){ const lst=document.getElementById("adminCloseChecklistList"), items=getCloseChecklist(); lst.innerHTML=items.map((t,i)=>`<div class="admCLRow"><div class="idx">${i+1}</div><input class="admCLInput" value="${escapeHtml(t)}" /><button class="btn small" onclick="delCLItem(${i})">삭제</button></div>`).join(""); }
   window.delCLItem=async(i)=>{ const l=getCloseChecklist(); l.splice(i,1); setCloseChecklist(l); renderAdminCloseChecklist(); };
   document.getElementById("btnAddCloseChecklistItem").addEventListener("click",()=>{ const v=document.getElementById("adminCloseNewItem").value.trim(); if(!v)return; const l=getCloseChecklist(); l.push(v); setCloseChecklist(l); document.getElementById("adminCloseNewItem").value=""; renderAdminCloseChecklist(); });
