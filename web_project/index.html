@@ -162,6 +162,7 @@
     .calTime{ font-size: 13px; font-weight: 800; color: var(--text); display:block; }
     .calPay{ font-size: 11px; color: var(--good); font-weight: 700; display:block; margin-top:2px; }
     .calDay:hover{ background: #f8f9fa !important; }
+    .calDay.selected{ border-color: var(--warn); background: rgba(243,156,18,.12) !important; }
 
     .totalWageBox { background: var(--panel2); border: 2px solid var(--accent); border-radius: 14px; padding: 16px; text-align:center; margin-bottom: 14px; display:flex; flex-direction:column; align-items:center; gap:4px; }
     .totalWageLabel { color: var(--muted); font-size: 13px; font-weight: 800; }
@@ -280,6 +281,7 @@
       <div class="hr"></div>
       <div class="row" style="margin-bottom:10px; gap:10px; flex-wrap:wrap;">
         <span class="pill">전체 기록: <strong id="logTotal">0</strong>건</span>
+        <span class="pill" id="logDateFilterPill" style="display:none;">선택 날짜: <strong id="logDateFilterText">-</strong> <button class="btn small" id="btnClearDateFilter" style="margin-left:8px; padding:4px 8px;">해제</button></span>
         <label class="muted" style="display:flex; align-items:center; gap:8px;">알바생 필터<select id="logFilterEmp" style="min-width:180px;"></select></label>
         <div class="spacer"></div>
         <button class="btn small" id="btnAddShift">근무 추가</button>
@@ -1237,13 +1239,18 @@ function renderCalendar(){
       if(st.has) inner += `<div class="calData"><span class="calTime">${st.h > 0 ? st.h + 'h ' : ''}${st.m}m</span>${st.pay > 0 ? `<span class="calPay">${st.pay.toLocaleString()}원</span>` : ''}</div>`;
       
       div.innerHTML = inner;
+      div.addEventListener("click", ()=>{
+        selectedLogDate = (selectedLogDate === k) ? "" : k;
+        renderLogAll();
+      });
       g.appendChild(div);
     }
     updateMonthlyWageEstimate(); // 월별 예상 급여 갱신
   }
   
-  document.getElementById("calPrevBtn").addEventListener("click",()=>{ calMonth--; if(calMonth<1){calMonth=12;calYear--;} renderCalendar(); });
-  document.getElementById("calNextBtn").addEventListener("click",()=>{ calMonth++; if(calMonth>12){calMonth=1;calYear++;} renderCalendar(); });
+  document.getElementById("calPrevBtn").addEventListener("click",()=>{ calMonth--; if(calMonth<1){calMonth=12;calYear--;} selectedLogDate=""; renderLogAll(); });
+  document.getElementById("calNextBtn").addEventListener("click",()=>{ calMonth++; if(calMonth>12){calMonth=1;calYear++;} selectedLogDate=""; renderLogAll(); });
+  document.getElementById("btnClearDateFilter").addEventListener("click", ()=>{ selectedLogDate=""; renderLogAll(); });
 
   function updateMonthlyWageEstimate() {
     const tEmp = document.getElementById("logFilterEmp").value;
