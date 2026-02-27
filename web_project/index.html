@@ -1205,7 +1205,7 @@
   document.getElementById("calPrevBtn").addEventListener("click",()=>{ calMonth--; if(calMonth<1){calMonth=12;calYear--;} renderCalendar(); });
   document.getElementById("calNextBtn").addEventListener("click",()=>{ calMonth++; if(calMonth>12){calMonth=1;calYear++;} renderCalendar(); });
 
-  function updateMonthlyWageEstimate() {// [수정] 월별 급여 계산 및 우측 상세 패널 렌더링 함수
+  // [수정] 월별 급여 계산 및 우측 상세 패널 렌더링 함수
   function updateMonthlyWageEstimate() {
     const tEmp = document.getElementById("logFilterEmp").value;
     const targetPrefix = `${calYear}-${String(calMonth).padStart(2,"0")}`;
