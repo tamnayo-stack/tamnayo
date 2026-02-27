@@ -354,7 +354,6 @@
     <div class="menuGrid">
       <button class="btn primary" id="goEmp">알바생 관리</button>
       <button class="btn primary" id="goLog">근태 조회</button>
-      <button class="btn warn" id="btnExportCsv2">CSV 내보내기</button>
       <button class="btn" id="btnOpenActionLog">시스템 로그</button>
       <button class="btn" id="btnLockAdmin">관리자 메뉴 닫기</button>
     </div>
@@ -1381,7 +1380,6 @@
   function downloadFile(fn,txt,mime){ const b=new Blob([txt],{type:mime}), a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download=fn; document.body.appendChild(a); a.click(); a.remove(); }
   function exportCsv(){ const f=document.getElementById("logFilterEmp").value, l=getLogs().filter(x=>!f||x.code===f); const csv="id,type,code,name,ts,time,note\n"+l.map(x=>`${x.id},${x.type},${x.code},"${x.name}",${x.ts},"${fmtTS(x.ts)}","${(x.note||"").replace(/"/g,'""')}"`).join("\n"); downloadFile(`근태_${todayKey()}.csv`,csv,"text/csv;charset=utf-8"); }
   document.getElementById("btnExportCsv").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
-  document.getElementById("btnExportCsv2").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
 
   let csvFileInput = document.getElementById("csvFileInput");
   if (!csvFileInput) {
