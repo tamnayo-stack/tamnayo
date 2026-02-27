@@ -11,6 +11,19 @@
   <title>탐나는피자 화성남양점</title>
   
   <style>
+    /* 달력 8:2 분할 및 우측 요약 패널 디자인 */
+    .log-dashboard { display: grid; grid-template-columns: 2.5fr 1fr; gap: 14px; align-items: start; margin-bottom: 14px; }
+    @media (max-width: 980px) { .log-dashboard { grid-template-columns: 1fr; } }
+    
+    .summary-panel { background: var(--panel2); border: 2px solid var(--accent); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; position: sticky; top: 70px; }
+    .summary-item { display: flex; flex-direction: column; gap: 4px; border-bottom: 1px dashed var(--line); padding-bottom: 8px; }
+    .summary-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .summary-title { color: var(--muted); font-size: 13px; font-weight: 800; }
+    .summary-value { color: var(--text); font-size: 16px; font-weight: 900; }
+    
+    .juhyu-list { font-size: 12px; color: var(--text); margin-top: 4px; display: flex; flex-direction: column; gap: 6px; }
+    .juhyu-row { display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 8px; border-radius: 8px; border: 1px solid var(--line); }
+    .juhyu-row.none { color: var(--muted); background: transparent; border: none; padding: 0; }
     /* ================================================================
        [디자인 100% 원본 유지] 
        ================================================================
@@ -292,18 +305,20 @@
       </div>
       <div class="hr"></div>
       
-      <div class="totalWageBox">
-        <div class="totalWageLabel" id="totalWageTitle">--월 예상 급여</div>
-        <div class="totalWageValue" id="totalWageAmount">0원</div>
-        <div class="totalWageDetail" id="totalWageDetail">(기본 0 + 주휴 0)</div>
+      <div class="log-dashboard">
+        <div class="cal-wrapper">
+          <div class="calHeader">
+            <button class="btn small" id="calPrevBtn">◀ 이전달</button>
+            <h3 id="calTitle" style="margin:0; font-size:18px;">202X. XX</h3>
+            <button class="btn small" id="calNextBtn">다음달 ▶</button>
+          </div>
+          <div class="calGrid" id="calendarView"></div>
+          <div class="note" style="margin-top:14px;">• 일요일에 해당 주의 주휴수당(15시간↑)이 표시됩니다.<br/>• 평일 공휴일은 1.5배 시급이 자동 적용됩니다.</div>
+        </div>
+        
+        <div class="summary-panel" id="summaryPanel">
+          </div>
       </div>
-
-      <div class="calHeader">
-        <button class="btn small" id="calPrevBtn">◀ 이전달</button>
-        <h3 id="calTitle" style="margin:0; font-size:18px;">202X. XX</h3>
-        <button class="btn small" id="calNextBtn">다음달 ▶</button>
-      </div>
-      <div class="calGrid" id="calendarView"></div>
       
       <div class="note" style="margin:14px 0;">• 일요일에 해당 주의 주휴수당(15시간↑)이 표시됩니다.<br/>• 평일 공휴일은 1.5배 시급이 자동 적용됩니다.</div>
       
@@ -1190,12 +1205,13 @@
   document.getElementById("calPrevBtn").addEventListener("click",()=>{ calMonth--; if(calMonth<1){calMonth=12;calYear--;} renderCalendar(); });
   document.getElementById("calNextBtn").addEventListener("click",()=>{ calMonth++; if(calMonth>12){calMonth=1;calYear++;} renderCalendar(); });
 
+  function updateMonthlyWageEstimate() {// [수정] 월별 급여 계산 및 우측 상세 패널 렌더링 함수
   function updateMonthlyWageEstimate() {
     const tEmp = document.getElementById("logFilterEmp").value;
-    document.getElementById("totalWageTitle").textContent = `${calMonth}월 예상 급여 ${tEmp ? '(선택된 알바생)' : '(전체)'}`;
     const targetPrefix = `${calYear}-${String(calMonth).padStart(2,"0")}`;
     const employees = getEmployees().filter(e => !tEmp || e.code === tEmp);
-    let totalBase = 0, totalJuhyu = 0;
+    let totalBase = 0, totalJuhyu = 0, totalMs = 0;
+    let juhyuDetails = []; 
 
     employees.forEach(emp => {
       const pairs = getShiftPairs(emp.code).filter(p => dateKey(p.inTs).startsWith(targetPrefix));
@@ -1204,6 +1220,7 @@
         const adjOutTs = getAdjustedWorkTime(emp, p.inTs, p.outTs);
         if(adjOutTs <= adjInTs) return;
         const ms = adjOutTs - adjInTs;
+        totalMs += ms;
         const dk = dateKey(p.inTs);
         const wage = resolveWageByDate(emp, dk);
         totalBase += roundPayWon((ms / 3600000) * wage);
@@ -1212,11 +1229,75 @@
       const sundaysInMonth = [];
       const d = new Date(calYear, calMonth-1, 1);
       while(d.getMonth() === calMonth-1) { if(d.getDay() === 0) sundaysInMonth.push(new Date(d)); d.setDate(d.getDate() + 1); }
-      sundaysInMonth.forEach(sunday => { totalJuhyu += getWeeklyJuhyuSum(sunday, emp.code); });
+      
+      sundaysInMonth.forEach((sunday, idx) => { 
+        const amt = getWeeklyJuhyuSum(sunday, emp.code);
+        if(amt > 0) {
+            totalJuhyu += amt;
+            // 월요일 ~ 일요일 날짜 문자열 만들기 (예: 26.01.05~26.01.11)
+            const sd = new Date(sunday); sd.setDate(sd.getDate() - 6);
+            const yy = String(sd.getFullYear()).slice(-2);
+            const sStr = `${yy}.${String(sd.getMonth()+1).padStart(2,'0')}.${String(sd.getDate()).padStart(2,'0')}`;
+            const yy2 = String(sunday.getFullYear()).slice(-2);
+            const eStr = `${yy2}.${String(sunday.getMonth()+1).padStart(2,'0')}.${String(sunday.getDate()).padStart(2,'0')}`;
+            
+            juhyuDetails.push({ 
+                week: idx + 1, 
+                range: `${sStr}~${eStr}`, 
+                amount: amt, 
+                empName: emp.name 
+            });
+        }
+      });
     });
 
-    document.getElementById("totalWageAmount").textContent = (totalBase + totalJuhyu).toLocaleString() + "원";
-    document.getElementById("totalWageDetail").textContent = `(기본 ${totalBase.toLocaleString()} + 주휴 ${totalJuhyu.toLocaleString()})`;
+    // 8:2 우측 패널에 데이터 그려주기
+    const summaryEl = document.getElementById("summaryPanel");
+    if(!summaryEl) return;
+
+    let h = Math.floor(totalMs / 3600000);
+    let m = Math.floor((totalMs % 3600000) / 60000);
+    
+    let html = `
+        <div class="summary-item">
+            <div class="summary-title">${calMonth}월 근무 요약 ${tEmp ? '(선택됨)' : '(전체)'}</div>
+            <div class="summary-value" style="font-size:15px; margin-top:4px;">총 ${h}시간 ${m}분</div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-title">기본 급여 합계</div>
+            <div class="summary-value">${totalBase.toLocaleString()}원</div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-title">주휴 수당 내역 (총 ${totalJuhyu.toLocaleString()}원)</div>
+            <div class="juhyu-list">
+    `;
+    
+    if(juhyuDetails.length > 0) {
+        juhyuDetails.forEach(j => {
+            // 알바생 전체 보기일 때는 이름 표시, 한 명만 볼 때는 이름 숨김
+            let nameTag = !tEmp ? `<span style="font-size:11px; color:var(--muted); font-weight:800; display:block; margin-bottom:2px;">${j.empName}</span>` : "";
+            html += `<div class="juhyu-row">
+                        <div style="line-height:1.2;">
+                            ${nameTag}
+                            <span style="font-weight:700;">${j.week}주차 (${j.range})</span>
+                        </div>
+                        <strong style="color:var(--warn); font-size:14px;">+${j.amount.toLocaleString()}</strong>
+                     </div>`;
+        });
+    } else {
+        html += `<div class="juhyu-row none">발생 내역 없음</div>`;
+    }
+
+    html += `
+            </div>
+        </div>
+        <div class="summary-item" style="border:none; padding-top:8px;">
+            <div class="summary-title">총 예상 급여 (기본+주휴)</div>
+            <div class="summary-value" style="color:var(--accent); font-size:24px;">${(totalBase + totalJuhyu).toLocaleString()}원</div>
+        </div>
+    `;
+    
+    summaryEl.innerHTML = html;
   }
 
   function renderLogFilterOptions(){
