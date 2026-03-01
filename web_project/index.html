@@ -1327,42 +1327,7 @@ function updateMonthlyWageEstimate() {
 
   summaryEl.innerHTML = html;
 }
-  
-    if(juhyuDetails.length > 0) {
-        // 1. 주차별 상세 내역 출력
-        juhyuDetails.forEach(j => {
-            let nameTag = !tEmp ? `<span style="font-size:11px; color:var(--muted); font-weight:800; display:block; margin-bottom:2px;">${j.empName}</span>` : "";
-            html += `<div class="juhyu-row">
-                        <div style="line-height:1.2;">
-                            ${nameTag}
-                            <span style="font-weight:700;">${j.week}주차 (${j.range})</span>
-                        </div>
-                        <strong style="color:var(--warn); font-size:14px;">+${j.amount.toLocaleString()}</strong>
-                     </div>`;
-        });
-        
-        // 2. [추가된 기능] 주휴수당 총 합계를 맨 아래에 눈에 띄게 추가
-        html += `<div class="juhyu-row" style="background: rgba(243, 156, 18, 0.1); border: 1px solid var(--warn); margin-top: 4px;">
-                    <div style="font-weight:900; color:var(--text);">주휴수당 총 합계</div>
-                    <strong style="color:var(--warn); font-size:16px;">+${totalJuhyu.toLocaleString()}원</strong>
-                 </div>`;
-    } else {
-        html += `<div class="juhyu-row none">발생 내역 없음</div>`;
-    }
-
-    html += `
-            </div>
-        </div>
-        <div class="summary-item" style="border:none; padding-top:8px;">
-            <div class="summary-title">세전 예상 급여 (기본급+주휴수당)</div>
-            <div class="summary-value" style="color:var(--accent); font-size:24px;">${(totalBase + totalJuhyu).toLocaleString()}원</div>
-        </div>
-    `;
-    
-    summaryEl.innerHTML = html;
-  }
-
-  function renderLogFilterOptions(){
+    function renderLogFilterOptions(){
     const sel=document.getElementById("logFilterEmp"), old=sel.value;
     sel.innerHTML=`<option value="">전체 알바생</option>`+getEmployees().map(e=>`<option value="${e.code}">${e.code} ${escapeHtml(e.name)}</option>`).join("");
     sel.value=old;
