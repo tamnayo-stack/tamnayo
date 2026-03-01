@@ -1060,15 +1060,27 @@
     return scheduledEnd;
   }
 
-  function getAdjustedWorkTime(emp, inTs, outTs) {
-    if (!emp.workEnd) return outTs;
-    const scheduledEnd = getScheduledEndTime(emp, inTs, outTs);
-    if (outTs <= scheduledEnd) return scheduledEnd;
-    const diff = outTs - scheduledEnd;
-    const bonusUnit = 5 * 60 * 1000;
-    const blocks = Math.ceil(diff / bonusUnit);
-    return scheduledEnd + (blocks * bonusUnit);
+function getAdjustedWorkTime(emp, inTs, outTs, note = "") {
+  if (!emp || !emp.workEnd) return outTs;
+  const scheduledEnd = getScheduledEndTime(emp, inTs, outTs);
+
+  const isEarlyLeave = String(note || "").includes("조퇴");
+
+  // 계약 종료 전 퇴근:
+  // - 비고에 "조퇴"가 있으면 실제 퇴근시간 인정
+  // - 없으면 계약 종료시간까지 인정
+  if (outTs <= scheduledEnd) {
+    return isEarlyLeave ? outTs : scheduledEnd;
   }
+
+  // 계약 종료 후 퇴근: 5분 단위 올림
+  const diff = outTs - scheduledEnd;
+  const bonusUnit = 5 * 60 * 1000;
+  const blocks = Math.ceil(diff / bonusUnit);
+  return scheduledEnd + (blocks * bonusUnit);
+}
+
+
 
   function resolveWageByDate(emp, workDateKey) {
     const dObj = new Date(workDateKey);
@@ -1081,16 +1093,29 @@
 
   function roundPayWon(v) { return Math.round((Number(v) || 0) / 10) * 10; }
 
-  function getShiftPairs(filterCode = "") {
-    const logs = getLogs().filter(l=>!filterCode || l.code===filterCode).sort((a,b)=>a.ts-b.ts);
-    const openInByCode = {};
-    const pairs = [];
-    logs.forEach(l => {
-      if (l.type === "IN") { openInByCode[l.code] = l; return; }
-      if (l.type === "OUT" && openInByCode[l.code]) { pairs.push({ code:l.code, inTs:openInByCode[l.code].ts, outTs:l.ts, emp:findEmpByCode(l.code) }); delete openInByCode[l.code]; }
-    });
-    return pairs;
-  }
+function getShiftPairs(filterCode = "") {
+  const logs = getLogs().filter(l=>!filterCode || l.code===filterCode).sort((a,b)=>a.ts-b.ts);
+  const openInByCode = {};
+  const pairs = [];
+  logs.forEach(l => {
+    if (l.type === "IN") {
+      openInByCode[l.code] = l;
+      return;
+    }
+    if (l.type === "OUT" && openInByCode[l.code]) {
+      pairs.push({
+        code: l.code,
+        inTs: openInByCode[l.code].ts,
+        outTs: l.ts,
+        outNote: l.note || "",
+        emp: findEmpByCode(l.code)
+      });
+      delete openInByCode[l.code];
+    }
+  });
+  return pairs;
+}
+
 
   function calcDayStats(dk, tCode){
     const pairs = getShiftPairs(tCode).filter(p => dateKey(p.inTs) === dk);
@@ -1098,7 +1123,7 @@
     pairs.forEach(p => {
       const wage = resolveWageByDate(p.emp, dk);
       const adjInTs = getAdjustedStartTime(p.emp, p.inTs);
-      const adjOutTs = getAdjustedWorkTime(p.emp, p.inTs, p.outTs);
+      const adjOutTs = getAdjustedWorkTime(p.emp, p.inTs, p.outTs, p.outNote);
       if(adjOutTs > adjInTs) {
         const d=adjOutTs-adjInTs;
         ms+=d;
@@ -1120,7 +1145,7 @@
        let weeklyPay = 0;
        pairs.forEach(p => {
          const adjInTs = getAdjustedStartTime(emp, p.inTs);
-         const adjOutTs = getAdjustedWorkTime(emp, p.inTs, p.outTs);
+         const adjOutTs = getAdjustedWorkTime(emp, p.inTs, p.outTs, p.outNote);
          if(adjOutTs <= adjInTs) return;
          const durationMs = adjOutTs - adjInTs;
          weeklyMs += durationMs;
@@ -1200,72 +1225,109 @@
   document.getElementById("calPrevBtn").addEventListener("click",()=>{ calMonth--; if(calMonth<1){calMonth=12;calYear--;} renderCalendar(); });
   document.getElementById("calNextBtn").addEventListener("click",()=>{ calMonth++; if(calMonth>12){calMonth=1;calYear++;} renderCalendar(); });
 
-// [수정] 월별 급여 계산 및 우측 상세 패널 렌더링 함수 (주휴수당 총합계 하단 추가)
-  function updateMonthlyWageEstimate() {
-    const tEmp = document.getElementById("logFilterEmp").value;
-    const targetPrefix = `${calYear}-${String(calMonth).padStart(2,"0")}`;
-    const employees = getEmployees().filter(e => !tEmp || e.code === tEmp);
-    let totalBase = 0, totalJuhyu = 0, totalMs = 0;
-    let juhyuDetails = []; 
+function updateMonthlyWageEstimate() {
+  const tEmp = document.getElementById("logFilterEmp").value;
+  const targetPrefix = `${calYear}-${String(calMonth).padStart(2, "0")}`;
+  const employees = getEmployees().filter(e => !tEmp || e.code === tEmp);
+  let totalBase = 0, totalJuhyu = 0, totalMs = 0;
+  let juhyuDetails = [];
 
-    employees.forEach(emp => {
-      const pairs = getShiftPairs(emp.code).filter(p => dateKey(p.inTs).startsWith(targetPrefix));
-      pairs.forEach(p => {
-        const adjInTs = getAdjustedStartTime(emp, p.inTs);
-        const adjOutTs = getAdjustedWorkTime(emp, p.inTs, p.outTs);
-        if(adjOutTs <= adjInTs) return;
-        const ms = adjOutTs - adjInTs;
-        totalMs += ms;
-        const dk = dateKey(p.inTs);
-        const wage = resolveWageByDate(emp, dk);
-        totalBase += roundPayWon((ms / 3600000) * wage);
-      });
+  employees.forEach(emp => {
+    const pairs = getShiftPairs(emp.code).filter(p => dateKey(p.inTs).startsWith(targetPrefix));
+    pairs.forEach(p => {
+      const adjInTs = getAdjustedStartTime(emp, p.inTs);
+      const adjOutTs = getAdjustedWorkTime(emp, p.inTs, p.outTs, p.outNote);
+      if (adjOutTs <= adjInTs) return;
 
-      const sundaysInMonth = [];
-      const d = new Date(calYear, calMonth-1, 1);
-      while(d.getMonth() === calMonth-1) { if(d.getDay() === 0) sundaysInMonth.push(new Date(d)); d.setDate(d.getDate() + 1); }
-      
-      sundaysInMonth.forEach((sunday, idx) => { 
-        const amt = getWeeklyJuhyuSum(sunday, emp.code);
-        if(amt > 0) {
-            totalJuhyu += amt;
-            // 월요일 ~ 일요일 날짜 문자열 만들기
-            const sd = new Date(sunday); sd.setDate(sd.getDate() - 6);
-            const yy = String(sd.getFullYear()).slice(-2);
-            const sStr = `${yy}.${String(sd.getMonth()+1).padStart(2,'0')}.${String(sd.getDate()).padStart(2,'0')}`;
-            const yy2 = String(sunday.getFullYear()).slice(-2);
-            const eStr = `${yy2}.${String(sunday.getMonth()+1).padStart(2,'0')}.${String(sunday.getDate()).padStart(2,'0')}`;
-            
-            juhyuDetails.push({ 
-                week: idx + 1, 
-                range: `${sStr}~${eStr}`, 
-                amount: amt, 
-                empName: emp.name 
-            });
-        }
-      });
+      const ms = adjOutTs - adjInTs;
+      totalMs += ms;
+      const dk = dateKey(p.inTs);
+      const wage = resolveWageByDate(emp, dk);
+      totalBase += roundPayWon((ms / 3600000) * wage);
     });
 
-    const summaryEl = document.getElementById("summaryPanel");
-    if(!summaryEl) return;
+    const sundaysInMonth = [];
+    const d = new Date(calYear, calMonth - 1, 1);
+    while (d.getMonth() === calMonth - 1) {
+      if (d.getDay() === 0) sundaysInMonth.push(new Date(d));
+      d.setDate(d.getDate() + 1);
+    }
 
-    let h = Math.floor(totalMs / 3600000);
-    let m = Math.floor((totalMs % 3600000) / 60000);
-    
-    let html = `
-        <div class="summary-item">
-            <div class="summary-title">${calMonth}월 근무 요약 ${tEmp ? '(선택됨)' : '(전체)'}</div>
-            <div class="summary-value" style="font-size:15px; margin-top:4px;">총 ${h}시간 ${m}분</div>
+    sundaysInMonth.forEach((sunday, idx) => {
+      const amt = getWeeklyJuhyuSum(sunday, emp.code);
+      if (amt > 0) {
+        totalJuhyu += amt;
+        const sd = new Date(sunday);
+        sd.setDate(sd.getDate() - 6);
+        const yy = String(sd.getFullYear()).slice(-2);
+        const sStr = `${yy}.${String(sd.getMonth() + 1).padStart(2, '0')}.${String(sd.getDate()).padStart(2, '0')}`;
+        const yy2 = String(sunday.getFullYear()).slice(-2);
+        const eStr = `${yy2}.${String(sunday.getMonth() + 1).padStart(2, '0')}.${String(sunday.getDate()).padStart(2, '0')}`;
+
+        juhyuDetails.push({
+          week: idx + 1,
+          range: `${sStr}~${eStr}`,
+          amount: amt,
+          empName: emp.name
+        });
+      }
+    });
+  });
+
+  const summaryEl = document.getElementById("summaryPanel");
+  if (!summaryEl) return;
+
+  let h = Math.floor(totalMs / 3600000);
+  let m = Math.floor((totalMs % 3600000) / 60000);
+
+  let html = `
+    <div class="summary-item">
+      <div class="summary-title">${calMonth}월 근무 요약 ${tEmp ? '(선택됨)' : '(전체)'}</div>
+      <div class="summary-value" style="font-size:15px; margin-top:4px;">총 ${h}시간 ${m}분</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-title">기본 급여 합계</div>
+      <div class="summary-value">${totalBase.toLocaleString()}원</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-title">주휴수당 내역</div>
+      <div class="juhyu-list">
+  `;
+
+  if (juhyuDetails.length > 0) {
+    juhyuDetails.forEach(j => {
+      let nameTag = !tEmp
+        ? `<span style="font-size:11px; color:var(--muted); font-weight:800; display:block; margin-bottom:2px;">${j.empName}</span>`
+        : "";
+      html += `<div class="juhyu-row">
+        <div style="line-height:1.2;">
+          ${nameTag}
+          <span style="font-weight:700;">${j.week}주차 (${j.range})</span>
         </div>
-        <div class="summary-item">
-            <div class="summary-title">기본 급여 합계</div>
-            <div class="summary-value">${totalBase.toLocaleString()}원</div>
-        </div>
-        <div class="summary-item">
-            <div class="summary-title">주휴수당 내역</div>
-            <div class="juhyu-list">
-    `;
-    
+        <strong style="color:var(--warn); font-size:14px;">+${j.amount.toLocaleString()}</strong>
+      </div>`;
+    });
+
+    html += `<div class="juhyu-row" style="background: rgba(243, 156, 18, 0.1); border: 1px solid var(--warn); margin-top: 4px;">
+      <div style="font-weight:900; color:var(--text);">주휴수당 총 합계</div>
+      <strong style="color:var(--warn); font-size:16px;">+${totalJuhyu.toLocaleString()}원</strong>
+    </div>`;
+  } else {
+    html += `<div class="juhyu-row none">발생 내역 없음</div>`;
+  }
+
+  html += `
+      </div>
+    </div>
+    <div class="summary-item" style="border:none; padding-top:8px;">
+      <div class="summary-title">세전 예상 급여 (기본급+주휴수당)</div>
+      <div class="summary-value" style="color:var(--accent); font-size:24px;">${(totalBase + totalJuhyu).toLocaleString()}원</div>
+    </div>
+  `;
+
+  summaryEl.innerHTML = html;
+}
+  
     if(juhyuDetails.length > 0) {
         // 1. 주차별 상세 내역 출력
         juhyuDetails.forEach(j => {
@@ -1344,14 +1406,16 @@
         if(l.type === "OUT" && emp) {
             const matchedPair = shiftByOutKey.get(`${l.code}|${l.ts}`);
             const inTsForAdjust = matchedPair ? matchedPair.inTs : l.ts;
-            const adjOutTs = getAdjustedWorkTime(emp, inTsForAdjust, l.ts);
+            const noteForAdjust = matchedPair ? matchedPair.outNote : (l.note || "");
+            const adjOutTs = getAdjustedWorkTime(emp, inTsForAdjust, l.ts, noteForAdjust);
+        
             if(adjOutTs !== l.ts) {
-                const d = new Date(adjOutTs);
-                const adjStr = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
-
-                const scheduledEnd = getScheduledEndTime(emp, inTsForAdjust, l.ts);
-                const label = adjOutTs > scheduledEnd ? "연장" : "정시";
-                timeDisplay += `<br><span class="tag good" style="font-size:10px;">${label}(인정:${adjStr})</span>`;
+              const d = new Date(adjOutTs);
+              const adjStr = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+        
+              const scheduledEnd = getScheduledEndTime(emp, inTsForAdjust, l.ts);
+              const label = adjOutTs > scheduledEnd ? "연장" : "정시";
+            timeDisplay += `<br><span class="tag good" style="font-size:10px;">${label}(인정:${adjStr})</span>`;
             }
         }
         
