@@ -871,22 +871,59 @@
   const noticeOverlay=document.getElementById("noticeOverlay");
   function setRingProgress(p){ const c=2*Math.PI*30; document.getElementById("noticeRing").style.strokeDasharray=`${c}`; document.getElementById("noticeRing").style.strokeDashoffset=`${c*(1-p)}`; }
   
-  async function showNoticeCountdownIfAny(){
-    const t=getTodayNotice(); if(!t) return true;
-    const duration = getTodayNoticeDuration();
-    const noticeEl = document.getElementById("noticeText"); noticeEl.innerHTML = t; noticeEl.scrollTop = 0; 
-    document.getElementById("noticeDateText").textContent=`${todayKey()} 공지`;
-    const btn=document.getElementById("noticeOk"), num=document.getElementById("noticeNum");
-    btn.disabled=true; noticeOverlay.classList.add("show"); num.textContent = String(duration); setRingProgress(0);
-    return new Promise(r=>{
-      let s=Date.now(), tm=setInterval(()=>{
-        const e=(Date.now()-s)/1000, p=Math.min(1,e/duration); setRingProgress(p); num.textContent=String(Math.max(0,duration-Math.floor(e)));
-        if(p>=1){ clearInterval(tm); btn.disabled=false; noticeOverlay.querySelector(".countWrap").style.display="none"; }
-      },60);
-      const done=()=>{ clearInterval(tm); noticeOverlay.classList.remove("show"); noticeOverlay.querySelector(".countWrap").style.display=""; btn.removeEventListener("click",done); r(true); };
-      btn.addEventListener("click",done);
-    });
-  }
+async function showNoticeCountdownIfAny(){
+  const t = getTodayNotice();
+  if(!t) return true;
+
+  const duration = getTodayNoticeDuration();
+  const noticeEl = document.getElementById("noticeText");
+  const modalEl = document.querySelector("#noticeOverlay .modal");
+  const btn = document.getElementById("noticeOk");
+  const num = document.getElementById("noticeNum");
+
+  noticeEl.innerHTML = t;
+  noticeEl.scrollTop = 0;
+  noticeOverlay.classList.add("show");
+
+  requestAnimationFrame(() => {
+    if (modalEl) modalEl.scrollTop = 0; // 핵심: 실제 스크롤 컨테이너 초기화
+    noticeEl.scrollTop = 0;
+    btn.blur(); // 이전 사용자 포커스 제거
+  });
+
+  document.getElementById("noticeDateText").textContent = `${todayKey()} 공지`;
+  btn.disabled = true;
+  num.textContent = String(duration);
+  setRingProgress(0);
+
+  return new Promise(r => {
+    let s = Date.now();
+    let tm = setInterval(() => {
+      const e = (Date.now() - s) / 1000;
+      const p = Math.min(1, e / duration);
+      setRingProgress(p);
+      num.textContent = String(Math.max(0, duration - Math.floor(e)));
+      if (p >= 1) {
+        clearInterval(tm);
+        btn.disabled = false;
+        noticeOverlay.querySelector(".countWrap").style.display = "none";
+      }
+    }, 60);
+
+    const done = () => {
+      clearInterval(tm);
+      if (modalEl) modalEl.scrollTop = 0; // 닫을 때도 초기화
+      noticeEl.scrollTop = 0;
+      btn.blur();
+      noticeOverlay.classList.remove("show");
+      noticeOverlay.querySelector(".countWrap").style.display = "";
+      btn.removeEventListener("click", done);
+      r(true);
+    };
+    btn.addEventListener("click", done);
+  });
+}
+
 
   const outNoteOverlay=document.getElementById("outNoteOverlay");
   function askOutNote(){
