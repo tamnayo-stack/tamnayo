@@ -994,7 +994,7 @@
   function openAdminMenu(){
     document.getElementById("adminNoticeInput").innerHTML = getTodayNotice();
     document.getElementById("adminNoticeDuration").value = getTodayNoticeDuration();
-    renderAdminCloseChecklist();
+    // 체크리스트 편집은 별도 에디터 오버레이에서 처리
     renderTemplates();
     document.getElementById("adminTgChatId").value = loadJSON('adminChatId', localStorage.getItem(LS_TG_CHAT_ID) || "");
     const tgLogEl = document.getElementById("tgSystemLogEnabled");
