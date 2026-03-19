@@ -191,6 +191,37 @@
     .calDay.selected { border: 2px solid var(--accent) !important; background: rgba(52,152,219,.15) !important; }
     #logTable tr { cursor: pointer; transition: background 0.1s; }
     #logTable tr:hover { background: #f8f9fa; }
+
+    /* 마감 체크리스트 테이블 (직원용 모달) */
+    .cl-modal-wrap { overflow: auto; max-height: 58dvh; border: 1px solid var(--line); border-radius: 12px; }
+    .cl-modal-table { width:100%; border-collapse:collapse; font-size:13px; min-width:540px; }
+    .cl-modal-table thead th { background:#f1f2f6; color:var(--muted); font-weight:900; padding:8px 6px; text-align:left; border-bottom:2px solid var(--line); position:sticky; top:0; z-index:1; white-space:nowrap; }
+    .cl-modal-table td { padding:7px 6px; border-bottom:1px solid #f0f0f0; vertical-align:middle; }
+    .cl-modal-table tr.hl-yellow { background:#fffde7 !important; }
+    .cl-modal-table tr.hl-yellow td { font-weight:900; }
+    .cl-modal-table tr.hl-green { background:#e8f5e9 !important; }
+    .cl-modal-table tr.txt-red td { color:#e74c3c; }
+    .cl-modal-table tr.txt-blue td { color:var(--accent); }
+    .cl-modal-table td.cl-time { font-size:11px; color:var(--muted); font-weight:800; white-space:nowrap; width:72px; }
+    .cl-modal-table td.cl-cat { font-size:11px; font-weight:900; white-space:nowrap; width:80px; }
+    .cl-modal-table td.cl-item { font-weight:800; font-size:13px; width:110px; }
+    .cl-modal-table td.cl-desc { line-height:1.4; font-size:13px; }
+    .cl-modal-table td.cl-check { text-align:center; width:44px; }
+    .cl-modal-table td.cl-note { width:88px; }
+    .cl-modal-table td.cl-note input { width:82px; padding:3px 6px; font-size:11px; border:1px solid var(--line); border-radius:6px; background:#fff; -webkit-user-select:text; user-select:text; }
+    .cl-check-cb { width:20px; height:20px; cursor:pointer; accent-color:var(--good); }
+    .cl-optional-label { font-size:10px; color:var(--accent); border:1px solid var(--accent); border-radius:3px; padding:1px 3px; margin-left:4px; vertical-align:middle; }
+
+    /* Admin 체크리스트 에디터 */
+    .adm-cl-wrap { overflow:auto; max-height:52dvh; border:1px solid var(--line); border-radius:12px; }
+    .adm-cl-table { width:100%; border-collapse:collapse; font-size:12px; min-width:680px; }
+    .adm-cl-table thead th { background:#f1f2f6; color:var(--muted); font-weight:900; padding:8px 6px; text-align:left; border-bottom:2px solid var(--line); position:sticky; top:0; z-index:1; white-space:nowrap; }
+    .adm-cl-table td { padding:5px 6px; border-bottom:1px solid #f0f0f0; vertical-align:middle; }
+    .adm-cl-table tr.hl-yellow td { background:#fffde7; }
+    .adm-cl-table tr.hl-green td { background:#e8f5e9; }
+    .adm-cl-table tr.txt-red td:not(.adm-cl-actions) { color:#e74c3c; }
+    .adm-cl-table tr.txt-blue td:not(.adm-cl-actions) { color:var(--accent); }
+    .adm-cl-actions { white-space:nowrap; }
   </style>
 </head>
 
@@ -373,15 +404,11 @@
     
     <div class="hr"></div>
     <div class="muted" style="font-size:13px; font-weight:900;">마감 체크리스트 편집</div>
-    <div class="row" style="margin-top:10px; gap:10px; flex-wrap:wrap;">
-      <div style="flex: 2 1 240px;"><label>항목 추가</label><input id="adminCloseNewItem" placeholder="예) 포스 마감 정산" maxlength="60" /></div>
-      <div style="flex: 0 0 auto; align-self:flex-end; display:flex; gap:8px;">
-        <button class="btn" id="btnAddCloseChecklistItem">추가</button>
-        <button class="btn primary" id="btnSaveCloseChecklist">저장</button>
-        <button class="btn" id="btnResetCloseChecklist">기본값</button>
-      </div>
+    <div class="row" style="margin-top:10px; gap:8px; flex-wrap:wrap;">
+      <button class="btn primary" id="btnOpenClEditor">체크리스트 편집 열기</button>
+      <button class="btn warn" id="btnResetCloseChecklist">기본값으로 초기화</button>
     </div>
-    <div id="adminCloseChecklistList" style="margin-top:10px; display:flex; flex-direction:column; gap:8px;"></div>
+    <div class="note" style="margin-top:6px;">• 시간/구분/항목/내용/스타일 등 세부 편집은 편집 열기에서 할 수 있습니다.</div>
     
     <div class="hr"></div>
     <div class="muted" style="margin-top:10px; font-size:13px; font-weight:900;">오늘의 공지 (자체 에디터)</div>
@@ -571,13 +598,93 @@
 </div>
 
 <div class="modalOverlay" id="closeCheckOverlay" role="dialog" aria-modal="true" style="z-index: 5000;">
-  <div class="modal">
+  <div class="modal" style="width:min(860px,100%); max-height:92dvh;">
     <h3>마감 체크리스트</h3>
-    <div class="muted">마감 항목을 체크한 뒤 퇴근을 완료하세요.</div>
+    <div class="muted">전체 항목을 체크한 뒤 퇴근을 완료하세요. <span style="color:var(--accent);">[선택]</span> 표시 항목은 해당 없으면 제외 가능합니다.</div>
     <div class="hr"></div>
-    <div id="closeCheckList" class="checkList"></div>
-    <div class="modalActions" style="margin-top:20px;">
+    <div class="cl-modal-wrap">
+      <table class="cl-modal-table">
+        <thead><tr>
+          <th style="width:72px;">시간</th>
+          <th style="width:80px;">구분</th>
+          <th style="width:110px;">항목</th>
+          <th>체크리스트 내용</th>
+          <th style="width:44px;">체크</th>
+          <th style="width:88px;">비고</th>
+        </tr></thead>
+        <tbody id="closeCheckList"></tbody>
+      </table>
+    </div>
+    <div class="modalActions" style="margin-top:16px;">
+      <span class="muted" id="clProgressText" style="font-size:13px; font-weight:800;"></span>
+      <div class="spacer"></div>
       <button class="btn primary" id="closeCheckDone" disabled>완료 후 퇴근</button>
+    </div>
+  </div>
+</div>
+
+<!-- 관리자 체크리스트 편집 에디터 -->
+<div class="modalOverlay" id="clEditorOverlay" role="dialog" aria-modal="true" style="z-index: 2500;">
+  <div class="modal" style="width:min(980px,100%); max-height:94dvh;">
+    <div class="row" style="align-items:center;">
+      <h3 style="margin:0;">마감 체크리스트 편집 (관리자)</h3>
+      <div class="spacer"></div>
+      <button class="btn small" id="btnClEditorClose">닫기</button>
+    </div>
+    <div class="muted" style="font-size:12px; margin-top:4px;">수정 후 반드시 <b>저장</b> 버튼을 눌러야 반영됩니다. ↑↓ 버튼으로 순서를 변경할 수 있습니다.</div>
+    <div class="hr"></div>
+    <div class="row" style="margin-bottom:10px; gap:8px; flex-wrap:wrap;">
+      <button class="btn good" id="btnAddClItem">+ 항목 추가</button>
+      <div class="spacer"></div>
+      <button class="btn primary" id="btnSaveClEditor">저장 (Firebase 반영)</button>
+    </div>
+    <div class="adm-cl-wrap">
+      <table class="adm-cl-table">
+        <thead><tr>
+          <th style="width:68px;">시간</th>
+          <th style="width:76px;">구분</th>
+          <th style="width:100px;">항목명</th>
+          <th>체크리스트 내용</th>
+          <th style="width:44px;">선택</th>
+          <th style="width:66px;">스타일</th>
+          <th class="adm-cl-actions" style="width:118px;">관리</th>
+        </tr></thead>
+        <tbody id="admClTable"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- 체크리스트 항목 추가/수정 모달 -->
+<div class="modalOverlay" id="clItemEditOverlay" role="dialog" aria-modal="true" style="z-index: 3000;">
+  <div class="modal" style="width:min(560px,100%);">
+    <h3 id="clItemEditTitle">체크리스트 항목 추가</h3>
+    <div class="hr"></div>
+    <div class="split" style="margin-top:10px;">
+      <div><label>시간</label><input id="clItemTime" placeholder="예) 21:05 또는 20:00~20:30" maxlength="20" /></div>
+      <div><label>구분/카테고리</label><input id="clItemCategory" placeholder="예) 1차마감, 선택사항" maxlength="30" /></div>
+    </div>
+    <div style="margin-top:10px;"><label>항목명 (짧은 이름)</label><input id="clItemName" placeholder="예) 착화실 마감1" maxlength="40" /></div>
+    <div style="margin-top:10px;"><label>체크리스트 내용 (실제 해야 할 일)</label><textarea id="clItemDesc" placeholder="예) 착화기 물받이 물 버리기 및 세척하기" style="min-height:70px;"></textarea></div>
+    <div class="split" style="margin-top:10px;">
+      <div>
+        <label>행 스타일 (색상 강조)</label>
+        <select id="clItemStyle">
+          <option value="">기본 (흰색)</option>
+          <option value="hl-yellow">노란색 강조 (중요 안내)</option>
+          <option value="hl-green">초록색 강조 (안내 문구)</option>
+          <option value="txt-red">빨간색 텍스트 (주의)</option>
+          <option value="txt-blue">파란색 텍스트</option>
+        </select>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; padding-top:22px;">
+        <input type="checkbox" id="clItemOptional" style="width:auto; min-width:auto;" />
+        <label style="margin:0; color:var(--text); font-size:14px; cursor:pointer;" for="clItemOptional">선택사항 (해당없으면 생략)</label>
+      </div>
+    </div>
+    <div class="modalActions" style="margin-top:16px;">
+      <button class="btn" id="clItemEditCancel">취소</button>
+      <button class="btn primary" id="clItemEditSave">저장</button>
     </div>
   </div>
 </div>
@@ -773,8 +880,63 @@
 
   function getOutNotes(){ return loadJSON(LS_KEYS.OUT_NOTES, []); }
   function setOutNotes(list){ saveJSON(LS_KEYS.OUT_NOTES, list); }
-  function getCloseChecklist(){ const def=["가스/전기 확인","쓰레기/재활용 정리","냉장고 정리","매장 불/에어컨 OFF","오븐/토핑대/도우롤러 아래 바닥 쓸기"]; const list=loadJSON(LS_KEYS.CLOSE_CHECKLIST, null); return Array.isArray(list)&&list.length?list:def; }
-  function setCloseChecklist(list){ saveJSON(LS_KEYS.CLOSE_CHECKLIST, list); }
+
+  const CLOSE_CHECKLIST_KEY_V2 = "ALBA_CLOSE_CHECKLIST_V2";
+  // 기본 마감 체크리스트 (이미지 기반 전체 항목)
+  const DEFAULT_CHECKLIST_V2 = [
+    { id:1,  time:"20:00~20:30", category:"1차마감",         item:"익일 영업준비1",    description:"헛개수 물 채우기",                                                         isOptional:false, rowStyle:"" },
+    { id:2,  time:"",            category:"",                item:"익일 영업준비2",    description:"소주분무기에 소주 채우기",                                                  isOptional:false, rowStyle:"" },
+    { id:3,  time:"",            category:"",                item:"익일 영업준비3",    description:"주류/음료/물티슈/핸드타올 재고 확인 후 채우기",                              isOptional:false, rowStyle:"" },
+    { id:4,  time:"",            category:"",                item:"익일 영업준비4",    description:"숯 작업하기",                                                              isOptional:false, rowStyle:"" },
+    { id:5,  time:"",            category:"",                item:"익일 영업준비5",    description:"명이나물 빈그릇에 명이 채우기(선입선출)",                                    isOptional:false, rowStyle:"" },
+    { id:6,  time:"",            category:"선택사항",          item:"익일 영업준비6",    description:"냅킨/수저/젓가락 여분 확인 후 채우기",                                      isOptional:true,  rowStyle:"" },
+    { id:7,  time:"",            category:"",                item:"주류/음료 정리",    description:"주류/음료 박스 창고에 옮기기 (주류中 소주는 비우기)",                          isOptional:false, rowStyle:"" },
+    { id:8,  time:"",            category:"",                item:"카운터정리",        description:"사탕/명함/이쑤시개 가득 채우기(항시 꽉채울것)",                               isOptional:false, rowStyle:"" },
+    { id:9,  time:"20:30",       category:"2차마감",           item:"육부마감1",         description:"",                                                                      isOptional:false, rowStyle:"" },
+    { id:10, time:"",            category:"",                item:"육부마감2",         description:"",                                                                      isOptional:false, rowStyle:"" },
+    { id:11, time:"",            category:"",                item:"육부익일영업준비1",  description:"",                                                                      isOptional:false, rowStyle:"" },
+    { id:12, time:"",            category:"",                item:"육부익일영업준비2",  description:"",                                                                      isOptional:false, rowStyle:"" },
+    { id:13, time:"21:00",       category:"-",               item:"주방익일영업준비",  description:"익일 사용할 육수를 받아두기 : 체크하기",                                      isOptional:false, rowStyle:"" },
+    { id:14, time:"21:00",       category:"3차마감",           item:"착화실 마감1",      description:"착화기 물받이 물 버리기 및 세척하기",                                        isOptional:false, rowStyle:"" },
+    { id:15, time:"",            category:"",                item:"착화실 마감2",      description:"착화실 바닥 쓸기",                                                         isOptional:false, rowStyle:"" },
+    { id:16, time:"",            category:"",                item:"착화실 마감3",      description:"착화실 닥트 전원 끄기 및 내부 정리정돈하기",                                  isOptional:false, rowStyle:"" },
+    { id:17, time:"",            category:"",                item:"쓰레기 비우기1",    description:"홀/주방/낙원카페 쓰레기통 전부 비우기",                                      isOptional:false, rowStyle:"" },
+    { id:18, time:"",            category:"",                item:"쓰레기 버리기2",    description:"쓰레기통 비닐 다시 씌우기",                                                  isOptional:false, rowStyle:"" },
+    { id:19, time:"",            category:"",                item:"분리수거1",         description:"캔/유리/플라스틱/박스 등 분리수거 밖에 내다 놓기",                             isOptional:false, rowStyle:"" },
+    { id:20, time:"",            category:"",                item:"분리수거2",         description:"분리수거는 꽉찰때까지 나눠지말고 그날그날 버리기",                             isOptional:false, rowStyle:"" },
+    { id:21, time:"21:05",       category:"고객입장 시간 종료", item:"",                description:"21:05 까지 입장한 고객님까지만 응대 가능",                                   isOptional:false, rowStyle:"hl-yellow" },
+    { id:22, time:"21:05",       category:"4차마감",           item:"육수기계 세척",     description:"셀프바에 육수 6~8통 채운후→육수기계 비우고 세척하기",                         isOptional:false, rowStyle:"" },
+    { id:23, time:"",            category:"",                item:"음식물 비우기",     description:"주방 음식물 잔반통 비우기",                                                  isOptional:false, rowStyle:"" },
+    { id:24, time:"",            category:"",                item:"중간주방 마감",     description:"중간주방 반찬냉장고 바트뚜껑 덮고 마감하기",                                  isOptional:false, rowStyle:"" },
+    { id:25, time:"21:15",       category:"5차마감",           item:"불판물통",          description:"불판물통 전부 걷어내고, 새로 채우기",                                        isOptional:false, rowStyle:"" },
+    { id:26, time:"21:35",       category:"주문마감안내",        item:"",                description:"고객님께 21:35 주문마감 안내 및 추가 멘트하기",                               isOptional:false, rowStyle:"" },
+    { id:27, time:"",            category:"추가멘트",           item:"",                description:"'영업마감은 22:00까지니 천천히 드시면 되겠습니다'",                           isOptional:false, rowStyle:"hl-green" },
+    { id:28, time:"21:35",       category:"6차마감",           item:"닥트 청소1",        description:"고객님 있는 테이블과 바로 양옆,앞뒤 테이블을 제외한 닥트배관 전부 분리 후 주방으로 옮기기", isOptional:false, rowStyle:"txt-red" },
+    { id:29, time:"",            category:"",                item:"닥트 청소2",        description:"홀 닥트의 경우 물티슈로 닦기",                                               isOptional:false, rowStyle:"" },
+    { id:30, time:"21:35",       category:"-",               item:"셀프바 마감1",      description:"바트 뚜껑 닫기/셀프바용 식기 별도 바구니에 모아 닦기",                         isOptional:false, rowStyle:"" },
+    { id:31, time:"21:35",       category:"하게 해당",          item:"물버리기",          description:"주류/음료 냉장고 물받이 물버리기",                                           isOptional:false, rowStyle:"" },
+    { id:32, time:"21:45",       category:"",                item:"바닥청소1",         description:"고객님 있는 테이블 구간 전부제외 바닥 쓸기",                                  isOptional:false, rowStyle:"" },
+    { id:33, time:"21:50",       category:"7차마감",           item:"영업마감 안내",     description:"고객님께 영업마감 안내하기",                                                 isOptional:false, rowStyle:"" },
+    { id:34, time:"-",           category:"최종마감",           item:"바닥청소",          description:"바닥 쓸고 닦기",                                                          isOptional:false, rowStyle:"" },
+    { id:35, time:"",            category:"",                item:"마대걸레",           description:"마대걸레 풍동으로 빨고 세척 후 창고에 널어두기",                               isOptional:false, rowStyle:"" },
+    { id:36, time:"",            category:"",                item:"전원스위치끄기",     description:"에어컨 OFF/보일러가스OFF/테이블 인덕션 스위치OFF",                            isOptional:false, rowStyle:"" },
+    { id:37, time:"",            category:"",                item:"보드판 작성",        description:"다음날 예약작성/날짜/근무조 변경하기",                                         isOptional:false, rowStyle:"" },
+    { id:38, time:"",            category:"",                item:"영업마감표 작성1",   description:"손익계산서 작성",                                                           isOptional:false, rowStyle:"" },
+    { id:39, time:"",            category:"",                item:"영업마감표 작성2",   description:"포스 영업마감",                                                             isOptional:false, rowStyle:"" },
+    { id:40, time:"",            category:"",                item:"영업마감표 올리기",  description:"손익계산서/근태일지/포스마감빌지/체크리스트/고객관리일지",                      isOptional:false, rowStyle:"" },
+  ];
+
+  function getCloseChecklist() {
+    const v2 = loadJSON(CLOSE_CHECKLIST_KEY_V2, null);
+    if (Array.isArray(v2) && v2.length && typeof v2[0] === 'object') return v2;
+    // 구버전 마이그레이션: 문자열 배열 → 객체 배열
+    const v1 = loadJSON(LS_KEYS.CLOSE_CHECKLIST, null);
+    if (Array.isArray(v1) && v1.length && typeof v1[0] === 'string') {
+      return v1.map((text, i) => ({ id: i+1, time:"", category:"", item:text, description:"", isOptional:false, rowStyle:"" }));
+    }
+    return DEFAULT_CHECKLIST_V2;
+  }
+  function setCloseChecklist(list){ saveJSON(CLOSE_CHECKLIST_KEY_V2, list); }
   function getCloseCheckLogs(){ return loadJSON(LS_KEYS.CLOSE_CHECK_LOGS, []); }
   function setCloseCheckLogs(list){ saveJSON(LS_KEYS.CLOSE_CHECK_LOGS, list); }
   function addCloseCheckLog({code,name,items,extra}){ const list=getCloseCheckLogs(); const id=list.length?(list[list.length-1].id+1):1; list.push({id,date:dateKey(nowTS()),ts:nowTS(),code,name,items:items||[],extra:String(extra||"").trim()}); setCloseCheckLogs(list); }
@@ -840,8 +1002,8 @@
     adminMenuOverlay.classList.add("show"); updateAdminStateText();
   }
   function bindClick(id, handler){ const el=document.getElementById(id); if(el) el.addEventListener("click", handler); }
-  bindClick("adminMenuClose", ()=>adminMenuOverlay.classList.remove("show"));
   bindClick("btnLockAdmin", ()=>{ lockAdmin(); });
+  bindClick("btnSaveTgId", ()=>window.saveTgId());
   bindClick("btnOpenActionLog", ()=>{ renderActionLog(); document.getElementById("actionLogOverlay").classList.add("show"); });
   bindClick("btnCloseActionLog", ()=>document.getElementById("actionLogOverlay").classList.remove("show"));
   const tgSystemLogEnabledEl = document.getElementById("tgSystemLogEnabled");
@@ -939,13 +1101,66 @@ async function showNoticeCountdownIfAny(){
 
   const closeCheckOverlay=document.getElementById("closeCheckOverlay");
   function openCloseCheckModal(items){
-    const lst=document.getElementById("closeCheckList"), done=document.getElementById("closeCheckDone");
-    lst.innerHTML=items.map((t,i)=>`<label class="checkItem"><input type="checkbox" data-i="${i}" /><div><div class="t">${escapeHtml(t)}</div></div></label>`).join("");
-    done.disabled=false; closeCheckOverlay.classList.add("show");
-    return new Promise(r=>{
-      const c=()=>{ done.removeEventListener("click",d); };
-      const d=()=>{ const boxes=lst.querySelectorAll('input[type="checkbox"]'); if(!Array.from(boxes).every(b=>b.checked)) return toast("모두 체크해주세요","danger"); c(); closeCheckOverlay.classList.remove("show"); r({skip:false, items:Array.from(boxes).filter(b=>b.checked).map(b=>items[b.dataset.i]), extra:""}); };
-      done.addEventListener("click",d); 
+    const tbody=document.getElementById("closeCheckList");
+    const done=document.getElementById("closeCheckDone");
+    const progressEl=document.getElementById("clProgressText");
+
+    // 체크 가능한 행 vs 안내 전용 행 구분
+    const checkableItems = items.filter(t => t.item || t.description);
+    let cbIndex = 0;
+    const cbMap = []; // cbIndex → item
+
+    tbody.innerHTML = items.map((t) => {
+      const rowClass = t.rowStyle || "";
+      // 체크 없는 안내 행 (item도 description도 없는 경우)
+      if (!t.item && !t.description) {
+        return `<tr class="${rowClass}">
+          <td class="cl-time">${escapeHtml(t.time)}</td>
+          <td class="cl-cat" colspan="2"><strong>${escapeHtml(t.category)}</strong></td>
+          <td class="cl-desc">—</td>
+          <td class="cl-check" style="color:var(--muted);">—</td>
+          <td class="cl-note"></td>
+        </tr>`;
+      }
+      const myIdx = cbIndex++;
+      cbMap.push(t);
+      const optLabel = t.isOptional ? `<span class="cl-optional-label">선택</span>` : '';
+      return `<tr class="${rowClass}" data-cbi="${myIdx}">
+        <td class="cl-time">${escapeHtml(t.time)}</td>
+        <td class="cl-cat">${escapeHtml(t.category)}${optLabel}</td>
+        <td class="cl-item">${escapeHtml(t.item)}</td>
+        <td class="cl-desc">${escapeHtml(t.description)}</td>
+        <td class="cl-check"><input type="checkbox" class="cl-check-cb" data-cbi="${myIdx}" data-optional="${t.isOptional?'1':'0'}" /></td>
+        <td class="cl-note"><input type="text" placeholder="비고" /></td>
+      </tr>`;
+    }).join("");
+
+    const requiredCount = cbMap.filter(t => !t.isOptional).length;
+    done.disabled = true;
+
+    const updateProgress = () => {
+      const cbs = tbody.querySelectorAll('.cl-check-cb[data-optional="0"]');
+      const checked = Array.from(cbs).filter(cb => cb.checked).length;
+      progressEl.textContent = `필수 ${checked}/${requiredCount} 완료`;
+      done.disabled = checked < requiredCount;
+    };
+    updateProgress();
+    tbody.querySelectorAll('.cl-check-cb').forEach(cb => cb.addEventListener('change', updateProgress));
+
+    closeCheckOverlay.classList.add("show");
+    return new Promise(r => {
+      const d = () => {
+        const cbs = tbody.querySelectorAll('.cl-check-cb');
+        const checkedItems = Array.from(cbs).filter(cb => cb.checked).map(cb => {
+          const t = cbMap[Number(cb.dataset.cbi)];
+          const noteInput = cb.closest('tr').querySelector('input[type="text"]');
+          return { item: t.item || t.category, description: t.description, note: noteInput ? noteInput.value : "" };
+        });
+        done.removeEventListener("click", d);
+        closeCheckOverlay.classList.remove("show");
+        r({ skip:false, items:checkedItems, extra:"" });
+      };
+      done.addEventListener("click", d);
     });
   }
 
@@ -1042,7 +1257,7 @@ async function showNoticeCountdownIfAny(){
     let checklistLogStr = "";
     if(e.shiftType==="CLOSE"){
       const res=await openCloseCheckModal(getCloseChecklist());
-      if(!res.skip){ addCloseCheckLog({code:c,name:e.name,items:res.items,extra:res.extra}); checklistLogStr = `[마감체크] ${res.items.join("/")}`; }
+      if(!res.skip){ addCloseCheckLog({code:c,name:e.name,items:res.items,extra:res.extra}); checklistLogStr = `[마감체크] ${res.items.map(it=>typeof it==='string'?it:(it.item||it.description||'')).filter(Boolean).join("/")} (${res.items.length}항목)`; }
     }
     if(manualNote) addOutNote({code:c, name:e.name, text:manualNote});
 
@@ -1428,7 +1643,7 @@ function updateMonthlyWageEstimate() {
     const ons=getOutNotes().slice().reverse().filter(x=> (!f||x.code===f) && (!selectedLogDate || x.date===selectedLogDate));
     document.getElementById("outNoteTable").innerHTML=ons.map((x,i)=>`<tr><td>${ons.length-i}</td><td>${x.date}</td><td>${x.code}</td><td>${escapeHtml(x.name)}</td><td>${fmtTS(x.ts)}</td><td>${escapeHtml(x.text)}</td></tr>`).join("");
     const cls=getCloseCheckLogs().slice().reverse().filter(x=> (!f||x.code===f) && (!selectedLogDate || x.date===selectedLogDate));
-    document.getElementById("closeCheckTable").innerHTML=cls.map((x,i)=>`<tr><td>${cls.length-i}</td><td>${x.date}</td><td>${x.code}</td><td>${escapeHtml(x.name)}</td><td>${fmtTS(x.ts)}</td><td>${escapeHtml((x.items||[]).join("/"))}</td></tr>`).join("");
+    document.getElementById("closeCheckTable").innerHTML=cls.map((x,i)=>{ const itemsStr=(x.items||[]).map(it=>typeof it==='string'?it:(it.item||it.description||'')).filter(Boolean).join(' / '); return `<tr><td>${cls.length-i}</td><td>${x.date}</td><td>${x.code}</td><td>${escapeHtml(x.name)}</td><td>${fmtTS(x.ts)}</td><td style="font-size:12px;">${escapeHtml(itemsStr)||'<span class="muted">-</span>'}</td></tr>`; }).join("");
     if(typeof renderCalendar === 'function') renderCalendar(); 
   }
 
@@ -1452,24 +1667,10 @@ function updateMonthlyWageEstimate() {
   function exportCsv(){ const f=document.getElementById("logFilterEmp").value, l=getLogs().filter(x=>!f||x.code===f); const csv="id,type,code,name,ts,time,note\n"+l.map(x=>`${x.id},${x.type},${x.code},"${x.name}",${x.ts},"${fmtTS(x.ts)}","${(x.note||"").replace(/"/g,'""')}"`).join("\n"); downloadFile(`근태_${todayKey()}.csv`,csv,"text/csv;charset=utf-8"); }
   document.getElementById("btnExportCsv").addEventListener("click",async()=>{ if(await ensureAdmin())exportCsv(); });
 
-  let csvFileInput = document.getElementById("csvFileInput");
-  if (!csvFileInput) {
-      csvFileInput = document.createElement("input");
-      csvFileInput.type = "file";
-      csvFileInput.id = "csvFileInput";
-      csvFileInput.accept = ".csv";
-      csvFileInput.style.display = "none";
-      document.body.appendChild(csvFileInput);
-  }
-
-  const btnImportCsv = document.getElementById("btnImportCsv");
-  if (btnImportCsv) {
-      btnImportCsv.addEventListener("click", async () => {
-          if(await ensureAdmin("CSV 불러오기")) {
-              csvFileInput.click(); 
-          }
-      });
-  }
+  const csvFileInput = document.getElementById("csvFileInput");
+  document.getElementById("btnImportCsv").addEventListener("click", async () => {
+    if (await ensureAdmin("CSV 불러오기")) csvFileInput.click();
+  });
 
   csvFileInput.addEventListener("change", function(event) {
       const file = event.target.files[0];
@@ -1541,11 +1742,111 @@ function updateMonthlyWageEstimate() {
       reader.readAsText(file);
   });
   
-  function renderAdminCloseChecklist(){ const lst=document.getElementById("adminCloseChecklistList"), items=getCloseChecklist(); lst.innerHTML=items.map((t,i)=>`<div class="admCLRow"><div class="idx">${i+1}</div><input class="admCLInput" value="${escapeHtml(t)}" /><button class="btn small" onclick="delCLItem(${i})">삭제</button></div>`).join(""); }
-  window.delCLItem=async(i)=>{ const l=getCloseChecklist(); l.splice(i,1); setCloseChecklist(l); renderAdminCloseChecklist(); };
-  document.getElementById("btnAddCloseChecklistItem").addEventListener("click",()=>{ const v=document.getElementById("adminCloseNewItem").value.trim(); if(!v)return; const l=getCloseChecklist(); l.push(v); setCloseChecklist(l); document.getElementById("adminCloseNewItem").value=""; renderAdminCloseChecklist(); });
-  document.getElementById("btnSaveCloseChecklist").addEventListener("click",()=>{ const l=Array.from(document.querySelectorAll(".admCLInput")).map(i=>i.value.trim()).filter(Boolean); setCloseChecklist(l); toast("저장됨"); renderAdminCloseChecklist(); });
-  document.getElementById("btnResetCloseChecklist").addEventListener("click",()=>{ window.saveJSON(LS_KEYS.CLOSE_CHECKLIST, null); renderAdminCloseChecklist(); });
+  // ====== 체크리스트 관리자 에디터 ======
+  let clEditorItems = []; // 편집 중인 임시 복사본
+  let clItemEditIndex = -1; // -1 = 추가, >=0 = 수정
+
+  function openClEditor() {
+    clEditorItems = JSON.parse(JSON.stringify(getCloseChecklist())); // 깊은 복사
+    renderAdmClTable();
+    document.getElementById("clEditorOverlay").classList.add("show");
+  }
+
+  function renderAdmClTable() {
+    const tbody = document.getElementById("admClTable");
+    const styleLabels = { "":"기본", "hl-yellow":"🟡노랑", "hl-green":"🟢초록", "txt-red":"🔴빨강", "txt-blue":"🔵파랑" };
+    tbody.innerHTML = clEditorItems.length ? clEditorItems.map((t, i) => {
+      const rowClass = t.rowStyle || "";
+      return `<tr class="${rowClass}">
+        <td style="font-size:11px; white-space:nowrap;">${escapeHtml(t.time)}</td>
+        <td style="font-size:11px; white-space:nowrap;">${escapeHtml(t.category)}${t.isOptional ? '<span class="cl-optional-label">선택</span>' : ''}</td>
+        <td style="font-weight:800; font-size:12px;">${escapeHtml(t.item)}</td>
+        <td style="max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px;">${escapeHtml(t.description)}</td>
+        <td style="text-align:center; font-size:13px;">${t.isOptional ? '✓' : ''}</td>
+        <td style="font-size:11px; color:var(--muted);">${styleLabels[t.rowStyle||""]||""}</td>
+        <td class="adm-cl-actions">
+          <button class="btn small" onclick="window.clMoveUp(${i})" ${i===0?'disabled':''}>↑</button>
+          <button class="btn small" onclick="window.clMoveDown(${i})" ${i===clEditorItems.length-1?'disabled':''}>↓</button>
+          <button class="btn small primary" onclick="window.clItemEdit(${i})">수정</button>
+          <button class="btn small bad" onclick="window.clItemDel(${i})">삭제</button>
+        </td>
+      </tr>`;
+    }).join("") : `<tr><td colspan="7" class="muted" style="text-align:center; padding:20px;">항목 없음</td></tr>`;
+  }
+
+  window.clMoveUp = (i) => {
+    if (i === 0) return;
+    [clEditorItems[i-1], clEditorItems[i]] = [clEditorItems[i], clEditorItems[i-1]];
+    renderAdmClTable();
+  };
+  window.clMoveDown = (i) => {
+    if (i >= clEditorItems.length-1) return;
+    [clEditorItems[i], clEditorItems[i+1]] = [clEditorItems[i+1], clEditorItems[i]];
+    renderAdmClTable();
+  };
+  window.clItemDel = (i) => {
+    if (!confirm(`"${clEditorItems[i].item || clEditorItems[i].category || '이 항목'}"을(를) 삭제할까요?`)) return;
+    clEditorItems.splice(i, 1);
+    renderAdmClTable();
+  };
+  window.clItemEdit = (i) => {
+    clItemEditIndex = i;
+    const t = clEditorItems[i];
+    document.getElementById("clItemEditTitle").textContent = "체크리스트 항목 수정";
+    document.getElementById("clItemTime").value = t.time || "";
+    document.getElementById("clItemCategory").value = t.category || "";
+    document.getElementById("clItemName").value = t.item || "";
+    document.getElementById("clItemDesc").value = t.description || "";
+    document.getElementById("clItemStyle").value = t.rowStyle || "";
+    document.getElementById("clItemOptional").checked = !!t.isOptional;
+    document.getElementById("clItemEditOverlay").classList.add("show");
+  };
+
+  bindClick("btnOpenClEditor", async () => {
+    if (!await ensureAdmin("체크리스트 편집")) return;
+    openClEditor();
+  });
+  bindClick("btnClEditorClose", () => document.getElementById("clEditorOverlay").classList.remove("show"));
+
+  bindClick("btnAddClItem", () => {
+    clItemEditIndex = -1;
+    document.getElementById("clItemEditTitle").textContent = "체크리스트 항목 추가";
+    ["clItemTime","clItemCategory","clItemName","clItemDesc"].forEach(id => document.getElementById(id).value = "");
+    document.getElementById("clItemStyle").value = "";
+    document.getElementById("clItemOptional").checked = false;
+    document.getElementById("clItemEditOverlay").classList.add("show");
+  });
+  bindClick("clItemEditCancel", () => document.getElementById("clItemEditOverlay").classList.remove("show"));
+  bindClick("clItemEditSave", () => {
+    const newItem = {
+      id: clItemEditIndex >= 0 ? clEditorItems[clItemEditIndex].id : Date.now(),
+      time: document.getElementById("clItemTime").value.trim(),
+      category: document.getElementById("clItemCategory").value.trim(),
+      item: document.getElementById("clItemName").value.trim(),
+      description: document.getElementById("clItemDesc").value.trim(),
+      rowStyle: document.getElementById("clItemStyle").value,
+      isOptional: document.getElementById("clItemOptional").checked,
+    };
+    if (clItemEditIndex >= 0) {
+      clEditorItems[clItemEditIndex] = newItem;
+    } else {
+      clEditorItems.push(newItem);
+    }
+    document.getElementById("clItemEditOverlay").classList.remove("show");
+    renderAdmClTable();
+    toast(clItemEditIndex >= 0 ? "수정됨 (저장 버튼으로 반영)" : "추가됨 (저장 버튼으로 반영)");
+  });
+  bindClick("btnSaveClEditor", async () => {
+    if (!await ensureAdmin("체크리스트 저장")) return;
+    setCloseChecklist(clEditorItems);
+    toast("체크리스트가 저장되었습니다.");
+  });
+  bindClick("btnResetCloseChecklist", async () => {
+    if (!await ensureAdmin("기본값 초기화")) return;
+    if (!confirm("기본 체크리스트(이미지 원본)로 초기화합니다. 현재 내용이 삭제됩니다. 계속할까요?")) return;
+    setCloseChecklist(DEFAULT_CHECKLIST_V2);
+    toast("기본값으로 초기화됨");
+  });
 
   (async () => {
     try {
