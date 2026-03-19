@@ -406,6 +406,7 @@
     <div class="muted" style="font-size:13px; font-weight:900;">마감 체크리스트 편집</div>
     <div class="row" style="margin-top:10px; gap:8px; flex-wrap:wrap;">
       <button class="btn primary" id="btnOpenClEditor">체크리스트 편집 열기</button>
+      <button class="btn" id="btnPreviewChecklist">미리보기</button>
       <button class="btn warn" id="btnResetCloseChecklist">기본값으로 초기화</button>
     </div>
     <div class="note" style="margin-top:6px;">• 시간/구분/항목/내용/스타일 등 세부 편집은 편집 열기에서 할 수 있습니다.</div>
@@ -636,6 +637,7 @@
     <div class="row" style="margin-bottom:10px; gap:8px; flex-wrap:wrap;">
       <button class="btn good" id="btnAddClItem">+ 항목 추가</button>
       <div class="spacer"></div>
+      <button class="btn" id="btnPreviewFromEditor">미리보기</button>
       <button class="btn primary" id="btnSaveClEditor">저장 (Firebase 반영)</button>
     </div>
     <div class="adm-cl-wrap">
@@ -651,6 +653,39 @@
         </tr></thead>
         <tbody id="admClTable"></tbody>
       </table>
+    </div>
+  </div>
+</div>
+
+<!-- 마감 체크리스트 미리보기 -->
+<div class="modalOverlay" id="clPreviewOverlay" role="dialog" aria-modal="true" style="z-index: 3500;">
+  <div class="modal" style="width:min(880px,100%); max-height:94dvh;">
+    <div class="row" style="align-items:center;">
+      <div>
+        <h3 style="margin:0;">마감 체크리스트 미리보기</h3>
+        <div class="muted" style="font-size:12px; margin-top:2px;">실제 직원에게 표시되는 화면입니다. (읽기 전용)</div>
+      </div>
+      <div class="spacer"></div>
+      <button class="btn small" id="btnClPreviewClose">닫기</button>
+    </div>
+    <div class="hr"></div>
+    <div class="cl-modal-wrap" style="max-height:72dvh;">
+      <table class="cl-modal-table">
+        <thead><tr>
+          <th style="width:72px;">시간</th>
+          <th style="width:80px;">구분</th>
+          <th style="width:110px;">항목</th>
+          <th>체크리스트 내용</th>
+          <th style="width:44px;">체크</th>
+          <th style="width:60px;">비고</th>
+        </tr></thead>
+        <tbody id="clPreviewBody"></tbody>
+      </table>
+    </div>
+    <div class="row" style="margin-top:12px; flex-wrap:wrap; gap:8px;">
+      <span class="pill" id="clPreviewStats">—</span>
+      <div class="spacer"></div>
+      <button class="btn small" id="btnClPreviewClose2">닫기</button>
     </div>
   </div>
 </div>
@@ -1847,6 +1882,55 @@ function updateMonthlyWageEstimate() {
     setCloseChecklist(DEFAULT_CHECKLIST_V2);
     toast("기본값으로 초기화됨");
   });
+
+  // ====== 체크리스트 미리보기 ======
+  function openClPreview(items) {
+    const tbody = document.getElementById("clPreviewBody");
+    let cbCount = 0, optionalCount = 0;
+
+    tbody.innerHTML = items.map(t => {
+      const rowClass = t.rowStyle || "";
+      const hasContent = t.item || t.description;
+
+      if (!hasContent) {
+        return `<tr class="${rowClass}">
+          <td class="cl-time">${escapeHtml(t.time)}</td>
+          <td class="cl-cat" colspan="2"><strong>${escapeHtml(t.category)}</strong></td>
+          <td class="cl-desc" style="color:var(--muted);">—</td>
+          <td class="cl-check" style="color:var(--muted); text-align:center;">—</td>
+          <td></td>
+        </tr>`;
+      }
+
+      cbCount++;
+      if (t.isOptional) optionalCount++;
+      const optLabel = t.isOptional ? `<span class="cl-optional-label">선택</span>` : '';
+      return `<tr class="${rowClass}">
+        <td class="cl-time">${escapeHtml(t.time)}</td>
+        <td class="cl-cat">${escapeHtml(t.category)}${optLabel}</td>
+        <td class="cl-item">${escapeHtml(t.item)}</td>
+        <td class="cl-desc">${escapeHtml(t.description)}</td>
+        <td class="cl-check"><input type="checkbox" class="cl-check-cb" disabled /></td>
+        <td style="font-size:11px; color:var(--muted);">비고</td>
+      </tr>`;
+    }).join("");
+
+    const required = cbCount - optionalCount;
+    document.getElementById("clPreviewStats").innerHTML =
+      `총 <strong>${items.length}</strong>행 · 체크항목 <strong>${cbCount}</strong>개 · 필수 <strong>${required}</strong>개 · 선택 <strong>${optionalCount}</strong>개`;
+
+    document.getElementById("clPreviewOverlay").classList.add("show");
+  }
+
+  // 관리자 메뉴에서 미리보기 (저장된 데이터 기준)
+  bindClick("btnPreviewChecklist", () => openClPreview(getCloseChecklist()));
+
+  // 에디터에서 미리보기 (편집 중인 임시 데이터 기준)
+  bindClick("btnPreviewFromEditor", () => openClPreview(clEditorItems.length ? clEditorItems : getCloseChecklist()));
+
+  // 닫기
+  bindClick("btnClPreviewClose",  () => document.getElementById("clPreviewOverlay").classList.remove("show"));
+  bindClick("btnClPreviewClose2", () => document.getElementById("clPreviewOverlay").classList.remove("show"));
 
   (async () => {
     try {
