@@ -332,6 +332,9 @@
       <button class="btn small good" id="btnAutoTgId">자동찾기</button>
     </div>
     <div class="note" style="margin-top:4px;">* 자동찾기: 봇에게 먼저 아무 말이나 보내고 누르세요.</div>
+    <div class="row" style="margin-top:8px;">
+      <button class="btn small warn" id="btnTestTg">📨 테스트 메시지 전송</button>
+    </div>
     <label class="row" style="margin-top:8px;gap:8px;align-items:center;">
       <input id="tgSystemLogEnabled" type="checkbox" style="width:18px;height:18px;" />
       <span class="muted" style="font-size:12px;">시스템 로그 텔레그램 전송</span>
@@ -1641,6 +1644,21 @@ bindClick("btnAutoTgId", async () => {
       saveJSON(TG_CHAT_ID_KEY, String(id)); toast(`ID 찾음: ${id}`);
     } else toast("메시지 없음. 봇에게 먼저 말을 건 뒤 시도하세요.");
   } catch(e) { toast("오류: "+e.message,"danger"); }
+});
+bindClick("btnTestTg", async () => {
+  const token  = loadJSON(TG_TOKEN_KEY, null);
+  const chatId = loadJSON(TG_CHAT_ID_KEY, null);
+  if (!token || !chatId) return toast("봇 토큰과 Chat ID를 먼저 저장하세요", "danger");
+  toast("전송 중...");
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({chat_id: chatId, text: `✅ 탐나는피자 알림 테스트\n연결 정상입니다! (${fmtTS(Date.now())})`})
+    });
+    const data = await res.json();
+    if (data.ok) toast("✅ 텔레그램 전송 성공!");
+    else toast("❌ 전송 실패: " + data.description, "danger");
+  } catch(e) { toast("❌ 오류: " + e.message, "danger"); }
 });
 document.getElementById("tgSystemLogEnabled")?.addEventListener("change", e => {
   saveJSON(TG_SYS_LOG_KEY, e.target.checked);
