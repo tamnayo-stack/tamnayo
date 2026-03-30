@@ -158,6 +158,12 @@
     .cl-edit-table input[type=text]{padding:6px 8px;font-size:12px;border-radius:8px;border:1px solid #ced6e0;width:100%;}
     .cl-edit-table select{padding:6px 4px;font-size:12px;border-radius:8px;border:1px solid #ced6e0;}
     .cl-edit-table input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);}
+    .cl-drag-handle{cursor:grab;color:var(--muted);font-size:18px;padding:4px 6px;user-select:none;display:block;text-align:center;line-height:1;}
+    .cl-drag-handle:active{cursor:grabbing;}
+    .cl-edit-table tr.dragging{opacity:.35;background:#e3f2fd;}
+    .cl-edit-table tr.drag-over td{border-top:3px solid var(--accent);}
+    .cl-move-btn{background:none;border:1px solid var(--line);border-radius:6px;padding:2px 5px;font-size:12px;cursor:pointer;color:var(--muted);line-height:1;}
+    .cl-move-btn:hover{background:#f1f2f6;color:var(--text);}
     /* z-index */
     #adminMenuOverlay{z-index:1000!important;}
     #actionLogOverlay,#empEditOverlay,#logEditOverlay,#logAddOverlay,#checklistEditOverlay{z-index:2000!important;}
@@ -387,7 +393,7 @@
     <div class="hr"></div>
     <div style="overflow-x:auto;">
       <table class="cl-edit-table">
-        <thead><tr><th>#</th><th>시간</th><th>구분</th><th>항목명</th><th>설명</th><th>선택</th><th>강조</th><th>삭제</th></tr></thead>
+        <thead><tr><th>순서</th><th>#</th><th>시간</th><th>구분</th><th>항목명</th><th>설명</th><th>선택</th><th>강조</th><th>삭제</th></tr></thead>
         <tbody id="clEditTableBody"></tbody>
       </table>
     </div>
@@ -1220,7 +1226,14 @@ function openCloseCheckModal(items, empCode) {
 function renderClEditTable(items) {
   const tbody = document.getElementById("clEditTableBody");
   tbody.innerHTML = items.map((item, idx) => `
-    <tr data-idx="${idx}">
+    <tr draggable="true" data-idx="${idx}">
+      <td style="text-align:center;white-space:nowrap;">
+        <span class="cl-drag-handle" title="드래그하여 순서 변경">☰</span>
+        <div style="display:flex;flex-direction:column;gap:2px;align-items:center;margin-top:2px;">
+          <button class="cl-move-btn" onclick="window.clMoveRow(${idx},-1)" title="위로">▲</button>
+          <button class="cl-move-btn" onclick="window.clMoveRow(${idx},1)"  title="아래로">▼</button>
+        </div>
+      </td>
       <td style="color:var(--muted);font-size:12px;text-align:center;">${idx+1}</td>
       <td><input type="text" class="cl-ed-time"     value="${escapeHtml(item.time||'')}"     placeholder="21:00"  style="width:60px;" /></td>
       <td><input type="text" class="cl-ed-cat"      value="${escapeHtml(item.category||'')}" placeholder="구분"   style="width:80px;" /></td>
@@ -1237,13 +1250,68 @@ function renderClEditTable(items) {
       </td>
       <td><button class="btn small bad" onclick="window.clDelRow(${idx})">삭제</button></td>
     </tr>`).join("");
+  initClDragDrop();
 }
+
+window.clMoveRow = (idx, dir) => {
+  const items = readClEditTable();
+  const to = idx + dir;
+  if (to < 0 || to >= items.length) return;
+  [items[idx], items[to]] = [items[to], items[idx]];
+  renderClEditTable(items);
+};
 
 window.clDelRow = (idx) => {
   const items = readClEditTable();
   items.splice(idx, 1);
   renderClEditTable(items);
 };
+
+function initClDragDrop() {
+  const tbody = document.getElementById("clEditTableBody");
+  let dragSrc = null;
+
+  tbody.addEventListener("dragstart", e => {
+    dragSrc = e.target.closest("tr");
+    if (!dragSrc) return;
+    dragSrc.classList.add("dragging");
+    e.dataTransfer.effectAllowed = "move";
+  });
+
+  tbody.addEventListener("dragover", e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    const tr = e.target.closest("tr");
+    if (!tr || tr === dragSrc) return;
+    tbody.querySelectorAll("tr").forEach(r => r.classList.remove("drag-over"));
+    tr.classList.add("drag-over");
+  });
+
+  tbody.addEventListener("dragleave", e => {
+    if (!tbody.contains(e.relatedTarget)) {
+      tbody.querySelectorAll("tr").forEach(r => r.classList.remove("drag-over"));
+    }
+  });
+
+  tbody.addEventListener("drop", e => {
+    e.preventDefault();
+    const tr = e.target.closest("tr");
+    tbody.querySelectorAll("tr").forEach(r => r.classList.remove("drag-over"));
+    if (!tr || tr === dragSrc) { if(dragSrc) dragSrc.classList.remove("dragging"); return; }
+    const items  = readClEditTable();
+    const srcIdx = Number(dragSrc.dataset.idx);
+    const dstIdx = Number(tr.dataset.idx);
+    const [moved] = items.splice(srcIdx, 1);
+    items.splice(dstIdx, 0, moved);
+    renderClEditTable(items);
+    dragSrc = null;
+  });
+
+  tbody.addEventListener("dragend", () => {
+    tbody.querySelectorAll("tr").forEach(r => { r.classList.remove("dragging"); r.classList.remove("drag-over"); });
+    dragSrc = null;
+  });
+}
 
 function readClEditTable() {
   return Array.from(document.querySelectorAll('#clEditTableBody tr')).map((tr, i) => ({
