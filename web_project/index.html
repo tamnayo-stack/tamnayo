@@ -162,8 +162,6 @@
     .cl-drag-handle:active{cursor:grabbing;}
     .cl-edit-table tr.dragging{opacity:.35;background:#e3f2fd;}
     .cl-edit-table tr.drag-over td{border-top:3px solid var(--accent);}
-    .cl-move-btn{background:none;border:1px solid var(--line);border-radius:6px;padding:2px 5px;font-size:12px;cursor:pointer;color:var(--muted);line-height:1;}
-    .cl-move-btn:hover{background:#f1f2f6;color:var(--text);}
     /* z-index */
     #adminMenuOverlay{z-index:1000!important;}
     #actionLogOverlay,#empEditOverlay,#logEditOverlay,#logAddOverlay,#checklistEditOverlay{z-index:2000!important;}
@@ -1227,12 +1225,8 @@ function renderClEditTable(items) {
   const tbody = document.getElementById("clEditTableBody");
   tbody.innerHTML = items.map((item, idx) => `
     <tr draggable="true" data-idx="${idx}">
-      <td style="text-align:center;white-space:nowrap;">
+      <td style="text-align:center;">
         <span class="cl-drag-handle" title="드래그하여 순서 변경">☰</span>
-        <div style="display:flex;flex-direction:column;gap:2px;align-items:center;margin-top:2px;">
-          <button class="cl-move-btn" onclick="window.clMoveRow(${idx},-1)" title="위로">▲</button>
-          <button class="cl-move-btn" onclick="window.clMoveRow(${idx},1)"  title="아래로">▼</button>
-        </div>
       </td>
       <td style="color:var(--muted);font-size:12px;text-align:center;">${idx+1}</td>
       <td><input type="text" class="cl-ed-time"     value="${escapeHtml(item.time||'')}"     placeholder="21:00"  style="width:60px;" /></td>
@@ -1252,14 +1246,6 @@ function renderClEditTable(items) {
     </tr>`).join("");
   initClDragDrop();
 }
-
-window.clMoveRow = (idx, dir) => {
-  const items = readClEditTable();
-  const to = idx + dir;
-  if (to < 0 || to >= items.length) return;
-  [items[idx], items[to]] = [items[to], items[idx]];
-  renderClEditTable(items);
-};
 
 window.clDelRow = (idx) => {
   const items = readClEditTable();
