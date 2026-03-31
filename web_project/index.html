@@ -545,7 +545,10 @@
     <div id="closeCheckList"></div>
     <!-- 재고 현황 -->
     <div class="stock-section">
-      <div class="stock-section-title">📦 재고 현황 (물류 전날 체크)</div>
+      <div class="stock-section-title">📦 재고 현황</div>
+      <div style="font-size:12px;color:var(--muted);background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:8px 12px;margin-bottom:10px;line-height:1.6;">
+        ⚠️ <b>미개봉(포장 그대로인) 박스만 카운트하세요.</b><br>개봉되어 사용 중인 것은 제외합니다.
+      </div>
       <div id="stockInputArea"></div>
     </div>
     <div class="modalActions" style="margin-top:20px;">
@@ -1182,12 +1185,10 @@ function openCloseCheckModal(items, empCode) {
   const done = document.getElementById("closeCheckDone");
   document.getElementById("closeCheckList").innerHTML = renderCloseCheckModal(items);
 
-  // 재고 현황: 월(1), 목(4)에만 표시
-  const todayDay = new Date().getDay();
-  const showStock = todayDay === 1 || todayDay === 4;
+  renderStockSection();
   const stockSection = document.querySelector(".stock-section");
-  if (stockSection) stockSection.style.display = showStock ? "" : "none";
-  if (showStock) renderStockSection();
+  if (stockSection) stockSection.style.display = "";
+  const showStock = true;
 
   done.disabled = false;
   closeCheckOverlay.classList.add("show");
