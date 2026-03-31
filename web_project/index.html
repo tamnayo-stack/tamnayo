@@ -147,10 +147,8 @@
     .stock-group-header .unit-badge{font-size:10px;background:#f1f2f6;padding:2px 6px;border-radius:6px;font-weight:700;color:var(--muted);text-transform:none;letter-spacing:0;}
     .stock-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;margin-bottom:6px;}
     .stock-item-name{font-size:14px;font-weight:700;color:var(--text);flex:1;}
-    .qty-ctrl{display:flex;align-items:center;gap:8px;}
-    .qty-btn{width:36px;height:36px;border:1px solid var(--line);background:#f8f9fa;border-radius:10px;font-size:20px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text);line-height:1;transition:background .1s;}
-    .qty-btn:active{background:#dfe6e9;}
-    .qty-num{font-size:18px;font-weight:900;min-width:36px;text-align:center;color:var(--text);}
+    .qty-input{width:72px;font-size:20px;font-weight:900;text-align:center;border:2px solid var(--line);border-radius:12px;padding:8px 4px;color:var(--text);background:#fff;-webkit-user-select:text;user-select:text;}
+    .qty-input:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px rgba(52,152,219,.15);}
     /* 어드민 체크리스트 편집 */
     .cl-edit-table{width:100%;border-collapse:collapse;font-size:13px;}
     .cl-edit-table th{background:#f1f2f6;padding:8px 6px;border-bottom:2px solid var(--line);text-align:left;white-space:nowrap;}
@@ -1154,20 +1152,10 @@ function renderStockSection() {
       ${grp.items.map((name, ii) => `
         <div class="stock-item">
           <span class="stock-item-name">${name}</span>
-          <div class="qty-ctrl">
-            <button class="qty-btn" type="button" onclick="window.changeQty(${gi},${ii},-1)">−</button>
-            <span class="qty-num" id="qty-${gi}-${ii}">0</span>
-            <button class="qty-btn" type="button" onclick="window.changeQty(${gi},${ii},1)">+</button>
-          </div>
+          <input class="qty-input" id="qty-${gi}-${ii}" type="number" inputmode="numeric" min="0" value="0" />
         </div>`).join("")}
     </div>`).join("");
 }
-
-window.changeQty = function(gi, ii, delta) {
-  const el = document.getElementById(`qty-${gi}-${ii}`);
-  const v = Math.max(0, (Number(el.textContent)||0) + delta);
-  el.textContent = v;
-};
 
 function readStockValues() {
   return DEFAULT_STOCK_ITEMS.flatMap((grp, gi) =>
@@ -1175,7 +1163,7 @@ function readStockValues() {
       group: grp.group,
       unit:  grp.unit,
       name,
-      qty:   Number(document.getElementById(`qty-${gi}-${ii}`)?.textContent || 0),
+      qty:   Math.max(0, Number(document.getElementById(`qty-${gi}-${ii}`)?.value || 0)),
     }))
   );
 }
