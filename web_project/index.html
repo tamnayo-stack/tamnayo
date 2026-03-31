@@ -144,16 +144,14 @@
     .stock-section-title{font-size:15px;font-weight:900;color:var(--text);padding:10px 12px;background:linear-gradient(135deg,#667eea22,#764ba222);border-radius:12px;border-left:4px solid #667eea;margin-bottom:8px;}
     .stock-group{margin-bottom:14px;}
     .stock-group-header{font-size:12px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding:4px 2px;border-bottom:1px solid var(--line);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
-    .stock-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;margin-bottom:6px;}
+    .stock-item{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;margin-bottom:6px;}
     .stock-item-name{font-size:14px;font-weight:700;color:var(--text);flex:1;}
-    .stock-item-prev{font-size:11px;color:var(--muted);white-space:nowrap;}
-    .qty-input{width:68px;font-size:20px;font-weight:900;text-align:center;border:2px solid var(--line);border-radius:12px;padding:8px 4px;color:var(--text);background:#fff;-webkit-user-select:text;user-select:text;flex-shrink:0;}
+    .qty-ctrl{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+    .qty-btn{width:34px;height:34px;border:1px solid var(--line);background:#f8f9fa;border-radius:10px;font-size:20px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text);line-height:1;transition:background .1s;flex-shrink:0;}
+    .qty-btn:active{background:#dfe6e9;}
+    .qty-input{width:58px;font-size:18px;font-weight:900;text-align:center;border:2px solid var(--line);border-radius:10px;padding:6px 2px;color:var(--text);background:#fff;-webkit-user-select:text;user-select:text;}
     .qty-input:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px rgba(52,152,219,.15);}
     .qty-unit{font-size:11px;color:var(--muted);white-space:nowrap;}
-    .qty-diff{font-size:13px;font-weight:900;min-width:36px;text-align:right;white-space:nowrap;}
-    .qty-diff.plus{color:var(--good);}
-    .qty-diff.minus{color:var(--bad);}
-    .qty-diff.zero{color:var(--muted);}
     /* 어드민 체크리스트 편집 */
     .cl-edit-table{width:100%;border-collapse:collapse;font-size:13px;}
     .cl-edit-table th{background:#f1f2f6;padding:8px 6px;border-bottom:2px solid var(--line);text-align:left;white-space:nowrap;}
@@ -751,7 +749,6 @@ function getCloseCheckLogs() { return loadJSON(LS_KEYS.CLOSE_CHECK_LOGS, []); }
 function setCloseCheckLogs(list) { saveJSON(LS_KEYS.CLOSE_CHECK_LOGS, list); }
 
 // ─── 재고 항목 정의 ───────────────────────────────────────────────────────────
-// 항목별로 unit을 개별 지정 (items: [{name, unit}])
 const DEFAULT_STOCK_ITEMS = [
   { group:"박스", items:[
     {name:"스몰",    unit:"박스"},
@@ -767,15 +764,11 @@ const DEFAULT_STOCK_ITEMS = [
     {name:"탐나는치즈",      unit:"봉"},
     {name:"탐나는 체다치즈", unit:"봉"},
   ]},
-  { group:"소스", items:[
+  { group:"소스/기타", items:[
     {name:"탐나는 갈릭소스 컵",  unit:"박스"},
     {name:"탐나는 갈릭소스 튜브",unit:"박스"},
     {name:"핫소스",              unit:"병"},
-    {name:"피자소스",            unit:"캔"},
-  ]},
-  { group:"기타", items:[
-    {name:"파마산가루",        unit:"봉"},
-    {name:"스파게티은박 뚜껑", unit:"개"},
+    {name:"파마산가루",          unit:"봉"},
   ]},
 ];
 
@@ -1192,29 +1185,29 @@ function renderStockSection() {
       <div class="stock-group-header">${grp.group}</div>
       ${grp.items.map((item, ii) => {
         const prev = prevMap[`${grp.group}|${item.name}`];
-        const prevLabel = prev !== undefined ? `전일 ${prev}${item.unit}` : `전일 -`;
         return `<div class="stock-item">
           <span class="stock-item-name">${item.name}</span>
-          <span class="stock-item-prev">${prevLabel}</span>
-          <input class="qty-input" id="qty-${gi}-${ii}" type="number" inputmode="numeric" min="0" value="0"
-            data-prev="${prev !== undefined ? prev : ''}"
-            oninput="window.updateQtyDiff(${gi},${ii})" />
+          <div class="qty-ctrl">
+            <button class="qty-btn" type="button" onclick="window.changeQty(${gi},${ii},-1)">−</button>
+            <input class="qty-input" id="qty-${gi}-${ii}" type="number" inputmode="numeric" min="0" value="0"
+              data-prev="${prev !== undefined ? prev : ''}"
+              oninput="window.updateQtyDiff(${gi},${ii})" />
+            <button class="qty-btn" type="button" onclick="window.changeQty(${gi},${ii},1)">+</button>
+          </div>
           <span class="qty-unit">${item.unit}</span>
-          <span class="qty-diff zero" id="diff-${gi}-${ii}">-</span>
         </div>`;
       }).join("")}
     </div>`).join("");
 }
 
+window.changeQty = function(gi, ii, delta) {
+  const el = document.getElementById(`qty-${gi}-${ii}`);
+  el.value = Math.max(0, (Number(el.value) || 0) + delta);
+  window.updateQtyDiff(gi, ii);
+};
+
 window.updateQtyDiff = function(gi, ii) {
-  const input  = document.getElementById(`qty-${gi}-${ii}`);
-  const diffEl = document.getElementById(`diff-${gi}-${ii}`);
-  const prev   = input.dataset.prev;
-  if (prev === '' || prev === undefined) { diffEl.textContent = '-'; diffEl.className = 'qty-diff zero'; return; }
-  const d = (Number(input.value) || 0) - Number(prev);
-  if      (d > 0) { diffEl.textContent = `+${d}`; diffEl.className = 'qty-diff plus'; }
-  else if (d < 0) { diffEl.textContent = `${d}`;  diffEl.className = 'qty-diff minus'; }
-  else            { diffEl.textContent = `±0`;     diffEl.className = 'qty-diff zero'; }
+  // diff는 텔레그램 전송 시에만 계산 (화면에는 표시 안 함)
 };
 
 function readStockValues() {
