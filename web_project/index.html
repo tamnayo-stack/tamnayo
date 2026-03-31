@@ -144,11 +144,16 @@
     .stock-section-title{font-size:15px;font-weight:900;color:var(--text);padding:10px 12px;background:linear-gradient(135deg,#667eea22,#764ba222);border-radius:12px;border-left:4px solid #667eea;margin-bottom:8px;}
     .stock-group{margin-bottom:14px;}
     .stock-group-header{font-size:12px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding:4px 2px;border-bottom:1px solid var(--line);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
-    .stock-group-header .unit-badge{font-size:10px;background:#f1f2f6;padding:2px 6px;border-radius:6px;font-weight:700;color:var(--muted);text-transform:none;letter-spacing:0;}
-    .stock-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;margin-bottom:6px;}
+    .stock-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;margin-bottom:6px;}
     .stock-item-name{font-size:14px;font-weight:700;color:var(--text);flex:1;}
-    .qty-input{width:72px;font-size:20px;font-weight:900;text-align:center;border:2px solid var(--line);border-radius:12px;padding:8px 4px;color:var(--text);background:#fff;-webkit-user-select:text;user-select:text;}
+    .stock-item-prev{font-size:11px;color:var(--muted);white-space:nowrap;}
+    .qty-input{width:68px;font-size:20px;font-weight:900;text-align:center;border:2px solid var(--line);border-radius:12px;padding:8px 4px;color:var(--text);background:#fff;-webkit-user-select:text;user-select:text;flex-shrink:0;}
     .qty-input:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px rgba(52,152,219,.15);}
+    .qty-unit{font-size:11px;color:var(--muted);white-space:nowrap;}
+    .qty-diff{font-size:13px;font-weight:900;min-width:36px;text-align:right;white-space:nowrap;}
+    .qty-diff.plus{color:var(--good);}
+    .qty-diff.minus{color:var(--bad);}
+    .qty-diff.zero{color:var(--muted);}
     /* 어드민 체크리스트 편집 */
     .cl-edit-table{width:100%;border-collapse:collapse;font-size:13px;}
     .cl-edit-table th{background:#f1f2f6;padding:8px 6px;border-bottom:2px solid var(--line);text-align:left;white-space:nowrap;}
@@ -746,11 +751,32 @@ function getCloseCheckLogs() { return loadJSON(LS_KEYS.CLOSE_CHECK_LOGS, []); }
 function setCloseCheckLogs(list) { saveJSON(LS_KEYS.CLOSE_CHECK_LOGS, list); }
 
 // ─── 재고 항목 정의 ───────────────────────────────────────────────────────────
+// 항목별로 unit을 개별 지정 (items: [{name, unit}])
 const DEFAULT_STOCK_ITEMS = [
-  { group:"박스", unit:"박스", items:["스몰","레귤러","라지"] },
-  { group:"도우", unit:"박스", items:["스몰","레귤러","라지"] },
-  { group:"치즈", unit:"봉",   items:["탐나는치즈","탐나는 체다치즈"] },
-  { group:"소스", unit:"박스", items:["탐나는 갈릭소스 컵","탐나는 갈릭소스 튜브"] },
+  { group:"박스", items:[
+    {name:"스몰",    unit:"박스"},
+    {name:"레귤러",  unit:"박스"},
+    {name:"라지",    unit:"박스"},
+  ]},
+  { group:"도우", items:[
+    {name:"스몰",    unit:"박스"},
+    {name:"레귤러",  unit:"박스"},
+    {name:"라지",    unit:"박스"},
+  ]},
+  { group:"치즈", items:[
+    {name:"탐나는치즈",      unit:"봉"},
+    {name:"탐나는 체다치즈", unit:"봉"},
+  ]},
+  { group:"소스", items:[
+    {name:"탐나는 갈릭소스 컵",  unit:"박스"},
+    {name:"탐나는 갈릭소스 튜브",unit:"박스"},
+    {name:"핫소스",              unit:"병"},
+    {name:"피자소스",            unit:"캔"},
+  ]},
+  { group:"기타", items:[
+    {name:"파마산가루",        unit:"봉"},
+    {name:"스파게티은박 뚜껑", unit:"개"},
+  ]},
 ];
 
 function addCloseCheckLog({code, name, items, stock}) {
@@ -964,11 +990,20 @@ document.getElementById("btnOut").addEventListener("click", async () => {
   let tgMsg = `[퇴근] ${e.name}님 퇴근 (${fmtTS(nowTS())})`;
   if (manualNote) tgMsg += `\n특이사항: ${manualNote}`;
   if (stockData.length) {
+    const prevMap = getPrevStockMap();
     tgMsg += `\n\n📦 재고 현황`;
     let lastGroup = "";
     stockData.forEach(s => {
       if (s.group !== lastGroup) { tgMsg += `\n▸ [${s.group}]`; lastGroup = s.group; }
-      tgMsg += `\n  ${s.name}: ${s.qty}${s.unit}`;
+      const prev = prevMap[`${s.group}|${s.name}`];
+      let diffStr = '';
+      if (prev !== undefined) {
+        const d = s.qty - prev;
+        if      (d > 0) diffStr = ` (+${d} ↑)`;
+        else if (d < 0) diffStr = ` (${d} ↓)`;
+        else            diffStr = ` (±0)`;
+      }
+      tgMsg += `\n  ${s.name}: ${s.qty}${s.unit}${diffStr}`;
     });
   }
   sendTelegramAlert(tgMsg);
@@ -1141,28 +1176,53 @@ function renderCloseCheckModal(items) {
 }
 
 // ─── 재고 섹션 렌더/수집 ──────────────────────────────────────────────────────
+function getPrevStockMap() {
+  const logs = getCloseCheckLogs().filter(l => Array.isArray(l.stock) && l.stock.length);
+  if (!logs.length) return {};
+  const map = {};
+  (logs[logs.length - 1].stock || []).forEach(s => { map[`${s.group}|${s.name}`] = s.qty; });
+  return map;
+}
+
 function renderStockSection() {
+  const prevMap = getPrevStockMap();
   const area = document.getElementById("stockInputArea");
   area.innerHTML = DEFAULT_STOCK_ITEMS.map((grp, gi) => `
     <div class="stock-group">
-      <div class="stock-group-header">
-        ${grp.group}
-        <span class="unit-badge">단위: ${grp.unit}</span>
-      </div>
-      ${grp.items.map((name, ii) => `
-        <div class="stock-item">
-          <span class="stock-item-name">${name}</span>
-          <input class="qty-input" id="qty-${gi}-${ii}" type="number" inputmode="numeric" min="0" value="0" />
-        </div>`).join("")}
+      <div class="stock-group-header">${grp.group}</div>
+      ${grp.items.map((item, ii) => {
+        const prev = prevMap[`${grp.group}|${item.name}`];
+        const prevLabel = prev !== undefined ? `전일 ${prev}${item.unit}` : `전일 -`;
+        return `<div class="stock-item">
+          <span class="stock-item-name">${item.name}</span>
+          <span class="stock-item-prev">${prevLabel}</span>
+          <input class="qty-input" id="qty-${gi}-${ii}" type="number" inputmode="numeric" min="0" value="0"
+            data-prev="${prev !== undefined ? prev : ''}"
+            oninput="window.updateQtyDiff(${gi},${ii})" />
+          <span class="qty-unit">${item.unit}</span>
+          <span class="qty-diff zero" id="diff-${gi}-${ii}">-</span>
+        </div>`;
+      }).join("")}
     </div>`).join("");
 }
 
+window.updateQtyDiff = function(gi, ii) {
+  const input  = document.getElementById(`qty-${gi}-${ii}`);
+  const diffEl = document.getElementById(`diff-${gi}-${ii}`);
+  const prev   = input.dataset.prev;
+  if (prev === '' || prev === undefined) { diffEl.textContent = '-'; diffEl.className = 'qty-diff zero'; return; }
+  const d = (Number(input.value) || 0) - Number(prev);
+  if      (d > 0) { diffEl.textContent = `+${d}`; diffEl.className = 'qty-diff plus'; }
+  else if (d < 0) { diffEl.textContent = `${d}`;  diffEl.className = 'qty-diff minus'; }
+  else            { diffEl.textContent = `±0`;     diffEl.className = 'qty-diff zero'; }
+};
+
 function readStockValues() {
   return DEFAULT_STOCK_ITEMS.flatMap((grp, gi) =>
-    grp.items.map((name, ii) => ({
+    grp.items.map((item, ii) => ({
       group: grp.group,
-      unit:  grp.unit,
-      name,
+      unit:  item.unit,
+      name:  item.name,
       qty:   Math.max(0, Number(document.getElementById(`qty-${gi}-${ii}`)?.value || 0)),
     }))
   );
