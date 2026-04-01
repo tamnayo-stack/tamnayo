@@ -564,7 +564,6 @@
 <script type="module">
 // ─── 상수 ───────────────────────────────────────────────────────────────────
 const C = {
-  PENALTY_UNIT_MS:    10 * 60 * 1000,
   OVERTIME_UNIT_MS:    5 * 60 * 1000,
   JUHYU_MIN_HOURS:    15,
   JUHYU_PAID_HOURS:    8,
@@ -866,10 +865,7 @@ function getAdjustedStartTime(emp, inTs) {
   const d = new Date(inTs);
   const [h,m] = emp.workStart.split(':').map(Number);
   const sched = new Date(d.getFullYear(),d.getMonth(),d.getDate(),h,m,0,0).getTime();
-  if (inTs <= sched) return sched;
-  const diff = inTs - sched;
-  const blocks = Math.ceil(diff / C.PENALTY_UNIT_MS);
-  return sched + (blocks * C.PENALTY_UNIT_MS);
+  return Math.max(inTs, sched);
 }
 
 function getScheduledEndTime(emp, inTs, outTs) {
@@ -951,13 +947,7 @@ document.getElementById("btnIn").addEventListener("click", async () => {
   await showNoticeCountdownIfAny();
   addLog({code:c, name:e.name, type:"IN"});
   const now = Date.now();
-  if (e.workStart) {
-    const d = new Date(now);
-    const [h,m] = e.workStart.split(':').map(Number);
-    const sched = new Date(d.getFullYear(),d.getMonth(),d.getDate(),h,m,0,0).getTime();
-    if (now > sched + 1000) toast("지각 - 10분 페널티 적용", "danger");
-    else toast(`${e.name} 출근 완료`);
-  } else { toast(`${e.name} 출근 완료`); }
+  toast(`${e.name} 출근 완료`);
   sendTelegramAlert(`[출근] ${e.name}님 출근 (${fmtTS(now)})`);
   recordAction("출근 완료", `${e.name}(${c})`);
   renderAttendancePanel();
@@ -1531,11 +1521,9 @@ function renderLogAll() {
     let tDisp = fmtTS(l.ts);
     const emp = findEmpByCode(l.code);
     if (l.type==="IN" && emp && emp.workStart) {
-      const adjIn = getAdjustedStartTime(emp, l.ts);
       const d=new Date(l.ts), [h,m]=emp.workStart.split(':').map(Number);
       const sched=new Date(d.getFullYear(),d.getMonth(),d.getDate(),h,m,0,0).getTime();
-      const ad=new Date(adjIn), adjStr=`${String(ad.getHours()).padStart(2,"0")}:${String(ad.getMinutes()).padStart(2,"0")}`;
-      tDisp += l.ts>sched ? `<br><span class="tag out" style="font-size:10px;">지각(인정:${adjStr})</span>` : `<br><span class="tag in" style="font-size:10px;">정시(인정:${adjStr})</span>`;
+      if (l.ts > sched + 1000) tDisp += `<br><span class="tag out" style="font-size:10px;">지각</span>`;
     }
     if (l.type==="OUT" && emp) {
       const p = pairMap.get(`${l.code}|${l.ts}`);
