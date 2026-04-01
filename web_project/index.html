@@ -673,12 +673,13 @@ window.loadJSON = function(key, fallback) {
 
 // ─── 공휴일 ──────────────────────────────────────────────────────────────────
 const HOLIDAY_CACHE_KEY = "HOLIDAY_CACHE_V1";
-const HOLIDAYS_FALLBACK = ["2025-01-01","2025-01-28","2025-01-29","2025-01-30","2025-03-01","2025-05-05","2025-05-06","2025-06-06","2025-08-15","2025-10-03","2025-10-05","2025-10-06","2025-10-07","2025-10-08","2025-10-09","2025-12-25","2026-01-01","2026-02-16","2026-02-17","2026-02-18","2026-03-01","2026-05-05","2026-05-24","2026-05-25","2026-06-06","2026-08-15","2026-09-24","2026-09-25","2026-09-26","2026-10-03","2026-10-09","2026-12-25"];
+const HOLIDAYS_FALLBACK = ["2025-01-01","2025-01-28","2025-01-29","2025-01-30","2025-03-01","2025-05-05","2025-05-06","2025-06-06","2025-08-15","2025-10-03","2025-10-05","2025-10-06","2025-10-07","2025-10-08","2025-10-09","2025-12-25","2026-01-01","2026-02-16","2026-02-17","2026-02-18","2026-03-01","2026-03-02","2026-05-05","2026-05-24","2026-05-25","2026-06-06","2026-06-08","2026-08-15","2026-08-17","2026-09-24","2026-09-25","2026-09-26","2026-09-28","2026-10-03","2026-10-05","2026-10-09","2026-12-25"];
 let HOLIDAY_CACHE = {};
 const HOLIDAY_LOADING = new Set();
 
 function getFallbackHolidays(year) { return HOLIDAYS_FALLBACK.filter(d => d.startsWith(`${year}-`)); }
-function getHolidayList(year) { const y=String(year); return (Array.isArray(HOLIDAY_CACHE[y]) && HOLIDAY_CACHE[y].length) ? HOLIDAY_CACHE[y] : getFallbackHolidays(y); }
+// API 캐시와 fallback을 항상 병합 (대체공휴일 누락 방지)
+function getHolidayList(year) { const y=String(year); const cached=Array.isArray(HOLIDAY_CACHE[y])?HOLIDAY_CACHE[y]:[]; return Array.from(new Set([...cached,...getFallbackHolidays(y)])); }
 function isHoliday(dateStr) { return getHolidayList(String(dateStr).slice(0,4)).includes(dateStr); }
 async function syncHolidayYear(year) {
   const y = String(year);
