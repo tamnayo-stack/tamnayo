@@ -155,6 +155,9 @@
     .qty-input{width:58px;font-size:18px;font-weight:900;text-align:center;border:2px solid var(--line);border-radius:10px;padding:6px 2px;color:var(--text);background:#fff;-webkit-user-select:text;user-select:text;}
     .qty-input:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px rgba(52,152,219,.15);}
     .qty-unit{font-size:11px;color:var(--muted);white-space:nowrap;}
+    .none-btn{font-size:11px;font-weight:900;padding:4px 8px;border-radius:8px;border:1.5px solid var(--line);background:#f8f9fa;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:background .1s,color .1s,border-color .1s;}
+    .none-btn.active{background:#e74c3c;color:#fff;border-color:#e74c3c;}
+    .qty-btn:disabled,.qty-input:disabled{opacity:.35;cursor:not-allowed;}
     /* 어드민 체크리스트 편집 */
     .cl-edit-table{width:100%;border-collapse:collapse;font-size:13px;}
     .cl-edit-table th{background:#f1f2f6;padding:8px 6px;border-bottom:2px solid var(--line);text-align:left;white-space:nowrap;}
@@ -1181,25 +1184,48 @@ function renderStockSection() {
         return `<div class="stock-item">
           <span class="stock-item-name">${item.name}</span>
           <div class="qty-ctrl">
-            <button class="qty-btn" type="button" onclick="window.changeQty(${gi},${ii},-1)">−</button>
+            <button class="qty-btn" id="qbtn-minus-${gi}-${ii}" type="button" onclick="window.changeQty(${gi},${ii},-1)">−</button>
             <input class="qty-input" id="qty-${gi}-${ii}" type="number" inputmode="numeric" min="0" value="0"
               data-prev="${prev !== undefined ? prev : ''}"
               data-touched="false"
-              oninput="this.dataset.touched='true';this.style.borderColor='';window.updateQtyDiff(${gi},${ii})" />
-            <button class="qty-btn" type="button" onclick="window.changeQty(${gi},${ii},1)">+</button>
+              oninput="window.onQtyInput(${gi},${ii},this)" />
+            <button class="qty-btn" id="qbtn-plus-${gi}-${ii}" type="button" onclick="window.changeQty(${gi},${ii},1)">+</button>
           </div>
+          <button class="none-btn" id="none-${gi}-${ii}" type="button" onclick="window.toggleNone(${gi},${ii})">없음</button>
           <span class="qty-unit">${item.unit}</span>
         </div>`;
       }).join("")}
     </div>`).join("");
 }
 
+window.onQtyInput = function(gi, ii, el) {
+  const val = Number(el.value) || 0;
+  // 값이 0이면 touched 해제 (없음 버튼으로만 0 입력 가능)
+  el.dataset.touched = val > 0 ? "true" : "false";
+  el.style.borderColor = "";
+  document.getElementById(`none-${gi}-${ii}`)?.classList.remove("active");
+};
+
 window.changeQty = function(gi, ii, delta) {
   const el = document.getElementById(`qty-${gi}-${ii}`);
-  el.value = Math.max(0, (Number(el.value) || 0) + delta);
-  el.dataset.touched = "true";
+  const newVal = Math.max(0, (Number(el.value) || 0) + delta);
+  el.value = newVal;
+  // 0으로 내려가면 touched 해제
+  el.dataset.touched = newVal > 0 ? "true" : "false";
   el.style.borderColor = "";
-  window.updateQtyDiff(gi, ii);
+  document.getElementById(`none-${gi}-${ii}`)?.classList.remove("active");
+};
+
+window.toggleNone = function(gi, ii) {
+  const el = document.getElementById(`qty-${gi}-${ii}`);
+  const btn = document.getElementById(`none-${gi}-${ii}`);
+  const isNone = btn.classList.toggle("active");
+  el.value = 0;
+  el.dataset.touched = isNone ? "true" : "false";
+  el.style.borderColor = "";
+  el.disabled = isNone;
+  document.getElementById(`qbtn-minus-${gi}-${ii}`).disabled = isNone;
+  document.getElementById(`qbtn-plus-${gi}-${ii}`).disabled = isNone;
 };
 
 window.updateQtyDiff = function(gi, ii) {
@@ -1224,8 +1250,9 @@ function openCloseCheckModal(items, empCode) {
 
   renderStockSection();
   const stockSection = document.querySelector(".stock-section");
-  if (stockSection) stockSection.style.display = "";
-  const showStock = true;
+  const todayDay = new Date().getDay(); // 0=일,1=월,2=화,3=수,4=목,5=금,6=토
+  const showStock = (todayDay === 1 || todayDay === 4); // 월,목만
+  if (stockSection) stockSection.style.display = showStock ? "" : "none";
 
   done.disabled = false;
   closeCheckOverlay.classList.add("show");
@@ -1244,14 +1271,16 @@ function openCloseCheckModal(items, empCode) {
       const required = boxes.filter(b => !b.hasAttribute('data-optional'));
       if (!required.every(b => b.checked)) { toast("필수 항목을 모두 체크해주세요","danger"); return; }
 
-      // 재고 입력 필수 검증
-      const stockInputs = Array.from(document.querySelectorAll('.qty-input'));
-      const untouched = stockInputs.filter(el => el.dataset.touched !== "true");
-      if (untouched.length > 0) {
-        untouched.forEach(el => { el.style.borderColor = "var(--bad)"; });
-        untouched[0].scrollIntoView({ behavior: "smooth", block: "center" });
-        toast(`재고 ${untouched.length}개 항목을 입력해주세요`, "danger");
-        return;
+      // 재고 입력 필수 검증 (월/목에만)
+      if (showStock) {
+        const stockInputs = Array.from(document.querySelectorAll('.qty-input'));
+        const untouched = stockInputs.filter(el => el.dataset.touched !== "true");
+        if (untouched.length > 0) {
+          untouched.forEach(el => { el.style.borderColor = "var(--bad)"; });
+          untouched[0].scrollIntoView({ behavior: "smooth", block: "center" });
+          toast(`재고 ${untouched.length}개 항목을 입력해주세요`, "danger");
+          return;
+        }
       }
 
       const checkedItems = boxes.filter(b => b.checked).map(b => {
