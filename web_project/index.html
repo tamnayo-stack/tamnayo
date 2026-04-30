@@ -227,9 +227,6 @@
           <tbody id="recentTable"></tbody></table>
         </div>
         <div class="note">최근 기록은 누락 방지를 위한 참고용입니다.</div>
-        <div style="margin-top:10px;text-align:right;">
-          <button class="btn small warn" id="btnTestCloseModal" style="font-size:11px;opacity:0.6;">🧪 마감모달 테스트</button>
-        </div>
       </div>
     </div>
   </section>
@@ -332,6 +329,7 @@
       <button class="btn primary" id="goEmp">알바생 관리</button>
       <button class="btn primary" id="goLog">근태 조회</button>
       <button class="btn" id="btnOpenActionLog">시스템 로그</button>
+      <button class="btn warn" id="btnTestCloseModal">🧪 마감모달 테스트</button>
       <button class="btn" id="btnLockAdmin">닫기</button>
     </div>
     <div class="hr"></div>
@@ -563,6 +561,7 @@
       <div id="stockInputArea"></div>
     </div>
     <div class="modalActions" style="margin-top:20px;">
+      <button class="btn" id="closeCheckCancel">닫기</button>
       <button class="btn primary" id="closeCheckDone" disabled>완료 후 퇴근</button>
     </div>
   </div>
@@ -1021,7 +1020,12 @@ function renderQuickButtons() {
 function renderAttendancePanel() { renderRecent(); renderQuickButtons(); onCodeChanged(); }
 
 bindClick("btnTestCloseModal", async () => {
+  document.getElementById("adminMenuOverlay").classList.remove("show");
   await openCloseCheckModal(getCloseChecklist(), "0000");
+});
+
+bindClick("closeCheckCancel", () => {
+  document.getElementById("closeCheckOverlay").classList.remove("show");
 });
 
 // ─── 알바생 관리 ─────────────────────────────────────────────────────────────
