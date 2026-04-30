@@ -227,6 +227,9 @@
           <tbody id="recentTable"></tbody></table>
         </div>
         <div class="note">최근 기록은 누락 방지를 위한 참고용입니다.</div>
+        <div style="margin-top:10px;text-align:right;">
+          <button class="btn small warn" id="btnTestCloseModal" style="font-size:11px;opacity:0.6;">🧪 마감모달 테스트</button>
+        </div>
       </div>
     </div>
   </section>
@@ -1015,6 +1018,10 @@ function renderQuickButtons() {
   div.querySelectorAll("button").forEach(b => b.addEventListener("click", () => { attCode.value=b.dataset.c; onCodeChanged(); }));
 }
 function renderAttendancePanel() { renderRecent(); renderQuickButtons(); onCodeChanged(); }
+
+bindClick("btnTestCloseModal", async () => {
+  await openCloseCheckModal(getCloseChecklist(), "0000");
+});
 
 // ─── 알바생 관리 ─────────────────────────────────────────────────────────────
 function nextAvailableCode() { const s=new Set(getEmployees().map(e=>Number(e.code))); for(let i=1;i<=9999;i++) if(!s.has(i)) return pad4(i); return pad4(1); }
