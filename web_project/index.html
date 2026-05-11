@@ -173,6 +173,7 @@
     #adminMenuOverlay{z-index:1000!important;}
     #actionLogOverlay,#empEditOverlay,#logEditOverlay,#logAddOverlay,#checklistEditOverlay{z-index:2000!important;}
     #noticeOverlay,#closeCheckOverlay,#outNoteOverlay,.toast{z-index:5000!important;}
+    #wagePromptOverlay,#wagePinOverlay,#wageCalOverlay{z-index:6000!important;}
     #pinOverlay{z-index:9999!important;}
     #sec-emp .grid{grid-template-columns:1fr!important;}
     #sec-emp .card{border-radius:22px;}
@@ -1001,7 +1002,146 @@ document.getElementById("btnOut").addEventListener("click", async () => {
   sendTelegramAlert(tgMsg);
   recordAction("퇴근 완료", `${e.name}(${c})`);
   renderAttendancePanel();
+  await showPersonalWage(c, e.name);
 });
+
+// ─── 개인 급여 확인 기능 ─────────────────────────────────────────────────────
+
+function getWagePinKey(code) { return `WAGE_PIN_${code}`; }
+
+function askWagePrompt(empName) {
+  return new Promise(r => {
+    document.getElementById("wagePromptTitle").textContent = `${empName}님, 예상 급여 확인`;
+    const ov = document.getElementById("wagePromptOverlay");
+    ov.style.display = "flex";
+    const yes = document.getElementById("wagePromptYes");
+    const no  = document.getElementById("wagePromptNo");
+    const done = (v) => { ov.style.display = ""; yes.onclick = null; no.onclick = null; r(v); };
+    yes.onclick = () => done(true);
+    no.onclick  = () => done(false);
+  });
+}
+
+function askWagePin(code) {
+  return new Promise(r => {
+    const savedPin = loadJSON(getWagePinKey(code), null);
+    const isFirst  = !savedPin;
+    document.getElementById("wagePinDesc").innerHTML = isFirst
+      ? "처음 설정하는 경우입니다.<br/><b>생년월일 6자리</b>가 급여 확인 비밀번호로 저장됩니다."
+      : "생년월일 6자리를 입력하세요.";
+    document.getElementById("wagePinInput").value = "";
+    document.getElementById("wagePinError").textContent = "";
+    const ov = document.getElementById("wagePinOverlay");
+    ov.style.display = "flex";
+    document.getElementById("wagePinInput").focus();
+
+    const confirm = document.getElementById("wagePinConfirm");
+    const cancel  = document.getElementById("wagePinCancel");
+    const done = (v) => { ov.style.display = ""; confirm.onclick = null; cancel.onclick = null; r(v); };
+
+    confirm.onclick = async () => {
+      const entered = document.getElementById("wagePinInput").value.trim();
+      if (entered.length !== 6 || !/^\d{6}$/.test(entered)) {
+        document.getElementById("wagePinError").textContent = "6자리 숫자로 입력해주세요."; return;
+      }
+      if (isFirst) {
+        await saveJSON(getWagePinKey(code), entered);
+        done(true);
+      } else {
+        if (entered === savedPin) { done(true); }
+        else { document.getElementById("wagePinError").textContent = "비밀번호가 틀렸어요."; }
+      }
+    };
+    cancel.onclick = () => done(false);
+  });
+}
+
+function renderWageCalendar(empCode) {
+  const now   = new Date();
+  const year  = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const emp   = findEmpByCode(empCode);
+  const empName = emp ? emp.name : empCode;
+
+  document.getElementById("wageCalTitle").textContent = `💰 ${empName}님 예상 급여`;
+  document.getElementById("wageCalMonthLabel").textContent = `${year}년 ${month}월`;
+
+  // 달력 그리드
+  const g = document.getElementById("wageCalGrid");
+  g.innerHTML = "";
+  ["일","월","화","수","목","금","토"].forEach((day,i) => {
+    const d = document.createElement("div");
+    d.className = "calCellHeader"; d.textContent = day;
+    if (i===0) d.style.color = "var(--bad)";
+    if (i===6) d.style.color = "var(--accent)";
+    g.appendChild(d);
+  });
+  const startDow = new Date(year, month-1, 1).getDay();
+  const endDay   = new Date(year, month, 0).getDate();
+  syncHolidayYear(year);
+  for (let i=0; i<startDow; i++) { const d=document.createElement("div"); d.className="calDay empty"; g.appendChild(d); }
+  for (let d=1; d<=endDay; d++) {
+    const cell = document.createElement("div"); cell.className = "calDay";
+    const dk = getDayKey(year, month, d);
+    if (dk === todayKey()) cell.classList.add("today");
+    const hol = isHoliday(dk);
+    const st  = calcDayStats(dk, empCode);
+    let inner = `<div class="calNum" style="${hol?'color:var(--bad);':''}">${d}${hol?'(휴)':''}</div>`;
+    if (new Date(year,month-1,d).getDay()===0) {
+      const j = getWeeklyJuhyu(new Date(year,month-1,d), empCode);
+      if (j>0) inner += `<span class="tag juhyu">주휴💰 +${j.toLocaleString()}</span>`;
+    }
+    if (st.has) inner += `<div class="calData"><span class="calTime">${st.h>0?st.h+'h ':''} ${st.m}m</span>${st.pay>0?`<span class="calPay">${st.pay.toLocaleString()}원</span>`:''}</div>`;
+    cell.innerHTML = inner;
+    g.appendChild(cell);
+  }
+
+  // 급여 요약
+  const prefix = `${year}-${String(month).padStart(2,"0")}`;
+  const pairs  = getShiftPairs(empCode).filter(p => dateKey(p.inTs).startsWith(prefix));
+  let totalBase=0, totalMs=0;
+  pairs.forEach(p => {
+    const adjIn  = getAdjustedStartTime(emp, p.inTs);
+    const adjOut = getAdjustedWorkTime(emp, p.inTs, p.outTs, p.outNote);
+    if (adjOut <= adjIn) return;
+    const ms = adjOut-adjIn; totalMs+=ms;
+    totalBase += roundPay((ms/3600000)*resolveWage(emp, dateKey(p.inTs)));
+  });
+  const sundays = [];
+  const dt = new Date(year, month-1, 1);
+  while (dt.getMonth()===month-1) { if(dt.getDay()===0) sundays.push(new Date(dt)); dt.setDate(dt.getDate()+1); }
+  let totalJuhyu=0, jDetails=[];
+  sundays.forEach((sun,si) => {
+    const j = getWeeklyJuhyu(sun, empCode);
+    if (j>0) {
+      const wStart = new Date(sun); wStart.setDate(wStart.getDate()-6);
+      jDetails.push({week:si+1, amount:j, range:`${wStart.getMonth()+1}.${wStart.getDate()}~${sun.getMonth()+1}.${sun.getDate()}`});
+      totalJuhyu+=j;
+    }
+  });
+  const th=Math.floor(totalMs/3600000), tm=Math.floor((totalMs%3600000)/60000);
+  let sumHtml = `<div class="summary-item"><div class="summary-title">총 근무시간</div><div class="summary-value">${th}시간 ${tm}분</div></div>`;
+  sumHtml += `<div class="summary-item"><div class="summary-title">기본 급여</div><div class="summary-value">${totalBase.toLocaleString()}원</div></div>`;
+  if (jDetails.length) {
+    sumHtml += `<div class="summary-item"><div class="summary-title">주휴수당</div><div class="juhyu-list">`;
+    jDetails.forEach(j => { sumHtml += `<div class="juhyu-row"><span>${j.week}주차 (${j.range})</span><strong style="color:var(--warn);">+${j.amount.toLocaleString()}</strong></div>`; });
+    sumHtml += `<div class="juhyu-row" style="background:rgba(243,156,18,.1);border-color:var(--warn);"><span style="font-weight:900;">합계</span><strong style="color:var(--warn);">+${totalJuhyu.toLocaleString()}원</strong></div>`;
+    sumHtml += `</div></div>`;
+  }
+  sumHtml += `<div class="summary-item" style="border:none;padding-top:8px;"><div class="summary-title">세전 예상 급여 (기본+주휴)</div><div class="summary-value" style="color:var(--accent);font-size:24px;">${(totalBase+totalJuhyu).toLocaleString()}원</div></div>`;
+  document.getElementById("wageCalSummary").innerHTML = sumHtml;
+}
+
+async function showPersonalWage(empCode, empName) {
+  const want = await askWagePrompt(empName);
+  if (!want) return;
+  const ok = await askWagePin(empCode);
+  if (!ok) return;
+  renderWageCalendar(empCode);
+  document.getElementById("wageCalOverlay").style.display = "flex";
+}
+
+bindClick("wageCalClose", () => { document.getElementById("wageCalOverlay").style.display = ""; });
 
 // ─── 렌더 (출퇴근 패널) ───────────────────────────────────────────────────────
 function renderRecent() {
@@ -1843,5 +1983,50 @@ bindClick('btnSaveTemplate', () => {
   } catch(e) { console.error("초기화 오류:", e); }
 })();
 </script>
+
+<!-- 급여확인 여부 -->
+<div class="modalOverlay" id="wagePromptOverlay" role="dialog" aria-modal="true">
+  <div class="modal" style="text-align:center;">
+    <div style="font-size:32px;margin-bottom:8px;">💰</div>
+    <h3 id="wagePromptTitle">예상 급여 확인</h3>
+    <div class="muted" style="margin:8px 0 16px;">이번 달 예상 급여를 확인하시겠어요?</div>
+    <div class="modalActions" style="justify-content:center;">
+      <button class="btn" id="wagePromptNo">괜찮아요</button>
+      <button class="btn primary" id="wagePromptYes">확인하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 급여 PIN 입력 -->
+<div class="modalOverlay" id="wagePinOverlay" role="dialog" aria-modal="true">
+  <div class="modal" style="text-align:center;">
+    <div style="font-size:28px;margin-bottom:8px;">🔒</div>
+    <h3>본인 확인</h3>
+    <div class="muted" id="wagePinDesc" style="margin:8px 0 16px;line-height:1.6;"></div>
+    <input id="wagePinInput" type="password" inputmode="numeric" maxlength="6" placeholder="생년월일 6자리"
+      style="text-align:center;font-size:22px;font-weight:900;letter-spacing:6px;width:100%;padding:12px;" />
+    <div id="wagePinError" style="color:var(--bad);font-size:13px;font-weight:700;margin-top:8px;min-height:18px;"></div>
+    <div class="modalActions" style="justify-content:center;margin-top:12px;">
+      <button class="btn" id="wagePinCancel">닫기</button>
+      <button class="btn primary" id="wagePinConfirm">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- 개인 급여 달력 -->
+<div class="modalOverlay" id="wageCalOverlay" role="dialog" aria-modal="true">
+  <div class="modal" style="width:min(700px,100%);max-height:90vh;overflow-y:auto;">
+    <div class="row" style="align-items:center;">
+      <h3 id="wageCalTitle" style="margin:0;">💰 예상 급여</h3>
+      <div class="spacer"></div>
+      <button class="btn small bad" id="wageCalClose">닫기</button>
+    </div>
+    <div class="muted" id="wageCalMonthLabel" style="margin:4px 0 12px;font-weight:900;"></div>
+    <div class="hr"></div>
+    <div class="calGrid" id="wageCalGrid" style="margin-top:12px;"></div>
+    <div class="note" style="margin-top:8px;">• 일요일에 해당 주의 주휴수당이 표시됩니다.<br/>• 공휴일은 1.5배 시급 자동 적용됩니다.</div>
+    <div id="wageCalSummary" style="margin-top:16px;"></div>
+  </div>
+</div>
 </body>
 </html>
