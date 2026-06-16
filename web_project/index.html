@@ -652,20 +652,22 @@ const app = initializeApp(firebaseConfig);
 const db  = getDatabase(app);
 
 let SERVER_CACHE = {};
+let fbReadyResolve;
+const fbReady = new Promise(r => { fbReadyResolve = r; });
+let fbFirstLoad = false;
 
 onValue(ref(db, 'tamnaData'), (snapshot) => {
   const data = snapshot.val();
-  if (data) {
-    SERVER_CACHE = data;
-    try {
-      HOLIDAY_CACHE = loadJSON(HOLIDAY_CACHE_KEY, {}) || {};
-      if (typeof renderAttendancePanel === 'function') renderAttendancePanel();
-      if (typeof renderLogAll === 'function') { renderLogFilterOptions(); renderLogAll(); }
-      if (typeof renderEmployees === 'function') renderEmployees();
-      const s = document.getElementById('syncStatus');
-      if (s) { s.textContent = "● 서버 동기화됨"; s.style.background = "rgba(39,174,96,0.8)"; }
-    } catch(e) { console.error(e); }
-  }
+  SERVER_CACHE = data || {};
+  if (!fbFirstLoad) { fbFirstLoad = true; fbReadyResolve(); }
+  try {
+    HOLIDAY_CACHE = loadJSON(HOLIDAY_CACHE_KEY, {}) || {};
+    if (typeof renderAttendancePanel === 'function') renderAttendancePanel();
+    if (typeof renderLogAll === 'function') { renderLogFilterOptions(); renderLogAll(); }
+    if (typeof renderEmployees === 'function') renderEmployees();
+    const s = document.getElementById('syncStatus');
+    if (s) { s.textContent = "● 서버 동기화됨"; s.style.background = "rgba(39,174,96,0.8)"; }
+  } catch(e) { console.error(e); }
 });
 
 window.saveJSON = async function(key, val) {
@@ -924,6 +926,11 @@ const attCode   = document.getElementById("attCode");
 const attName   = document.getElementById("attName");
 const attStatus = document.getElementById("attStatus");
 const attLast   = document.getElementById("attLast");
+let attProcessing = false;
+function setAttButtons(disabled) {
+  document.getElementById("btnIn").disabled  = disabled;
+  document.getElementById("btnOut").disabled = disabled;
+}
 
 function getLastEvent(code) { const logs=getLogs(); for(let i=logs.length-1;i>=0;i--) if(logs[i].code===code) return logs[i]; return null; }
 function canClockIn(code)  { const l=getLastEvent(code); return !l || l.type!=="IN"; }
@@ -945,64 +952,76 @@ attCode.addEventListener("input", onCodeChanged);
 bindClick("btnClearCode", () => { attCode.value=""; onCodeChanged(); });
 
 document.getElementById("btnIn").addEventListener("click", async () => {
+  if (attProcessing) return;
   const c = attCode.value;
   if (c.length !== 4) { recordAction("출근 실패","미선택"); return toast("알바생을 선택해주세요"); }
   const e = findEmpByCode(c);
   if (!e) { recordAction("출근 실패",`미등록(${c})`); return toast("미등록 코드"); }
   if (!canClockIn(c)) { recordAction("출근 실패",`이미 출근(${c})`); return toast("이미 출근 상태"); }
-  recordAction("출근 시도", `${e.name}(${c})`);
-  await showNoticeCountdownIfAny();
-  addLog({code:c, name:e.name, type:"IN"});
-  const now = Date.now();
-  toast(`${e.name} 출근 완료`);
-  sendTelegramAlert(`[출근] ${e.name}님 출근 (${fmtTS(now)})`);
-  recordAction("출근 완료", `${e.name}(${c})`);
-  renderAttendancePanel();
+  attProcessing = true; setAttButtons(true);
+  try {
+    recordAction("출근 시도", `${e.name}(${c})`);
+    await showNoticeCountdownIfAny();
+    addLog({code:c, name:e.name, type:"IN"});
+    const now = Date.now();
+    toast(`${e.name} 출근 완료`);
+    sendTelegramAlert(`[출근] ${e.name}님 출근 (${fmtTS(now)})`);
+    recordAction("출근 완료", `${e.name}(${c})`);
+    renderAttendancePanel();
+  } finally {
+    attProcessing = false; setAttButtons(false);
+  }
 });
 
 document.getElementById("btnOut").addEventListener("click", async () => {
+  if (attProcessing) return;
   const c = attCode.value;
   if (c.length !== 4) { recordAction("퇴근 실패","미선택"); return toast("알바생을 선택해주세요"); }
   const e = findEmpByCode(c);
   if (!e) { recordAction("퇴근 실패",`미등록(${c})`); return toast("미등록 코드"); }
   if (!canClockOut(c)) { recordAction("퇴근 실패",`출근기록없음(${c})`); return toast("출근 기록 없음"); }
-  recordAction("퇴근 시도", `${e.name}(${c})`);
-  const manualNote = await askOutNote();
-  let checkItems = [], stockData = [];
-  if (e.shiftType === "CLOSE") {
-    const res = await openCloseCheckModal(getCloseChecklist(), c);
-    if (res) { checkItems = res.items; stockData = res.stock||[]; }
+  attProcessing = true; setAttButtons(true);
+  try {
+    recordAction("퇴근 시도", `${e.name}(${c})`);
+    const manualNote = await askOutNote();
+    let checkItems = [], stockData = [];
+    if (e.shiftType === "CLOSE") {
+      const res = await openCloseCheckModal(getCloseChecklist(), c);
+      if (!res) { recordAction("퇴근 취소", `${e.name}(${c}) 체크리스트 미완료`); return; }
+      checkItems = res.items; stockData = res.stock||[];
+    }
+    if (manualNote) addOutNote({code:c, name:e.name, text:manualNote});
+    const checkStr = checkItems.length ? `[마감체크] ${checkItems.map(i=>i.title).join("/")}` : "";
+    const combined = [manualNote, checkStr].filter(Boolean).join("\n");
+    addLog({code:c, name:e.name, type:"OUT", note:combined});
+    if (checkItems.length) addCloseCheckLog({code:c, name:e.name, items:checkItems, stock:stockData});
+    toast(`${e.name} 퇴근`);
+    let tgMsg = `[퇴근] ${e.name}님 퇴근 (${fmtTS(nowTS())})`;
+    if (manualNote) tgMsg += `\n특이사항: ${manualNote}`;
+    if (stockData.length) {
+      const prevMap = getPrevStockMap();
+      tgMsg += `\n\n📦 재고 현황`;
+      let lastGroup = "";
+      stockData.forEach(s => {
+        if (s.group !== lastGroup) { tgMsg += `\n▸ [${s.group}]`; lastGroup = s.group; }
+        const prev = prevMap[`${s.group}|${s.name}`];
+        let diffStr = '';
+        if (prev !== undefined) {
+          const d = s.qty - prev;
+          if      (d > 0) diffStr = ` (+${d} ↑)`;
+          else if (d < 0) diffStr = ` (${d} ↓)`;
+          else            diffStr = ` (±0)`;
+        }
+        tgMsg += `\n  ${s.name}: ${s.qty}${s.unit}${diffStr}`;
+      });
+    }
+    sendTelegramAlert(tgMsg);
+    recordAction("퇴근 완료", `${e.name}(${c})`);
+    renderAttendancePanel();
+    await showPersonalWage(c, e.name);
+  } finally {
+    attProcessing = false; setAttButtons(false);
   }
-  if (manualNote) addOutNote({code:c, name:e.name, text:manualNote});
-  const checkStr = checkItems.length ? `[마감체크] ${checkItems.map(i=>i.title).join("/")}` : "";
-  const combined = [manualNote, checkStr].filter(Boolean).join("\n");
-  addLog({code:c, name:e.name, type:"OUT", note:combined});
-  if (checkItems.length) addCloseCheckLog({code:c, name:e.name, items:checkItems, stock:stockData});
-  toast(`${e.name} 퇴근`);
-  // 텔레그램 메시지 구성 (퇴근 + 재고현황)
-  let tgMsg = `[퇴근] ${e.name}님 퇴근 (${fmtTS(nowTS())})`;
-  if (manualNote) tgMsg += `\n특이사항: ${manualNote}`;
-  if (stockData.length) {
-    const prevMap = getPrevStockMap();
-    tgMsg += `\n\n📦 재고 현황`;
-    let lastGroup = "";
-    stockData.forEach(s => {
-      if (s.group !== lastGroup) { tgMsg += `\n▸ [${s.group}]`; lastGroup = s.group; }
-      const prev = prevMap[`${s.group}|${s.name}`];
-      let diffStr = '';
-      if (prev !== undefined) {
-        const d = s.qty - prev;
-        if      (d > 0) diffStr = ` (+${d} ↑)`;
-        else if (d < 0) diffStr = ` (${d} ↓)`;
-        else            diffStr = ` (±0)`;
-      }
-      tgMsg += `\n  ${s.name}: ${s.qty}${s.unit}${diffStr}`;
-    });
-  }
-  sendTelegramAlert(tgMsg);
-  recordAction("퇴근 완료", `${e.name}(${c})`);
-  renderAttendancePanel();
-  await showPersonalWage(c, e.name);
 });
 
 // ─── 개인 급여 확인 기능 ─────────────────────────────────────────────────────
@@ -1164,10 +1183,6 @@ bindClick("btnTestCloseModal", async () => {
   await openCloseCheckModal(getCloseChecklist(), "0000");
 });
 
-bindClick("closeCheckCancel", () => {
-  document.getElementById("closeCheckOverlay").classList.remove("show");
-});
-
 // ─── 알바생 관리 ─────────────────────────────────────────────────────────────
 function nextAvailableCode() { const s=new Set(getEmployees().map(e=>Number(e.code))); for(let i=1;i<=9999;i++) if(!s.has(i)) return pad4(i); return pad4(1); }
 function addEmployee(name,memo,ws,we,st,wage,wageW) {
@@ -1231,6 +1246,7 @@ const noticeOverlay = document.getElementById("noticeOverlay");
 function setRingProgress(p) { const c=2*Math.PI*30; const el=document.getElementById("noticeRing"); el.style.strokeDasharray=`${c}`; el.style.strokeDashoffset=`${c*(1-p)}`; }
 
 async function showNoticeCountdownIfAny() {
+  await fbReady;
   const t = getTodayNotice(); if (!t) return true;
   const duration = getTodayNoticeDuration();
   const btn = document.getElementById("noticeOk");
@@ -1418,6 +1434,15 @@ function openCloseCheckModal(items, empCode) {
   checkDoneState();
 
   return new Promise(r => {
+    const cancelBtn = document.getElementById("closeCheckCancel");
+
+    const cancelHandler = () => {
+      done.removeEventListener("click", handler);
+      closeCheckOverlay.classList.remove("show");
+      r(null);
+    };
+    cancelBtn.addEventListener("click", cancelHandler, { once: true });
+
     const handler = () => {
       const boxes = Array.from(document.querySelectorAll('#closeCheckList input[type=checkbox]'));
       const required = boxes.filter(b => !b.hasAttribute('data-optional'));
@@ -1442,6 +1467,7 @@ function openCloseCheckModal(items, empCode) {
       });
       const stock = showStock ? readStockValues() : [];
       done.removeEventListener("click", handler);
+      cancelBtn.removeEventListener("click", cancelHandler);
       closeCheckOverlay.classList.remove("show");
       r({ items: checkedItems, stock });
     };
@@ -1800,16 +1826,19 @@ window.removeDate = (d) => { logAddDates=logAddDates.filter(x=>x!==d); renderSel
 
 bindClick("logAddSave", () => {
   const c=document.getElementById("logAddEmp").value, e=findEmpByCode(c);
+  if (!e) return toast("알바생을 선택해주세요");
   const md=document.getElementById("logAddMode").value;
   const inT=document.getElementById("logAddInTime").value, outT=document.getElementById("logAddOutTime").value;
+  if ((md==="SHIFT"||md==="IN")  && !inT) return toast("출근 시간을 입력해주세요");
+  if ((md==="SHIFT"||md==="OUT") && !outT) return toast("퇴근 시간을 입력해주세요");
   const note=document.getElementById("logAddNote").value||"수동";
   const dates=[...logAddDates]; if(!dates.length){const s=document.getElementById("logAddDate").value; if(s) dates.push(s);}
   if(!dates.length) return toast("날짜 없음");
   dates.forEach(dt => {
-    const mkTs=(t)=>new Date(`${dt}T${t}`).getTime();
+    const mkTs=(t)=>{ const v=new Date(`${dt}T${t}`).getTime(); return isNaN(v)?null:v; };
     const logs=getLogs();
-    if(md==="SHIFT"||md==="IN")  { logs.push({id:nextLogId(),code:c,name:e.name,type:"IN", ts:mkTs(inT), note}); setLogs(logs); }
-    if(md==="SHIFT"||md==="OUT") { const l=getLogs(); l.push({id:nextLogId(),code:c,name:e.name,type:"OUT",ts:mkTs(outT),note}); setLogs(l); }
+    if(md==="SHIFT"||md==="IN")  { const ts=mkTs(inT); if(!ts) return; logs.push({id:nextLogId(),code:c,name:e.name,type:"IN", ts, note}); setLogs(logs); }
+    if(md==="SHIFT"||md==="OUT") { const ts=mkTs(outT); if(!ts) return; const l=getLogs(); l.push({id:nextLogId(),code:c,name:e.name,type:"OUT",ts,note}); setLogs(l); }
   });
   document.getElementById("logAddOverlay").classList.remove("show");
   toast("추가 완료"); renderLogAll(); renderAttendancePanel();
