@@ -810,13 +810,23 @@ window.recordAction = function(action, detail) {
 window.sendTelegramAlert = async function(text) {
   const token  = loadJSON(TG_TOKEN_KEY, null);
   const chatId = loadJSON(TG_CHAT_ID_KEY, null);
-  if (!token || !chatId) return;
+  if (!token || !chatId) {
+    recordAction("텔레그램 전송 건너뜀", token ? "Chat ID 없음" : "봇 토큰 없음");
+    return;
+  }
   try {
-    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({chat_id: chatId, text})
     });
-  } catch(e) { console.error("텔레그램 전송 실패:", e); }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      recordAction("텔레그램 전송 실패", err.description || `HTTP ${res.status}`);
+    }
+  } catch(e) {
+    recordAction("텔레그램 전송 오류", e.message || String(e));
+    console.error("텔레그램 전송 실패:", e);
+  }
 };
 
 // ─── 관리자 인증 ──────────────────────────────────────────────────────────────
