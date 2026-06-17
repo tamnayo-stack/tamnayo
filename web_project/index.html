@@ -386,6 +386,12 @@
       </div>
       <div id="templateList" style="max-height:120px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;"></div>
     </div>
+    <div style="margin-top:10px;padding:10px;background:#f8f9fa;border-radius:10px;border:1px solid var(--line);">
+      <div class="row" style="margin-bottom:6px;">
+        <span class="muted" style="font-size:12px;font-weight:700;">이전 공지 불러오기</span>
+      </div>
+      <div id="prevNoticeList" style="max-height:140px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;"></div>
+    </div>
     <div class="row" style="margin-top:10px;">
       <button class="btn primary" id="btnSaveTodayNotice">공지 저장</button>
       <button class="btn" id="btnClearTodayNotice">공지 비우기</button>
@@ -1928,6 +1934,7 @@ function openAdminMenu() {
   const tgEl=document.getElementById("tgSystemLogEnabled");
   if(tgEl) tgEl.checked = loadJSON(TG_SYS_LOG_KEY, false);
   renderTemplates();
+  renderPrevNotices();
   updateAdminStateText();
   adminMenuOverlay.classList.add("show");
 }
@@ -1996,19 +2003,48 @@ bindClick("btnClearTodayNotice", async () => {
   clearTodayNotice(); document.getElementById("adminNoticeInput").innerHTML=""; toast("지워짐");
 });
 
-// 문구 보관함
-function getTemplates() { return loadJSON('NOTICE_TEMPLATES', []); }
+// 문구 보관함 (localStorage에 저장 - 기기별 영구 보관)
+function getTemplates() { try { return JSON.parse(localStorage.getItem('NOTICE_TEMPLATES_LOCAL') || '[]'); } catch { return []; } }
+function saveTemplates(list) { localStorage.setItem('NOTICE_TEMPLATES_LOCAL', JSON.stringify(list)); }
 function renderTemplates() {
   const list=getTemplates(), c=document.getElementById('templateList');
   if(!list.length){c.innerHTML='<span class="muted" style="font-size:11px;padding:4px;">저장된 문구 없음</span>';return;}
   c.innerHTML=list.map((t,i)=>`<div style="display:flex;align-items:center;background:#fff;border:1px solid #dcdde1;padding:6px;border-radius:8px;"><div style="flex:1;font-size:12px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" onclick="window.applyTemplate(${i})">${t.replace(/<[^>]*>/g,'')||'(이미지/표)'}</div><button class="btn small bad" onclick="window.deleteTemplate(${i})" style="padding:2px 6px;font-size:10px;margin-left:4px;">x</button></div>`).join('');
 }
 window.applyTemplate  = (i) => { document.getElementById('adminNoticeInput').innerHTML=getTemplates()[i]; };
-window.deleteTemplate = (i) => { if(!confirm("삭제?"))return; const l=getTemplates(); l.splice(i,1); saveJSON('NOTICE_TEMPLATES',l); renderTemplates(); };
+window.deleteTemplate = (i) => { if(!confirm("삭제?"))return; const l=getTemplates(); l.splice(i,1); saveTemplates(l); renderTemplates(); };
 bindClick('btnSaveTemplate', () => {
   const txt=document.getElementById('adminNoticeInput').innerHTML; if(!txt) return toast("내용 없음");
-  const l=getTemplates(); l.push(txt); saveJSON('NOTICE_TEMPLATES',l); renderTemplates(); toast("문구 저장됨");
+  const l=getTemplates(); l.push(txt); saveTemplates(l); renderTemplates(); toast("문구 저장됨");
 });
+
+// 이전 공지 불러오기
+function renderPrevNotices() {
+  const map = getNoticeMap();
+  const today = todayKey();
+  const entries = Object.entries(map)
+    .filter(([k]) => k !== today)
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .slice(0, 10);
+  const c = document.getElementById('prevNoticeList');
+  if (!entries.length) { c.innerHTML='<span class="muted" style="font-size:11px;padding:4px;">이전 공지 없음</span>'; return; }
+  c.innerHTML = entries.map(([date, v]) => {
+    const preview = (v.text||'').replace(/<[^>]*>/g,'').slice(0,40) || '(이미지/표)';
+    return `<div style="display:flex;align-items:center;background:#fff;border:1px solid #dcdde1;padding:6px;border-radius:8px;gap:6px;">
+      <span style="font-size:11px;font-weight:900;color:var(--accent);white-space:nowrap;">${date}</span>
+      <div style="flex:1;font-size:12px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" onclick="window.loadPrevNotice('${date}')">${escapeHtml(preview)}</div>
+      <button class="btn small primary" onclick="window.loadPrevNotice('${date}')" style="padding:2px 8px;font-size:11px;white-space:nowrap;">불러오기</button>
+    </div>`;
+  }).join('');
+}
+window.loadPrevNotice = (date) => {
+  const map = getNoticeMap();
+  const entry = map[date];
+  if (!entry) return;
+  document.getElementById('adminNoticeInput').innerHTML = entry.text || '';
+  document.getElementById('adminNoticeDuration').value = entry.duration || 5;
+  toast(`${date} 공지 불러옴`);
+};
 
 // ─── 초기화 ──────────────────────────────────────────────────────────────────
 (async () => {
