@@ -973,6 +973,7 @@ document.getElementById("btnIn").addEventListener("click", async () => {
   if (c.length !== 4) { recordAction("출근 실패","미선택"); return toast("알바생을 선택해주세요"); }
   const e = findEmpByCode(c);
   if (!e) { recordAction("출근 실패",`미등록(${c})`); return toast("미등록 코드"); }
+  if (e.resigned) { recordAction("출근 실패",`퇴사자(${c})`); return toast("퇴사 처리된 알바생입니다", "danger"); }
   if (!canClockIn(c)) { recordAction("출근 실패",`이미 출근(${c})`); return toast("이미 출근 상태"); }
   attProcessing = true; setAttButtons(true);
   try {
@@ -1187,7 +1188,7 @@ function renderRecent() {
 }
 function renderQuickButtons() {
   const div = document.getElementById("quickButtons");
-  const emps = getEmployees();
+  const emps = getEmployees().filter(e => !e.resigned);
   if (!emps.length) { div.innerHTML=`<span class="muted">관리자 메뉴에서 알바생을 등록하세요.</span>`; return; }
   div.innerHTML = emps.map(e => `<button class="btn" data-c="${e.code}">${escapeHtml(e.name)} <span class="muted">${e.code}</span></button>`).join("");
   div.querySelectorAll("button").forEach(b => b.addEventListener("click", () => { attCode.value=b.dataset.c; onCodeChanged(); }));
@@ -1215,7 +1216,7 @@ function renderEmployees() {
   const q = document.getElementById("empSearch").value.toLowerCase();
   const emps = getEmployees().filter(e => e.code.includes(q) || e.name.toLowerCase().includes(q));
   document.getElementById("empTable").innerHTML = emps.length
-    ? emps.map(e => `<tr><td><span class="tag open">${e.code}</span></td><td>${escapeHtml(e.name)}</td><td class="muted">${e.shiftType==="CLOSE"?"마감":"미들"}</td><td class="muted">${(e.wage||0).toLocaleString()} / ${e.wageWeekend?e.wageWeekend.toLocaleString():'-'}</td><td class="muted">${e.workStart}~${e.workEnd}</td><td style="text-align:right;"><button class="btn small" onclick="window.editEmp('${e.code}')">수정</button> <button class="btn small bad" onclick="window.delEmp('${e.code}')">삭제</button></td></tr>`).join("")
+    ? emps.map(e => `<tr style="${e.resigned?'opacity:.5;':''}"><td><span class="tag open">${e.code}</span>${e.resigned?'<span class="tag out" style="margin-left:4px;">퇴사</span>':''}</td><td>${escapeHtml(e.name)}</td><td class="muted">${e.shiftType==="CLOSE"?"마감":"미들"}</td><td class="muted">${(e.wage||0).toLocaleString()} / ${e.wageWeekend?e.wageWeekend.toLocaleString():'-'}</td><td class="muted">${e.workStart}~${e.workEnd}</td><td style="text-align:right;"><button class="btn small" onclick="window.editEmp('${e.code}')">수정</button> <button class="btn small warn" onclick="window.toggleResign('${e.code}')">${e.resigned?'복귀':'퇴사'}</button> <button class="btn small bad" onclick="window.delEmp('${e.code}')">삭제</button></td></tr>`).join("")
     : `<tr><td colspan="6" class="muted">없음</td></tr>`;
 }
 bindClick("btnAddEmp", async () => {
@@ -1230,9 +1231,17 @@ document.getElementById("empSearch").addEventListener("input", renderEmployees);
 
 window.delEmp = async (c) => {
   if (!await ensureAdmin("삭제")) return;
-  if (!confirm("정말 삭제?")) return;
+  if (!confirm("정말 삭제?\n\n근태기록/급여계산이 모두 무효화됩니다. 급여 정산 전이라면 '퇴사' 버튼을 사용하세요.")) return;
   setEmployees(getEmployees().filter(e => e.code!==c));
   toast("삭제됨"); renderEmployees(); renderQuickButtons();
+};
+window.toggleResign = async (c) => {
+  if (!await ensureAdmin("퇴사 처리")) return;
+  const e = findEmpByCode(c); if (!e) return;
+  const next = !e.resigned;
+  if (!confirm(next ? "퇴사 처리하시겠습니까?\n출퇴근 버튼에서 숨겨지고, 더 이상 출근을 찍을 수 없습니다.\n근태기록과 급여계산은 그대로 유지됩니다." : "복귀 처리하시겠습니까?")) return;
+  updateEmployee(c, {resigned: next});
+  toast(next ? "퇴사 처리됨" : "복귀 처리됨"); renderEmployees(); renderQuickButtons();
 };
 window.editEmp = async (c) => {
   if (!await ensureAdmin("수정")) return;
