@@ -455,8 +455,8 @@
     <div class="muted" id="clockInDoneTime">-</div>
     <div class="hr"></div>
     <div class="modalActions" style="justify-content:center;">
-      <button class="btn primary" id="clockInDoneNoticeBtn" style="display:none;">📢 오늘의 공지 확인</button>
-      <button class="btn" id="clockInDoneClose">닫기</button>
+      <button class="btn primary" id="clockInDoneNoticeBtn" style="display:none;">📢 오늘의 공지 확인 (필수)</button>
+      <button class="btn" id="clockInDoneClose">확인</button>
     </div>
   </div>
 </div>
@@ -1338,17 +1338,18 @@ function showClockInDone(name, ts, hasNotice) {
   const noticeBtn = document.getElementById("clockInDoneNoticeBtn");
   const closeBtn  = document.getElementById("clockInDoneClose");
   noticeBtn.style.display = hasNotice ? "" : "none";
+  closeBtn.style.display  = hasNotice ? "none" : "";
   clockInDoneOverlay.classList.add("show");
   return new Promise(resolve => {
-    const onNotice = async () => { await showNoticeCountdownIfAny(); };
-    const close = () => {
+    const finish = () => {
       clockInDoneOverlay.classList.remove("show");
       noticeBtn.removeEventListener("click", onNotice);
-      closeBtn.removeEventListener("click", close);
+      closeBtn.removeEventListener("click", finish);
       resolve();
     };
+    const onNotice = async () => { await showNoticeCountdownIfAny(); finish(); };
     noticeBtn.addEventListener("click", onNotice);
-    closeBtn.addEventListener("click", close);
+    closeBtn.addEventListener("click", finish);
   });
 }
 
