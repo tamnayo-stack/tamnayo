@@ -935,6 +935,14 @@ function resolveWage(emp, dateStr) {
   return emp ? emp.wage : 0;
 }
 
+// 주휴수당 산정용 통상시급: 공휴일 가산(1.5배)을 제외한 시급
+function resolveBaseWage(emp, dateStr) {
+  const day = new Date(dateStr).getDay();
+  const isWeekend = day === 0 || day === 6;
+  if (isWeekend && emp && emp.wageWeekend) return emp.wageWeekend;
+  return emp ? emp.wage : 0;
+}
+
 function roundPay(v) { return Math.round((Number(v)||0) / 10) * 10; }
 
 function getShiftPairs(filterCode="") {
@@ -1704,7 +1712,7 @@ function getWeeklyJuhyu(sundayDate, filterCode) {
       const adjOut = getAdjustedWorkTime(emp, p.inTs, p.outTs, p.outNote);
       if (adjOut <= adjIn) return;
       const ms = adjOut-adjIn; wMs+=ms;
-      wPay += (ms/3600000)*resolveWage(emp, dateKey(p.inTs));
+      wPay += (ms/3600000)*resolveBaseWage(emp, dateKey(p.inTs));
     });
     const wh = wMs/3600000;
     if (wh >= C.JUHYU_MIN_HOURS) {
