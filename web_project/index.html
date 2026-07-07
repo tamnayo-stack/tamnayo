@@ -690,6 +690,17 @@ onValue(ref(db, 'tamnaData'), (snapshot) => {
   } catch(e) { console.error(e); }
 });
 
+// ─── 오늘 공지 전담 실시간 리스너 ─────────────────────────────────────────────
+let todayNoticeCache = { text: "", duration: 5 };
+let todayNoticeReadyResolve;
+const todayNoticeReady = new Promise(r => { todayNoticeReadyResolve = r; });
+let todayNoticeFirstLoad = false;
+onValue(ref(db, `tamnaData/${LS_KEYS.DAILY_NOTICE}/${todayKey()}`), (snap) => {
+  const entry = snap.val();
+  todayNoticeCache = (entry && entry.text) ? { text: entry.text, duration: entry.duration || 5 } : { text: "", duration: 5 };
+  if (!todayNoticeFirstLoad) { todayNoticeFirstLoad = true; todayNoticeReadyResolve(); }
+});
+
 window.saveJSON = async function(key, val) {
   SERVER_CACHE[key] = val;
   await update(ref(db, 'tamnaData'), { [key]: val });
@@ -1293,17 +1304,8 @@ const noticeOverlay = document.getElementById("noticeOverlay");
 function setRingProgress(p) { const c=2*Math.PI*30; const el=document.getElementById("noticeRing"); el.style.strokeDasharray=`${c}`; el.style.strokeDashoffset=`${c*(1-p)}`; }
 
 async function fetchTodayNoticeFresh() {
-  const today = todayKey();
-  try {
-    const snap = await get(ref(db, `tamnaData/${LS_KEYS.DAILY_NOTICE}/${today}`));
-    const entry = snap.val();
-    if (entry) return { text: entry.text || "", duration: entry.duration || 5 };
-    return { text: "", duration: 5 };
-  } catch(e) {
-    console.warn("공지 직접조회 실패, 캐시 사용:", e);
-    await fbReady;
-    return { text: getTodayNotice(), duration: getTodayNoticeDuration() };
-  }
+  await todayNoticeReady;
+  return { ...todayNoticeCache };
 }
 
 async function showNoticeCountdownIfAny() {
